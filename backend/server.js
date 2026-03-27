@@ -69,6 +69,18 @@ app.post('/api/v1/upload', require('./middleware/auth').authenticateSeller, uplo
     res.json({ url: `${process.env.BACKEND_URL || 'http://localhost:5000'}/uploads/${req.file.filename}` });
 });
 
+// One-time migration endpoint (safe to run multiple times)
+app.get('/api/v1/migrate', async (req, res) => {
+    try {
+        const migrate = require('./db/migrate');
+        await migrate();
+        res.json({ message: 'Migration complete — all tables are ready.' });
+    } catch (err) {
+        console.error('Migration error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.use('/api/v1/auth', require('./routes/auth'));
 app.use('/api/v1/checkout-links', require('./routes/checkoutLinks'));
 app.use('/api/v1/transactions', require('./routes/transactions'));
