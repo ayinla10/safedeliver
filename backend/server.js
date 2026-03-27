@@ -15,7 +15,19 @@ app.use(helmet({
     contentSecurityPolicy: false,
 }));
 app.use(cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: (origin, callback) => {
+        const allowed = [
+            'http://localhost:3000',
+            'https://safedeliver.vercel.app',
+            process.env.FRONTEND_URL,
+        ].filter(Boolean);
+        // Allow requests with no origin (mobile apps, curl, etc.)
+        if (!origin || allowed.some(o => origin.startsWith(o))) {
+            callback(null, true);
+        } else {
+            callback(new Error(`CORS blocked: ${origin}`));
+        }
+    },
     credentials: true,
 }));
 app.use(express.json());
