@@ -277,8 +277,12 @@ async function migrate() {
     console.log('ℹ️  Admin account already exists');
   }
 
-  console.log('\n🎉 Migration complete!\n');
-  process.exit(0);
+  console.log('\n Migration complete!\n');
 }
 
-migrate().catch(err => { console.error('❌ Migration failed:', err); process.exit(1); });
+module.exports = migrate;
+
+// Run directly via CLI: node db/migrate.js
+if (require.main === module) {
+  migrate().catch(err => { console.error('Migration failed:', err); process.exit(1); });
+}
