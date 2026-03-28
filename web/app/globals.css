@@ -1986,3 +1986,56 @@ h3 {
     font-size: 0.8rem;
   }
 }
+
+/* ── Bottom Navigation Bar ────────────────────────── */
+.bottom-nav {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    background: var(--sidebar-bg);
+    border-top: 1px solid var(--border);
+    padding: 0.5rem 0 calc(0.5rem + env(safe-area-inset-bottom, 0));
+    justify-content: space-around;
+    backdrop-filter: blur(20px);
+  }
+
+  .bottom-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+    text-decoration: none;
+    color: var(--text-muted);
+    font-size: 0.65rem;
+    font-weight: 500;
+    padding: 0.25rem 0.5rem;
+    transition: all var(--transition);
+    min-width: 48px;
+  }
+
+  .bottom-nav-item.active {
+    color: var(--brand);
+  }
+
+  .bottom-nav-icon {
+    font-size: 1.25rem;
+    line-height: 1;
+  }
+
+  .bottom-nav-label {
+    letter-spacing: 0.2px;
+  }
+
+  /* Add bottom padding to dashboard main for bottom nav clearance */
+  .dashboard-main {
+    padding-bottom: 5rem;
+  }
+}

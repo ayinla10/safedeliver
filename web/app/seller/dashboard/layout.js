@@ -20,7 +20,6 @@ export default function DashboardLayout({ children }) {
         document.documentElement.setAttribute('data-theme', t);
     }, [router]);
 
-    // Close sidebar on route change
     useEffect(() => { setSidebarOpen(false); }, [pathname]);
 
     function toggleTheme() {
@@ -45,13 +44,20 @@ export default function DashboardLayout({ children }) {
         { href: '/seller/dashboard/profile', icon: '◎', label: 'Profile' },
     ];
 
+    const bottomNav = [
+        { href: '/seller/dashboard', icon: '⌂', label: 'Home' },
+        { href: '/seller/dashboard/links', icon: '⊞', label: 'Links' },
+        { href: '/seller/dashboard/orders', icon: '◫', label: 'Orders' },
+        { href: '/seller/dashboard/kyc', icon: '◉', label: 'KYC' },
+        { href: '/seller/dashboard/profile', icon: '◎', label: 'Profile' },
+    ];
+
     const sidebarContent = (
         <>
             <div className="sidebar-brand" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Link href="/" style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--brand)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <Link href="/seller/dashboard" style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--brand)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                     Safe<span style={{ color: 'var(--text)' }}>Deliver</span>
                 </Link>
-                <button onClick={() => setSidebarOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.25rem', color: 'var(--text-secondary)', display: 'none' }} className="sidebar-close-btn">✕</button>
             </div>
             {seller && <div style={{ padding: '0.75rem 1.25rem', borderBottom: '1px solid var(--border)', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 500 }}>{seller.full_name}</div>}
             <ul className="sidebar-nav">
@@ -77,39 +83,22 @@ export default function DashboardLayout({ children }) {
 
     return (
         <div className="dashboard-layout">
-            {/* Backdrop for mobile */}
-            {sidebarOpen && (
-                <div
-                    onClick={() => setSidebarOpen(false)}
-                    style={{
-                        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
-                        zIndex: 199, display: 'none',
-                    }}
-                    className="sidebar-backdrop"
-                />
-            )}
+            {/* Backdrop */}
+            {sidebarOpen && <div onClick={() => setSidebarOpen(false)} className="sidebar-backdrop" />}
 
             {/* Desktop sidebar */}
-            <aside className="sidebar">
-                {sidebarContent}
-            </aside>
+            <aside className="sidebar">{sidebarContent}</aside>
 
             {/* Mobile sidebar drawer */}
-            <aside className={`sidebar-mobile ${sidebarOpen ? 'open' : ''}`}>
-                {sidebarContent}
-            </aside>
+            <aside className={`sidebar-mobile ${sidebarOpen ? 'open' : ''}`}>{sidebarContent}</aside>
 
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                 {/* Mobile top bar */}
                 <header className="mobile-topbar">
-                    <button
-                        className="hamburger-btn"
-                        onClick={() => setSidebarOpen(true)}
-                        aria-label="Open menu"
-                    >
+                    <button className="hamburger-btn" onClick={() => setSidebarOpen(true)} aria-label="Open menu">
                         <span /><span /><span />
                     </button>
-                    <Link href="/" style={{ fontWeight: 700, color: 'var(--brand)', fontSize: '1.1rem' }}>
+                    <Link href="/seller/dashboard" style={{ fontWeight: 700, color: 'var(--brand)', fontSize: '1.1rem' }}>
                         Safe<span style={{ color: 'var(--text)' }}>Deliver</span>
                     </Link>
                     <button onClick={toggleTheme} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem', color: 'var(--text-secondary)', padding: '0.5rem' }}>
@@ -117,9 +106,17 @@ export default function DashboardLayout({ children }) {
                     </button>
                 </header>
 
-                <main className="dashboard-main">
-                    {children}
-                </main>
+                <main className="dashboard-main">{children}</main>
+
+                {/* Bottom Navigation — mobile only */}
+                <nav className="bottom-nav">
+                    {bottomNav.map(item => (
+                        <Link key={item.href} href={item.href} className={`bottom-nav-item ${pathname === item.href ? 'active' : ''}`}>
+                            <span className="bottom-nav-icon">{item.icon}</span>
+                            <span className="bottom-nav-label">{item.label}</span>
+                        </Link>
+                    ))}
+                </nav>
             </div>
         </div>
     );
