@@ -15,6 +15,7 @@ export default function TrackingPage() {
     const [actionLoading, setActionLoading] = useState(false);
     const [actionMsg, setActionMsg] = useState(null);
     const [buyerToken, setBuyerToken] = useState(null);
+    const [paystackEnabled, setPaystackEnabled] = useState(false);
 
     // Dispute state
     const [showDispute, setShowDispute] = useState(false);
@@ -76,6 +77,9 @@ export default function TrackingPage() {
         const storedToken = getStoredToken(urlParam);
         if (storedToken) setBuyerToken(storedToken);
         fetchOrder(storedToken);
+
+        // Check if real payments are enabled
+        api.get('/pay/config').then(res => setPaystackEnabled(res.paystack_enabled)).catch(() => {});
     }, [urlParam]);
 
     async function handleAccept() {
@@ -102,6 +106,19 @@ export default function TrackingPage() {
         } catch (err) {
             setActionMsg({ type: 'error', msg: err.message });
         } finally { setActionLoading(false); }
+    }
+
+    async function handlePayWithPaystack() {
+        const tkn = buyerToken;
+        if (!tkn) return setActionMsg({ type: 'error', msg: 'Session expired.' });
+        setActionLoading(true);
+        try {
+            const data = await api.post('/pay/initialize', { transaction_id: order.id, buyer_token: tkn });
+            window.location.href = data.authorization_url; // Redirect to Paystack checkout
+        } catch (err) {
+            setActionMsg({ type: 'error', msg: err.message });
+            setActionLoading(false); // Only set false on error, success redirects away
+        }
     }
 
     async function handleConfirmPayment() {
@@ -270,28 +287,39 @@ export default function TrackingPage() {
                         </div>
                     )}
 
-                    {/* SimPay */}
+                    {/* Payment UI */}
                     {order.can_pay && (
-                        <div className="card animate-in" style={{ marginBottom: '2rem', background: '#0a0b10', color: '#fff' }}>
-                            <div className="text-center" style={{ marginBottom: '2rem' }}>
-                                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--brand)', marginBottom: '0.5rem' }}>SimPay</div>
-                                <p style={{ opacity: 0.7, fontSize: '0.875rem' }}>SafeDeliver Secure Payment</p>
+                        paystackEnabled ? (
+                            <div className="card animate-in text-center" style={{ marginBottom: '2rem', padding: '3rem 1.5rem', background: '#0a0b10', color: '#fff', border: '1px solid #11b981' }}>
+                                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#11b981', marginBottom: '0.5rem' }}>Secure Payment</div>
+                                <div style={{ fontSize: '2.5rem', fontWeight: 700, marginBottom: '2rem' }}>GHS {(order.total_amount / 100).toFixed(2)}</div>
+                                <button onClick={handlePayWithPaystack} disabled={actionLoading} style={{ width: '100%', maxWidth: 350, margin: '0 auto', padding: '1rem', borderRadius: '8px', background: '#11b981', color: '#fff', border: 'none', fontSize: '1.125rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                                    💳 Pay Now
+                                </button>
+                                <p className="text-center mt-3" style={{ fontSize: '0.75rem', opacity: 0.5 }}>Payments securely processed by Paystack.</p>
                             </div>
-                            <div className="text-center" style={{ marginBottom: '2rem' }}>
-                                <div style={{ fontSize: '2.5rem', fontWeight: 700 }}>GHS {(order.total_amount / 100).toFixed(2)}</div>
-                                <p style={{ opacity: 0.7, fontSize: '0.875rem' }}>Order: {order.order_ref}</p>
+                        ) : (
+                            <div className="card animate-in" style={{ marginBottom: '2rem', background: '#0a0b10', color: '#fff' }}>
+                                <div className="text-center" style={{ marginBottom: '2rem' }}>
+                                    <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--brand)', marginBottom: '0.5rem' }}>SimPay</div>
+                                    <p style={{ opacity: 0.7, fontSize: '0.875rem' }}>SafeDeliver Secure Payment</p>
+                                </div>
+                                <div className="text-center" style={{ marginBottom: '2rem' }}>
+                                    <div style={{ fontSize: '2.5rem', fontWeight: 700 }}>GHS {(order.total_amount / 100).toFixed(2)}</div>
+                                    <p style={{ opacity: 0.7, fontSize: '0.875rem' }}>Order: {order.order_ref}</p>
+                                </div>
+                                <div style={{ display: 'grid', gap: '1rem', marginBottom: '2rem' }}>
+                                    <input style={{ padding: '1rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.05)', color: '#fff', fontSize: '1rem' }} placeholder="Mobile Money Number" defaultValue={order.buyer_phone} />
+                                    <input style={{ padding: '1rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.05)', color: '#fff', fontSize: '1rem' }} placeholder="MoMo PIN" type="password" />
+                                </div>
+                                <button onClick={handleConfirmPayment} disabled={actionLoading} style={{ width: '100%', padding: '1rem', borderRadius: '8px', background: 'var(--success)', color: '#fff', border: 'none', fontSize: '1rem', fontWeight: 600, cursor: 'pointer' }}>
+                                    {actionLoading ? 'Processing...' : 'Confirm Payment'}
+                                </button>
+                                <p className="text-center mt-3" style={{ fontSize: '0.75rem', opacity: 0.5 }}>
+                                    Simulated Payment — Academic Research Demo
+                                </p>
                             </div>
-                            <div style={{ display: 'grid', gap: '1rem', marginBottom: '2rem' }}>
-                                <input style={{ padding: '1rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.05)', color: '#fff', fontSize: '1rem' }} placeholder="Mobile Money Number" defaultValue={order.buyer_phone} />
-                                <input style={{ padding: '1rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.05)', color: '#fff', fontSize: '1rem' }} placeholder="MoMo PIN" type="password" />
-                            </div>
-                            <button onClick={handleConfirmPayment} disabled={actionLoading} style={{ width: '100%', padding: '1rem', borderRadius: '8px', background: 'var(--success)', color: '#fff', border: 'none', fontSize: '1rem', fontWeight: 600, cursor: 'pointer' }}>
-                                {actionLoading ? 'Processing...' : 'Confirm Payment'}
-                            </button>
-                            <p className="text-center mt-3" style={{ fontSize: '0.75rem', opacity: 0.5 }}>
-                                Simulated Payment — Academic Research Demo
-                            </p>
-                        </div>
+                        )
                     )}
 
                     {/* Timeline */}

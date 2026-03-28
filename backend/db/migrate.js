@@ -75,6 +75,7 @@ async function migrate() {
       pickup_location_text TEXT,
       status VARCHAR(20) DEFAULT 'REQUESTED' CHECK (status IN ('REQUESTED','QUOTED','ACCEPTED','PAID','SHIPPED','DELIVERED','RELEASED','AUTO_RELEASED','DISPUTED','REFUNDED','CANCELLED')),
       sim_reference TEXT,
+      paystack_reference TEXT,
       tracking_number VARCHAR(100),
       dispute_reason TEXT,
       dispute_details TEXT,
