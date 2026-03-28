@@ -38,6 +38,13 @@ export default function CheckoutPage() {
                 checkout_link_id: product.id || linkCode,
             });
             setTxData(data);
+            // Persist buyer session for refresh survival
+            localStorage.setItem('sd-buyer-order', JSON.stringify({
+                order_ref: data.order_ref,
+                buyer_token: data.buyer_token,
+                product_name: product.product_name,
+                timestamp: Date.now(),
+            }));
             setStep('success');
         } catch (err) {
             setError(err.message);
@@ -167,7 +174,7 @@ export default function CheckoutPage() {
                             </div>
                             <p className="text-sm">
                                 Track your order here:<br />
-                                <a href={`/track/${txData.buyer_token}`} className="text-brand" style={{ fontWeight: 600, display: 'inline-block', marginTop: '0.5rem' }}>
+                                <a href={`/track/${txData.order_ref}`} className="text-brand" style={{ fontWeight: 600, display: 'inline-block', marginTop: '0.5rem' }}>
                                     View Tracking Page →
                                 </a>
                             </p>

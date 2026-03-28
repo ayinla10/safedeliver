@@ -108,7 +108,7 @@ router.patch('/:id/quote', authenticateSeller, async (req, res) => {
 
         // Notify buyer
         await notify.sms(tx.buyer_phone,
-            `💰 Delivery quote received for your order ${tx.order_ref}! Delivery: GHS ${(deliveryFeeInt / 100).toFixed(2)}, Total: GHS ${(totalAmount / 100).toFixed(2)}. View: ${process.env.FRONTEND_URL}/track/${tx.buyer_token}`,
+            `💰 Delivery quote received for your order ${tx.order_ref}! Delivery: GHS ${(deliveryFeeInt / 100).toFixed(2)}, Total: GHS ${(totalAmount / 100).toFixed(2)}. View: ${process.env.FRONTEND_URL}/track/${tx.order_ref}`,
             tx.id, tx.order_ref
         );
 
@@ -162,11 +162,11 @@ router.post('/sim-confirm', async (req, res) => {
         await db.query('UPDATE transactions SET sim_reference = $1 WHERE id = $2', [simRef, transaction_id]);
 
         await notify.sms(tx.buyer_phone,
-            `✅ Payment confirmed! Your order ${tx.order_ref} is being processed. Track: ${process.env.FRONTEND_URL}/track/${tx.buyer_token}`,
+            `✅ Payment confirmed! Your order ${tx.order_ref} is being processed. Track: ${process.env.FRONTEND_URL}/track/${tx.order_ref}`,
             transaction_id, tx.order_ref
         );
         await notify.whatsapp(tx.buyer_phone,
-            `🛡️ SafeDeliver: Payment of GHS ${(tx.total_amount / 100).toFixed(2)} confirmed for "${tx.product_name}". Track your order: ${process.env.FRONTEND_URL}/track/${tx.buyer_token}`,
+            `🛡️ SafeDeliver: Payment of GHS ${(tx.total_amount / 100).toFixed(2)} confirmed for "${tx.product_name}". Track your order: ${process.env.FRONTEND_URL}/track/${tx.order_ref}`,
             transaction_id, tx.order_ref
         );
 
@@ -186,7 +186,45 @@ router.post('/sim-confirm', async (req, res) => {
     }
 });
 
-// ── Track order (public, by buyer token) ──
+// ── Track order by ORDER REF (public, bookmark-friendly) ──
+router.get('/track-order/:orderRef', async (req, res) => {
+    const { token } = req.query; // Optional buyer_token for auth'd actions
+    const result = await db.query(
+        `SELECT t.*, cl.image_url, cl.price as product_price, s.city as seller_city, s.region as seller_region, s.pickup_description as seller_pickup
+         FROM transactions t
+         LEFT JOIN checkout_links cl ON t.checkout_link_id = cl.id
+         LEFT JOIN sellers s ON t.seller_id = s.id
+         WHERE t.order_ref = $1`,
+        [req.params.orderRef]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Order not found' });
+    const tx = result.rows[0];
+    
+    // Check if the request has the correct buyer_token for write actions
+    const isAuthed = token && tx.buyer_token === token;
+    
+    tx.can_confirm = isAuthed && tx.status === 'SHIPPED';
+    tx.can_dispute = isAuthed && ['PAID', 'SHIPPED'].includes(tx.status);
+    tx.dispute_raised = !!tx.dispute_reason;
+    tx.can_accept = isAuthed && tx.status === 'QUOTED';
+    tx.can_pay = isAuthed && tx.status === 'ACCEPTED';
+    tx.can_cancel = isAuthed && ['REQUESTED', 'QUOTED'].includes(tx.status);
+    tx.is_authed = isAuthed;
+    
+    // Strip sensitive fields if not authed
+    if (!isAuthed) {
+        delete tx.buyer_token;
+        delete tx.buyer_email;
+    }
+    
+    // Only show full pickup description after self-delivery + payment
+    if (tx.delivery_type !== 'SELF' || !['PAID', 'SHIPPED', 'DELIVERED', 'RELEASED', 'AUTO_RELEASED'].includes(tx.status)) {
+        tx.seller_pickup = null;
+    }
+    res.json(tx);
+});
+
+// ── Track order (legacy, by buyer token) ──
 router.get('/track/:token', async (req, res) => {
     const result = await db.query(
         `SELECT t.*, cl.image_url, cl.price as product_price, s.city as seller_city, s.region as seller_region, s.pickup_description as seller_pickup
@@ -204,7 +242,7 @@ router.get('/track/:token', async (req, res) => {
     tx.can_accept = tx.status === 'QUOTED';
     tx.can_pay = tx.status === 'ACCEPTED';
     tx.can_cancel = ['REQUESTED', 'QUOTED'].includes(tx.status);
-    // Only show full pickup description after self-delivery + payment
+    tx.is_authed = true;
     if (tx.delivery_type !== 'SELF' || !['PAID', 'SHIPPED', 'DELIVERED', 'RELEASED', 'AUTO_RELEASED'].includes(tx.status)) {
         tx.seller_pickup = null;
     }
@@ -220,8 +258,8 @@ router.patch('/:id/ship', authenticateSeller, async (req, res) => {
         if (tx.status !== 'PAID') return res.status(400).json({ error: 'Order must be PAID to ship' });
 
         await escrow.transition(req.params.id, 'SHIPPED');
-        await notify.sms(tx.buyer_phone, `📦 Your order ${tx.order_ref} has been shipped! Track: ${process.env.FRONTEND_URL}/track/${tx.buyer_token}`, tx.id, tx.order_ref);
-        await notify.whatsapp(tx.buyer_phone, `📦 SafeDeliver: Your order "${tx.product_name}" has been shipped! Track it here: ${process.env.FRONTEND_URL}/track/${tx.buyer_token}`, tx.id, tx.order_ref);
+        await notify.sms(tx.buyer_phone, `📦 Your order ${tx.order_ref} has been shipped! Track: ${process.env.FRONTEND_URL}/track/${tx.order_ref}`, tx.id, tx.order_ref);
+        await notify.whatsapp(tx.buyer_phone, `📦 SafeDeliver: Your order "${tx.product_name}" has been shipped! Track it here: ${process.env.FRONTEND_URL}/track/${tx.order_ref}`, tx.id, tx.order_ref);
         await audit.log('SELLER', req.seller.id, 'SHIP_ORDER', 'TRANSACTION', tx.id, req.ip);
         res.json({ message: 'Marked as shipped' });
     } catch (err) { res.status(500).json({ error: err.message }); }
