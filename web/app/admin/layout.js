@@ -2,17 +2,16 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { api } from '@/lib/api';
 
 export default function AdminLayout({ children }) {
     const pathname = usePathname();
-    const router = useRouter();
     const [theme, setTheme] = useState('light');
     const [adminToken, setAdminToken] = useState(null);
     const [loginForm, setLoginForm] = useState({ phone: '', password: '' });
     const [loginError, setLoginError] = useState(null);
     const [loginLoading, setLoginLoading] = useState(false);
     const [checking, setChecking] = useState(true);
+    const [sidebarOpen, setSidebarOpen] = useState(false);
 
     useEffect(() => {
         const token = localStorage.getItem('sd-admin-token');
@@ -22,6 +21,8 @@ export default function AdminLayout({ children }) {
         setTheme(t);
         document.documentElement.setAttribute('data-theme', t);
     }, []);
+
+    useEffect(() => { setSidebarOpen(false); }, [pathname]);
 
     function toggleTheme() {
         const next = theme === 'dark' ? 'light' : 'dark';
@@ -57,14 +58,13 @@ export default function AdminLayout({ children }) {
 
     if (checking) return null;
 
-    // Show admin login if not authenticated
     if (!adminToken) {
         return (
             <div className="page-wrapper">
                 <div className="section flex-center" style={{ minHeight: '100vh' }}>
                     <div className="form-card animate-in" style={{ maxWidth: '420px' }}>
                         <div className="text-center" style={{ marginBottom: '2rem' }}>
-                            <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>�</div>
+                            <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🛡</div>
                             <h2>Admin Panel</h2>
                             <p className="text-sm">SafeDeliver Administration</p>
                         </div>
@@ -94,44 +94,73 @@ export default function AdminLayout({ children }) {
     }
 
     const nav = [
-        { href: '/admin', icon: '📊', label: 'Overview' },
-        { href: '/admin/disputes', icon: '⚖️', label: 'Disputes' },
-        { href: '/admin/transactions', icon: '📦', label: 'Transactions' },
-        { href: '/admin/ledger', icon: '📒', label: 'Sim Ledger' },
-        { href: '/admin/notifications', icon: '🔔', label: 'Notifications' },
-        { href: '/admin/sellers', icon: '👥', label: 'Sellers' },
-        { href: '/admin/kyc', icon: '🪪', label: 'KYC Review' },
-        { href: '/admin/audit', icon: '📋', label: 'Audit Logs' },
-        { href: '/admin/settings', icon: '⚙️', label: 'Settings' },
+        { href: '/admin', icon: '◈', label: 'Overview' },
+        { href: '/admin/disputes', icon: '⚖', label: 'Disputes' },
+        { href: '/admin/transactions', icon: '◫', label: 'Transactions' },
+        { href: '/admin/ledger', icon: '◳', label: 'Sim Ledger' },
+        { href: '/admin/notifications', icon: '◎', label: 'Notifications' },
+        { href: '/admin/sellers', icon: '◉', label: 'Sellers' },
+        { href: '/admin/kyc', icon: '◈', label: 'KYC Review' },
+        { href: '/admin/audit', icon: '◑', label: 'Audit Logs' },
+        { href: '/admin/settings', icon: '⊙', label: 'Settings' },
     ];
+
+    const sidebarContent = (
+        <>
+            <div className="sidebar-brand" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Link href="/" style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--brand)' }}>
+                    Admin Panel
+                </Link>
+            </div>
+            <div style={{ padding: '0.5rem 1.25rem 0.75rem', borderBottom: '1px solid var(--border)', fontSize: '0.8rem', color: 'var(--danger)', fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+                SafeDeliver Admin
+            </div>
+            <ul className="sidebar-nav">
+                {nav.map(item => (
+                    <li key={item.href}>
+                        <Link href={item.href} className={pathname === item.href ? 'active' : ''}>
+                            <span className="nav-icon">{item.icon}</span>
+                            {item.label}
+                        </Link>
+                    </li>
+                ))}
+            </ul>
+            <div style={{ padding: '1rem 0.75rem', borderTop: '1px solid var(--border)' }}>
+                <button className="btn btn-ghost btn-sm btn-block" onClick={toggleTheme} style={{ marginBottom: '0.5rem' }}>
+                    {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+                </button>
+                <button className="btn btn-ghost btn-sm btn-block" onClick={logout} style={{ color: 'var(--danger)' }}>Logout</button>
+            </div>
+        </>
+    );
 
     return (
         <div className="dashboard-layout">
-            <aside className="sidebar">
-                <div className="sidebar-brand">
-                    <Link href="/" style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--brand)' }}>
-                        🛡️ Admin Panel
-                    </Link>
-                    <p className="text-sm" style={{ marginTop: '0.25rem', color: 'var(--danger)' }}>SafeDeliver Admin</p>
-                </div>
-                <ul className="sidebar-nav">
-                    {nav.map(item => (
-                        <li key={item.href}>
-                            <Link href={item.href} className={pathname === item.href ? 'active' : ''}>
-                                <span className="nav-icon">{item.icon}</span>
-                                {item.label}
-                            </Link>
-                        </li>
-                    ))}
-                </ul>
-                <div style={{ padding: '1rem 0.75rem' }}>
-                    <button className="btn btn-ghost btn-sm btn-block" onClick={toggleTheme} style={{ marginBottom: '0.5rem' }}>
-                        {theme === 'dark' ? '☀️ Light' : '🌙 Dark'}
+            {sidebarOpen && (
+                <div
+                    onClick={() => setSidebarOpen(false)}
+                    className="sidebar-backdrop"
+                />
+            )}
+            <aside className="sidebar">{sidebarContent}</aside>
+            <aside className={`sidebar-mobile ${sidebarOpen ? 'open' : ''}`}>{sidebarContent}</aside>
+
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                <header className="mobile-topbar">
+                    <button
+                        className="hamburger-btn"
+                        onClick={() => setSidebarOpen(true)}
+                        aria-label="Open menu"
+                    >
+                        <span /><span /><span />
                     </button>
-                    <button className="btn btn-ghost btn-sm btn-block" onClick={logout} style={{ color: 'var(--danger)' }}>Logout</button>
-                </div>
-            </aside>
-            <main className="dashboard-main">{children}</main>
+                    <span style={{ fontWeight: 700, color: 'var(--brand)', fontSize: '1.1rem' }}>Admin Panel</span>
+                    <button onClick={toggleTheme} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem', color: 'var(--text-secondary)', padding: '0.5rem' }}>
+                        {theme === 'dark' ? '☀' : '☾'}
+                    </button>
+                </header>
+                <main className="dashboard-main">{children}</main>
+            </div>
         </div>
     );
 }

@@ -1755,3 +1755,234 @@ h3 {
   max-width: 600px;
   margin: 0.75rem auto 0;
 }
+
+/* ── Mobile Responsive Dashboard ──────────────────── */
+
+/* Hide mobile topbar on desktop */
+.mobile-topbar {
+  display: none;
+}
+
+/* Mobile sidebar drawer (hidden on desktop) */
+.sidebar-mobile {
+  display: none;
+}
+
+/* Backdrop */
+.sidebar-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 199;
+  backdrop-filter: blur(2px);
+}
+
+/* Hamburger button */
+.hamburger-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  border-radius: var(--radius-sm);
+}
+
+.hamburger-btn span {
+  display: block;
+  width: 22px;
+  height: 2px;
+  background: var(--text);
+  border-radius: 2px;
+  transition: all var(--transition);
+}
+
+.hamburger-btn:hover {
+  background: var(--bg-alt);
+}
+
+@media (max-width: 768px) {
+  /* Prevent horizontal overflow on body */
+  body {
+    overflow-x: hidden;
+  }
+
+  /* Show mobile topbar */
+  .mobile-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    background: var(--sidebar-bg);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    height: 56px;
+  }
+
+  /* Hide desktop sidebar */
+  .sidebar {
+    display: none;
+  }
+
+  /* Show mobile drawer */
+  .sidebar-mobile {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0;
+    left: -280px;
+    width: 280px;
+    height: 100vh;
+    background: var(--sidebar-bg);
+    border-right: 1px solid var(--border);
+    z-index: 200;
+    transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow-y: auto;
+  }
+
+  .sidebar-mobile.open {
+    left: 0;
+  }
+
+  /* Show backdrop when sidebar is open */
+  .sidebar-mobile.open ~ .sidebar-backdrop,
+  .sidebar-backdrop {
+    display: block;
+  }
+
+  /* Dashboard main full width */
+  .dashboard-main {
+    padding: 1rem;
+  }
+
+  /* Stack grids to single column */
+  .grid-2,
+  .grid-3,
+  .grid-4 {
+    grid-template-columns: 1fr;
+  }
+
+  /* Tables: scroll horizontally */
+  .table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: var(--radius-md);
+  }
+
+  .data-table {
+    min-width: 600px;
+  }
+
+  /* Tab bar: horizontal scroll instead of wrapping */
+  .tab-bar {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .tab-bar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tab-btn {
+    white-space: nowrap;
+    flex-shrink: 0;
+    padding: 0.75rem 1rem;
+  }
+
+  /* Cards: slightly tighter padding */
+  .card {
+    padding: 1.25rem;
+  }
+
+  .stat-card {
+    padding: 1.25rem;
+  }
+
+  .stat-value {
+    font-size: 1.5rem;
+  }
+
+  /* Form cards full width */
+  .form-card {
+    max-width: 100%;
+    padding: 1.5rem;
+  }
+
+  /* SimPay full width */
+  .simpay-screen {
+    margin: 0;
+    border-radius: var(--radius-lg);
+  }
+
+  .simpay-body {
+    padding: 1.25rem;
+  }
+
+  /* Hero mobile */
+  .hero {
+    padding: 2rem 0 3rem;
+    min-height: auto;
+  }
+
+  .hero-orb {
+    display: none;
+  }
+
+  .hero-trust-row {
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  /* Footer mobile */
+  .footer-inner {
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+
+  /* Section padding */
+  .section {
+    padding: 2.5rem 1rem;
+  }
+
+  .section-sm {
+    padding: 2rem 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .footer-inner {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-ctas {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .hero-ctas .btn {
+    text-align: center;
+  }
+
+  .stat-value {
+    font-size: 1.35rem;
+  }
+
+  /* Smaller buttons on very small screens */
+  .btn {
+    padding: 0.65rem 1.25rem;
+    font-size: 0.9rem;
+  }
+
+  .btn-sm {
+    padding: 0.4rem 0.875rem;
+    font-size: 0.8rem;
+  }
+}
