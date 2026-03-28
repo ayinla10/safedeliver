@@ -38,47 +38,49 @@ app.get('/api/v1/health', (req, res) => {
     res.json({ status: 'ok', version: '2.0.0', timestamp: new Date().toISOString() });
 });
 
-// Routes
+// File upload via Supabase Storage
 const multer = require('multer');
-const fs = require('fs');
 const path = require('path');
+const { createClient } = require('@supabase/supabase-js');
 
-// Ensure uploads dir exists
-if (!fs.existsSync(path.join(__dirname, 'uploads'))) {
-    fs.mkdirSync(path.join(__dirname, 'uploads'));
-}
+// Extract Supabase project URL from DATABASE_URL or use env var
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
+const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
 
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => cb(null, 'uploads/'),
-    filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, uniqueSuffix + path.extname(file.originalname));
-    }
-});
-const upload = multer({ 
-    storage, 
+// Use memory storage — file goes to Supabase, not disk
+const upload = multer({
+    storage: multer.memoryStorage(),
     limits: { fileSize: 5 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
         const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'];
-        if (allowed.includes(file.mimetype)) {
-            cb(null, true);
-        } else {
-            cb(new Error('Invalid file type. Only JPEG, PNG, GIF, WebP, and PDF are allowed.'));
-        }
+        if (allowed.includes(file.mimetype)) cb(null, true);
+        else cb(new Error('Invalid file type. Only JPEG, PNG, GIF, WebP, and PDF are allowed.'));
     }
 });
 
-// Serve uploads statically with cross-origin headers
-app.use('/uploads', (req, res, next) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-    next();
-}, express.static(path.join(__dirname, 'uploads')));
-
-// General unified upload route map
-app.post('/api/v1/upload', require('./middleware/auth').authenticateSeller, upload.single('file'), (req, res) => {
+// Upload endpoint — stores in Supabase Storage
+app.post('/api/v1/upload', require('./middleware/auth').authenticateSeller, upload.single('file'), async (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-    res.json({ url: `${process.env.BACKEND_URL || 'http://localhost:5000'}/uploads/${req.file.filename}` });
+    try {
+        if (!supabase) {
+            return res.status(500).json({ error: 'Storage not configured. Add SUPABASE_URL and SUPABASE_SERVICE_KEY to Render environment.' });
+        }
+        const ext = path.extname(req.file.originalname);
+        const filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`;
+        const { error } = await supabase.storage
+            .from('safedeliver-uploads')
+            .upload(filename, req.file.buffer, {
+                contentType: req.file.mimetype,
+                upsert: false,
+            });
+        if (error) throw error;
+        const { data } = supabase.storage.from('safedeliver-uploads').getPublicUrl(filename);
+        res.json({ url: data.publicUrl });
+    } catch (err) {
+        console.error('Upload error:', err);
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // One-time migration endpoint (safe to run multiple times)
