@@ -11,11 +11,16 @@ router.use(authenticateAdmin);
 
 // List disputes
 router.get('/disputes', async (req, res) => {
-    const result = await db.query(
-        `SELECT t.*, s.full_name as seller_name, s.phone as seller_phone
-     FROM transactions t JOIN sellers s ON t.seller_id = s.id WHERE t.status = 'DISPUTED' ORDER BY t.updated_at DESC`
-    );
-    res.json(result.rows);
+    try {
+        const result = await db.query(
+            `SELECT t.*, s.full_name as seller_name, s.phone as seller_phone
+             FROM transactions t JOIN sellers s ON t.seller_id = s.id WHERE t.status = 'DISPUTED' ORDER BY t.updated_at DESC`
+        );
+        res.json(result.rows);
+    } catch (err) {
+        console.error('Admin disputes error:', err);
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // Resolve dispute
@@ -36,122 +41,58 @@ router.patch('/disputes/:id/resolve', async (req, res) => {
         await db.query('UPDATE transactions SET admin_notes = $1 WHERE id = $2', [notes, tx.id]);
         await audit.log('ADMIN', req.seller.id, `DISPUTE_${decision}`, 'TRANSACTION', tx.id, req.ip, { notes });
         res.json({ message: `Dispute resolved: ${decision}` });
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-// List all transactions
-router.get('/transactions', async (req, res) => {
-    const { status, limit = 50 } = req.query;
-    let q = 'SELECT t.*, s.full_name as seller_name FROM transactions t JOIN sellers s ON t.seller_id = s.id';
-    const params = [];
-    if (status) { q += ' WHERE t.status = $1'; params.push(status); }
-    q += ` ORDER BY t.created_at DESC LIMIT $${params.length + 1}`;
-    params.push(parseInt(limit));
-    const result = await db.query(q, params);
-    res.json({ transactions: result.rows });
-});
-
-// Ledger
-router.get('/ledger', async (req, res) => {
-    const { type, search } = req.query;
-    let q = 'SELECT * FROM simulation_ledger WHERE 1=1';
-    const params = [];
-    
-    if (type) {
-        params.push(type);
-        q += ` AND entry_type = $${params.length}`;
-    }
-    
-    if (search) {
-        params.push(`%${search}%`);
-        q += ` AND order_ref ILIKE $${params.length}`;
-    }
-    
-    q += ' ORDER BY created_at DESC LIMIT 100';
-    try {
-        const result = await db.query(q, params);
-        res.json(result.rows);
     } catch (err) {
+        console.error('Admin resolve dispute error:', err);
         res.status(500).json({ error: err.message });
     }
 });
 
-// Notifications
-router.get('/notifications', async (req, res) => {
-    const { type, search } = req.query;
-    let q = 'SELECT * FROM notifications WHERE 1=1';
-    const params = [];
-    
-    if (type === 'TRANSACTIONS') { 
-        q += ' AND order_ref IS NOT NULL'; 
-    } else if (type === 'SYSTEM') {
-        q += ' AND order_ref IS NULL';
-    }
-    
-    if (search) {
-        params.push(`%${search}%`);
-        q += ` AND (phone ILIKE $${params.length} OR order_ref ILIKE $${params.length})`;
-    }
-    
-    q += ' ORDER BY sent_at DESC LIMIT 100';
+// List all transactions
+router.get('/transactions', async (req, res) => {
     try {
+        const { status, limit = 50 } = req.query;
+        let q = 'SELECT t.*, s.full_name as seller_name FROM transactions t JOIN sellers s ON t.seller_id = s.id';
+        const params = [];
+        if (status) { q += ' WHERE t.status = $1'; params.push(status); }
+        q += ` ORDER BY t.created_at DESC LIMIT $${params.length + 1}`;
+        params.push(parseInt(limit));
         const result = await db.query(q, params);
-        res.json(result.rows);
+        res.json({ transactions: result.rows });
     } catch (err) {
+        console.error('Admin transactions error:', err);
         res.status(500).json({ error: err.message });
     }
 });
 
 // Sellers list
 router.get('/sellers', async (req, res) => {
-    const result = await db.query('SELECT id, full_name, email, phone, kyc_status, kyc_tier, kyc_document_url, is_active, seller_score, created_at FROM sellers WHERE is_admin = false ORDER BY created_at DESC');
-    res.json(result.rows);
-});
-
-// KYC update + suspend/activate
-router.patch('/sellers/:id/kyc', async (req, res) => {
     try {
-        const { status, tier = 1, notes } = req.body;
-        const isActive = status === 'SUSPENDED' ? false : true;
-        await db.query('UPDATE sellers SET kyc_status = $1, kyc_tier = $2, is_active = $3 WHERE id = $4', [status, tier, isActive, req.params.id]);
-        await audit.log('ADMIN', req.seller.id, `KYC_${status}_TIER_${tier}`, 'SELLER', req.params.id, req.ip, { notes });
-        res.json({ message: `KYC ${status}` });
+        const result = await db.query('SELECT id, full_name, email, phone, kyc_status, kyc_tier, kyc_document_url, is_active, seller_score, created_at FROM sellers WHERE is_admin = false ORDER BY created_at DESC');
+        res.json(result.rows);
     } catch (err) {
+        console.error('Admin sellers error:', err);
         res.status(500).json({ error: err.message });
     }
 });
 
 // Audit logs
 router.get('/audit-logs', async (req, res) => {
-    const result = await db.query('SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT 100');
-    res.json(result.rows);
-});
-
-// Contact enquiries
-router.get('/contact-enquiries', async (req, res) => {
-    const result = await db.query('SELECT * FROM contact_enquiries ORDER BY created_at DESC');
-    res.json(result.rows);
-});
-
-// Settings
-router.get('/settings', async (req, res) => {
     try {
-        const result = await db.query("SELECT * FROM system_settings WHERE key LIKE 'TIER_%'");
+        const result = await db.query('SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT 100');
         res.json(result.rows);
     } catch (err) {
+        console.error('Admin audit logs error:', err);
         res.status(500).json({ error: err.message });
     }
 });
 
-router.patch('/settings', async (req, res) => {
+// Contact enquiries
+router.get('/contact-enquiries', async (req, res) => {
     try {
-        const { settings } = req.body;
-        for (const s of settings) {
-            await db.query('UPDATE system_settings SET value = $1, updated_at = NOW(), updated_by = $2 WHERE key = $3', [s.value, req.seller.id, s.key]);
-        }
-        await audit.log('ADMIN', req.seller.id, 'UPDATE_SETTINGS', 'SYSTEM', null, req.ip, { keys: settings.map(s => s.key) });
-        res.json({ message: 'Settings updated successfully' });
+        const result = await db.query('SELECT * FROM contact_enquiries ORDER BY created_at DESC');
+        res.json(result.rows);
     } catch (err) {
+        console.error('Admin contact enquiries error:', err);
         res.status(500).json({ error: err.message });
     }
 });
@@ -171,6 +112,7 @@ router.get('/kyc-applications', async (req, res) => {
         const result = await db.query(q, params);
         res.json(result.rows);
     } catch (err) {
+        console.error('Admin kyc applications list error:', err);
         res.status(500).json({ error: err.message });
     }
 });

@@ -1,8 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_URL = 'http://10.0.2.2:5000/api/v1'; // Android emulator → localhost
-// For iOS simulator use: 'http://localhost:5000/api/v1'
-// For physical device, use your computer's LAN IP
+const SERVER_HOST = '192.168.17.97'; // Replace with your current LAN IP from Metro
+const API_URL = `http://${SERVER_HOST}:5000/api/v1`;
 
 async function request(endpoint, options = {}) {
     const token = await AsyncStorage.getItem('sd-token');

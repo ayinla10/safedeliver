@@ -1,94 +1,255 @@
-import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import React, { useState, useEffect } from 'react';
+import {View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, StatusBar as RNStatusBar, Platform, RefreshControl} from 'react-native';
 import { api } from '../api';
-import { Colors, Spacing, FontSizes, BorderRadius } from '../theme';
 
-const TABS = ['All', 'PAID', 'SHIPPED', 'DELIVERED', 'RELEASED', 'DISPUTED'];
+const STATUS_COLORS = {
+  REQUESTED: '#64748B',  // Gray
+  QUOTED: '#EAB308',     // Amber
+  PAID: '#2B7DE9',       // Blue
+  SHIPPED: '#4F46E5',    // Indigo
+  DELIVERED: '#22C55E',  // Green
+  DISPUTED: '#EF4444'    // Red
+};
 
 export default function OrdersScreen({ navigation }) {
-    const [tab, setTab] = useState('All');
-    const [orders, setOrders] = useState([]);
-    const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('All');
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const tabs = ['All', 'Pending Quote', 'Active', 'Completed', 'Cancelled'];
 
-    const loadOrders = useCallback(async () => {
-        try {
-            const params = tab === 'All' ? '?limit=50' : `?status=${tab}&limit=50`;
-            const data = await api.get(`/transactions${params}`);
-            setOrders(data.transactions || []);
-        } catch (err) { console.log(err); }
-        setLoading(false);
-    }, [tab]);
+  useEffect(() => {
+    fetchOrders();
+  }, []);
 
-    useFocusEffect(useCallback(() => { setLoading(true); loadOrders(); }, [loadOrders]));
+  const fetchOrders = async () => {
+    setLoading(true);
+    try {
+      const data = await api.get('/transactions');
+      setOrders(data);
+    } catch (err) {
+      console.error('Fetch orders error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    const fmtGHS = (v) => `GHS ${(v / 100).toFixed(2)}`;
+  const filteredOrders = activeTab === 'All' 
+    ? orders 
+    : activeTab === 'Pending Quote' ? orders.filter(o => o.status === 'REQUESTED')
+    : activeTab === 'Active' ? orders.filter(o => ['PAID', 'SHIPPED', 'ACCEPTED', 'QUOTED'].includes(o.status))
+    : activeTab === 'Completed' ? orders.filter(o => ['DELIVERED', 'RELEASED'].includes(o.status))
+    : activeTab === 'Cancelled' ? orders.filter(o => o.status === 'CANCELLED')
+    : [];
 
-    return (
-        <View style={styles.container}>
-            <Text style={styles.title}>Orders</Text>
+  return (
+    <SafeAreaView style={styles.container}>
+      <RNStatusBar barStyle="light-content" backgroundColor="#0a0b10" />
+      
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Orders</Text>
+      </View>
 
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabs}>
-                {TABS.map(t => (
-                    <TouchableOpacity key={t} style={[styles.tab, tab === t && styles.tabActive]} onPress={() => setTab(t)}>
-                        <Text style={[styles.tabText, tab === t && styles.tabTextActive]}>{t}</Text>
-                    </TouchableOpacity>
-                ))}
-            </ScrollView>
+      {/* Filter Chips */}
+      <View style={styles.filterWrapper}>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false} 
+          contentContainerStyle={styles.filterScroll}
+        >
+          {tabs.map((tab) => {
+            const isActive = activeTab === tab;
+            return (
+              <TouchableOpacity 
+                key={tab} 
+                style={[styles.chip, isActive ? styles.chipActive : styles.chipInactive]}
+                onPress={() => setActiveTab(tab)}
+              >
+                <Text style={[styles.chipText, isActive ? styles.chipTextActive : styles.chipTextInactive]}>
+                  {tab}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
 
-            <ScrollView refreshControl={<RefreshControl refreshing={loading} onRefresh={loadOrders} tintColor={Colors.brand} />}>
-                {orders.length === 0 ? (
-                    <View style={styles.empty}>
-                        <Text style={styles.emptyIcon}>📦</Text>
-                        <Text style={styles.emptyText}>No {tab === 'All' ? '' : tab.toLowerCase() + ' '}orders</Text>
-                    </View>
-                ) : orders.map(tx => (
-                    <TouchableOpacity key={tx.id} style={styles.card}
-                        onPress={() => navigation.navigate('OrderDetail', { id: tx.id })}>
-                        <View style={styles.row}>
-                            <View style={{ flex: 1 }}>
-                                <Text style={styles.ref}>{tx.order_ref}</Text>
-                                <Text style={styles.product}>{tx.product_name}</Text>
-                                <Text style={styles.buyer}>{tx.buyer_name}</Text>
-                            </View>
-                            <View style={{ alignItems: 'flex-end' }}>
-                                <Text style={styles.amount}>{fmtGHS(tx.total_amount)}</Text>
-                                <View style={[styles.badge, { backgroundColor: badgeColor(tx.status) }]}>
-                                    <Text style={styles.badgeText}>{tx.status}</Text>
-                                </View>
-                                <Text style={styles.date}>{new Date(tx.created_at).toLocaleDateString()}</Text>
-                            </View>
-                        </View>
-                    </TouchableOpacity>
-                ))}
-            </ScrollView>
-        </View>
-    );
-}
+      {/* Orders List */}
+      <ScrollView 
+        contentContainerStyle={styles.listContent} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={loading} onRefresh={fetchOrders} tintColor="#2B7DE9" />
+        }
+      >
+        {filteredOrders.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyTitle}>{loading ? 'Loading orders...' : 'No orders found'}</Text>
+            <Text style={styles.emptySub}>{loading ? 'Fetching your data...' : 'You have no orders matching this filter.'}</Text>
+          </View>
+        ) : (
+          filteredOrders.map((order) => {
+            const statusColor = STATUS_COLORS[order.status] || '#64748B';
+            return (
+              <TouchableOpacity 
+                key={order.id} 
+                style={styles.orderCard}
+                activeOpacity={0.7}
+                onPress={() => navigation?.navigate('OrderDetail', { orderId: order.order_ref })}
+              >
+                <View style={styles.cardTop}>
+                  <Text style={styles.orderRef}>{order.order_ref}</Text>
+                  <View style={[styles.statusBadge, { backgroundColor: `${statusColor}15`, borderColor: `${statusColor}30` }]}>
+                    <Text style={[styles.statusText, { color: statusColor }]}>{order.status}</Text>
+                  </View>
+                </View>
 
-function badgeColor(status) {
-    const map = { PAID: '#EAF4FB', SHIPPED: '#FEF9EC', DELIVERED: '#EAF7EE', CONFIRMED: '#EAF7EE', RELEASED: '#EAF7EE', DISPUTED: '#FDECEC', REFUNDED: '#FDECEC' };
-    return map[status] || '#F0F0F0';
+                <View style={styles.cardMid}>
+                  <Text style={styles.productName} numberOfLines={1}>{order.product_name}</Text>
+                  <Text style={styles.buyerName}>Buyer: {order.buyer_name}</Text>
+                </View>
+
+                <View style={styles.cardBottom}>
+                  <Text style={styles.orderDate}>{new Date(order.created_at).toLocaleDateString()}</Text>
+                  <Text style={styles.orderAmount}>GHS {(order.total_amount / 100).toFixed(2)}</Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })
+        )}
+        
+        <View style={{ height: 40 }} />
+      </ScrollView>
+
+    </SafeAreaView>
+  );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.bg, padding: Spacing.lg },
-    title: { fontSize: FontSizes.xl, fontWeight: '700', color: Colors.text, marginBottom: Spacing.md },
-    tabs: { marginBottom: Spacing.md, flexGrow: 0 },
-    tab: { paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderRadius: 6, marginRight: Spacing.xs, backgroundColor: Colors.light },
-    tabActive: { backgroundColor: Colors.brand },
-    tabText: { fontSize: FontSizes.sm, color: Colors.textSecondary, fontWeight: '500' },
-    tabTextActive: { color: '#fff', fontWeight: '600' },
-    card: { backgroundColor: Colors.cardBg, borderWidth: 1, borderColor: Colors.border, borderRadius: BorderRadius.md, padding: Spacing.md, marginBottom: Spacing.sm },
-    row: { flexDirection: 'row', justifyContent: 'space-between' },
-    ref: { fontSize: FontSizes.sm, color: Colors.mid, fontFamily: 'monospace' },
-    product: { fontSize: FontSizes.md, fontWeight: '600', color: Colors.text, marginTop: 2 },
-    buyer: { fontSize: FontSizes.sm, color: Colors.textSecondary, marginTop: 2 },
-    amount: { fontSize: FontSizes.md, fontWeight: '700', color: Colors.gold },
-    badge: { paddingHorizontal: Spacing.sm, paddingVertical: 2, borderRadius: BorderRadius.full, marginTop: 4 },
-    badgeText: { fontSize: FontSizes.xs, fontWeight: '600' },
-    date: { fontSize: FontSizes.xs, color: Colors.textSecondary, marginTop: 4 },
-    empty: { alignItems: 'center', padding: Spacing.xxl },
-    emptyIcon: { fontSize: 40, marginBottom: Spacing.sm },
-    emptyText: { color: Colors.textSecondary },
+  container: {
+    flex: 1,
+    backgroundColor: '#0a0b10',
+        paddingTop: Platform.OS === 'android' ? (RNStatusBar.currentHeight || 0) + 4 : 0,
+    },
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 16,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#ffffff',
+    letterSpacing: -0.5,
+  },
+  filterWrapper: {
+    marginBottom: 16,
+  },
+  filterScroll: {
+    paddingHorizontal: 20,
+    gap: 8,
+  },
+  chip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  chipActive: {
+    backgroundColor: '#2B7DE9',
+    borderColor: '#2B7DE9',
+  },
+  chipInactive: {
+    backgroundColor: 'transparent',
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  chipText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  chipTextActive: {
+    color: '#ffffff',
+  },
+  chipTextInactive: {
+    color: '#E3E1E9',
+  },
+  listContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 24,
+    gap: 12,
+  },
+  orderCard: {
+    backgroundColor: '#12131a',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  cardTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  orderRef: {
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    color: '#64748B',
+    fontSize: 13,
+    letterSpacing: 0.5,
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  statusText: {
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  cardMid: {
+    marginBottom: 16,
+  },
+  productName: {
+    color: '#F1F5F9',
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  buyerName: {
+    color: '#64748B',
+    fontSize: 14,
+  },
+  cardBottom: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.06)',
+    paddingTop: 12,
+  },
+  orderDate: {
+    color: '#64748B',
+    fontSize: 12,
+  },
+  orderAmount: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  emptyState: {
+    paddingTop: 60,
+    alignItems: 'center',
+  },
+  emptyTitle: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  emptySub: {
+    color: '#64748B',
+    fontSize: 14,
+  },
 });

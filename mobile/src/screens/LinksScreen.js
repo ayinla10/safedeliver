@@ -1,112 +1,394 @@
-import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, RefreshControl } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
-import * as Clipboard from 'expo-clipboard';
+import React, { useState, useEffect } from 'react';
+import {View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Image, StatusBar as RNStatusBar, RefreshControl, Share, Alert, Platform, Modal} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { api } from '../api';
-import { Colors, Spacing, FontSizes, BorderRadius } from '../theme';
+import * as Clipboard from 'expo-clipboard';
 
 export default function LinksScreen({ navigation }) {
-    const [links, setLinks] = useState([]);
-    const [loading, setLoading] = useState(true);
+  const [links, setLinks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedLink, setSelectedLink] = useState(null); // Used for Options Modal
 
-    const loadLinks = useCallback(async () => {
-        try {
-            const data = await api.get('/checkout-links');
-            setLinks(data);
-        } catch (err) { console.log(err); }
-        setLoading(false);
-    }, []);
+  useEffect(() => {
+    fetchLinks();
+  }, []);
 
-    useFocusEffect(useCallback(() => { loadLinks(); }, [loadLinks]));
-
-    async function toggleLink(linkCode, active) {
-        await api.patch(`/checkout-links/${linkCode}`, { is_active: !active });
-        setLinks(links.map(l => l.link_code === linkCode ? { ...l, is_active: !active } : l));
+  const fetchLinks = async () => {
+    setLoading(true);
+    try {
+      const data = await api.get('/checkout-links');
+      setLinks(data);
+    } catch (err) {
+      console.error('Fetch links error:', err);
+    } finally {
+      setLoading(false);
     }
+  };
 
-    async function deleteLink(linkCode) {
-        Alert.alert('Delete Link', 'Are you sure?', [
-            { text: 'Cancel' },
-            {
-                text: 'Delete', style: 'destructive', onPress: async () => {
-                    await api.delete(`/checkout-links/${linkCode}`);
-                    setLinks(links.filter(l => l.link_code !== linkCode));
-                }
-            },
-        ]);
+  const SERVER_HOST = '192.168.17.97';
+
+  const handleShare = async (code, product) => {
+    try {
+      const url = `http://${SERVER_HOST}:3000/pay/${code}`;
+      const result = await Share.share({
+        message: `Checkout for ${product} via SafeDeliver: ${url}`,
+        url: url, // iOS only
+      });
+    } catch (error) {
+      Alert.alert('Error', error.message);
     }
+  };
 
-    async function copyLink(linkCode) {
-        await Clipboard.setStringAsync(`https://safedeliver.co/pay/${linkCode}`);
-        Alert.alert('Copied!', 'Link copied to clipboard');
+  const handleCopyLink = async () => {
+    if (!selectedLink) return;
+    const url = `http://${SERVER_HOST}:3000/pay/${selectedLink.link_code}`;
+    await Clipboard.setStringAsync(url);
+    setSelectedLink(null);
+    Alert.alert('Link Copied', 'The checkout link has been copied to your clipboard.', [{ text: 'OK' }]);
+  };
+
+  const handleToggleStatus = async () => {
+    if (!selectedLink) return;
+    try {
+      await api.patch(`/checkout-links/${selectedLink.link_code}`, { is_active: !selectedLink.is_active });
+      setSelectedLink(null);
+      fetchLinks();
+    } catch (err) {
+      Alert.alert('Error', 'Could not update link status');
+      console.log(err);
     }
+  };
 
-    return (
-        <ScrollView style={styles.container} refreshControl={<RefreshControl refreshing={loading} onRefresh={loadLinks} tintColor={Colors.brand} />}>
-            <View style={styles.header}>
-                <Text style={styles.title}>Checkout Links</Text>
-                <TouchableOpacity style={styles.addBtn} onPress={() => navigation.navigate('NewLink')}>
-                    <Text style={styles.addBtnText}>+ Create</Text>
-                </TouchableOpacity>
-            </View>
+  const handleDelete = () => {
+    if (!selectedLink) return;
+    Alert.alert('Delete Link', `Are you sure you want to delete ${selectedLink.product_name}? This cannot be undone.`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: async () => {
+          try {
+            await api.delete(`/checkout-links/${selectedLink.link_code}`);
+            setSelectedLink(null);
+            fetchLinks();
+          } catch (err) {
+            Alert.alert('Error', 'Failed to delete link');
+          }
+      }}
+    ]);
+  };
 
-            {links.length === 0 ? (
-                <View style={styles.empty}>
-                    <Text style={styles.emptyIcon}>🔗</Text>
-                    <Text style={styles.emptyText}>No checkout links yet</Text>
-                    <TouchableOpacity style={styles.createBtn} onPress={() => navigation.navigate('NewLink')}>
-                        <Text style={styles.createBtnText}>Create Your First Link</Text>
-                    </TouchableOpacity>
+  return (
+    <SafeAreaView style={styles.container}>
+      <RNStatusBar barStyle="light-content" backgroundColor="#0a0b10" />
+      
+      {/* Header Area */}
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.headerTitle}>Checkout Links</Text>
+          <Text style={styles.headerSub}>Manage your payment links</Text>
+        </View>
+        <TouchableOpacity 
+          style={styles.createBtn}
+          onPress={() => navigation.navigate('NewLink')}
+        >
+          <Ionicons name="add" size={24} color="#ffffff" />
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={loading} onRefresh={fetchLinks} tintColor="#2B7DE9" />
+        }
+      >
+        {links.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Ionicons name="link-outline" size={48} color="rgba(255,255,255,0.05)" />
+            <Text style={styles.emptyText}>{loading ? 'Loading links...' : 'No checkout links yet'}</Text>
+            <TouchableOpacity 
+              style={styles.emptyBtn}
+              onPress={() => navigation.navigate('NewLink')}
+            >
+              <Text style={styles.emptyBtnText}>Create Your First Link</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          links.map((link) => (
+            <TouchableOpacity key={link.id} style={styles.linkCard} activeOpacity={0.8}>
+              <View style={styles.cardImageContainer}>
+                {link.image_url ? (
+                  <Image source={{ uri: link.image_url }} style={styles.productImage} />
+                ) : (
+                  <View style={styles.imagePlaceholder}>
+                    <Ionicons name="image-outline" size={32} color="rgba(255,255,255,0.1)" />
+                  </View>
+                )}
+                <View style={[styles.statusBadge, { backgroundColor: link.is_active ? '#22C55E20' : '#EF444420' }]}>
+                  <Text style={[styles.statusText, { color: link.is_active ? '#22C55E' : '#EF4444' }]}>
+                    {link.is_active ? 'ACTIVE' : 'INACTIVE'}
+                  </Text>
                 </View>
-            ) : links.map(link => (
-                <View key={link.id} style={styles.card}>
-                    <View style={styles.cardHeader}>
-                        <Text style={styles.productName}>{link.product_name}</Text>
-                        <View style={[styles.status, { backgroundColor: link.is_active ? '#EAF7EE' : '#FDECEC' }]}>
-                            <Text style={[styles.statusText, { color: link.is_active ? Colors.success : Colors.danger }]}>
-                                {link.is_active ? 'Active' : 'Inactive'}
-                            </Text>
-                        </View>
-                    </View>
-                    <Text style={styles.code}>{link.link_code}</Text>
-                    <Text style={styles.price}>GHS {(link.price / 100).toFixed(2)}{link.delivery_fee > 0 && ` + ${(link.delivery_fee / 100).toFixed(2)} delivery`}</Text>
+              </View>
 
-                    <View style={styles.actions}>
-                        <TouchableOpacity style={styles.actionBtn} onPress={() => copyLink(link.link_code)}>
-                            <Text style={styles.actionText}>📋 Copy</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.actionBtn} onPress={() => toggleLink(link.link_code, link.is_active)}>
-                            <Text style={styles.actionText}>{link.is_active ? '⏸ Disable' : '▶ Enable'}</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.actionBtn} onPress={() => deleteLink(link.link_code)}>
-                            <Text style={[styles.actionText, { color: Colors.danger }]}>🗑 Delete</Text>
-                        </TouchableOpacity>
-                    </View>
+              <View style={styles.cardContent}>
+                <View style={styles.contentLeft}>
+                  <Text style={styles.productTitle} numberOfLines={1}>{link.product_name}</Text>
+                  <Text style={styles.productPrice}>GHS {(link.price / 100).toFixed(2)}</Text>
+                  <Text style={styles.linkCode}>Code: {link.link_code}</Text>
                 </View>
-            ))}
-        </ScrollView>
-    );
+
+                <View style={styles.contentRight}>
+                  <TouchableOpacity 
+                    style={styles.actionBtn} 
+                    onPress={() => handleShare(link.link_code, link.product_name)}
+                  >
+                    <Ionicons name="share-social-outline" size={20} color="#2B7DE9" />
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.actionBtn} 
+                    onPress={() => setSelectedLink(link)}
+                  >
+                    <Ionicons name="ellipsis-horizontal" size={20} color="#64748B" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableOpacity>
+          ))
+        )}
+        <View style={{ height: 40 }} />
+      </ScrollView>
+
+      {/* Options Modal Bottom Sheet */}
+      <Modal
+        visible={!!selectedLink}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSelectedLink(null)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay} 
+          activeOpacity={1} 
+          onPress={() => setSelectedLink(null)}
+        >
+          <View style={styles.bottomSheet}>
+            <View style={styles.sheetHandle} />
+            <Text style={styles.sheetTitle}>{selectedLink?.product_name}</Text>
+            
+            <TouchableOpacity style={styles.sheetOption} onPress={handleCopyLink}>
+              <Ionicons name="copy-outline" size={24} color="#F1F5F9" />
+              <Text style={styles.sheetOptionText}>Copy Link</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.sheetOption} onPress={handleToggleStatus}>
+              <Ionicons name={selectedLink?.is_active ? "pause-circle-outline" : "play-circle-outline"} size={24} color={selectedLink?.is_active ? "#EAB308" : "#22C55E"} />
+              <Text style={[styles.sheetOptionText, { color: selectedLink?.is_active ? "#EAB308" : "#22C55E" }]}>
+                {selectedLink?.is_active ? 'Pause Link' : 'Resume Link'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.sheetOption} onPress={() => { setSelectedLink(null); navigation.navigate('NewLink', { linkCode: selectedLink.link_code }); }}>
+              <Ionicons name="create-outline" size={24} color="#2B7DE9" />
+              <Text style={[styles.sheetOptionText, { color: '#2B7DE9' }]}>Edit Link</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={[styles.sheetOption, { borderBottomWidth: 0 }]} onPress={handleDelete}>
+              <Ionicons name="trash-outline" size={24} color="#EF4444" />
+              <Text style={[styles.sheetOptionText, { color: '#EF4444' }]}>Delete Link</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+    </SafeAreaView>
+  );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.bg, padding: Spacing.lg },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.lg },
-    title: { fontSize: FontSizes.xl, fontWeight: '700', color: Colors.text },
-    addBtn: { backgroundColor: Colors.brand, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderRadius: BorderRadius.sm },
-    addBtnText: { color: '#fff', fontWeight: '600', fontSize: FontSizes.sm },
-    card: { backgroundColor: Colors.cardBg, borderWidth: 1, borderColor: Colors.border, borderRadius: BorderRadius.md, padding: Spacing.md, marginBottom: Spacing.md },
-    cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.xs },
-    productName: { fontSize: FontSizes.md, fontWeight: '600', color: Colors.text, flex: 1 },
-    status: { paddingHorizontal: Spacing.sm, paddingVertical: 2, borderRadius: BorderRadius.full },
-    statusText: { fontSize: FontSizes.xs, fontWeight: '600' },
-    code: { fontSize: FontSizes.sm, color: Colors.mid, fontFamily: 'monospace', marginBottom: Spacing.xs },
-    price: { fontSize: FontSizes.md, fontWeight: '700', color: Colors.gold, marginBottom: Spacing.md },
-    actions: { flexDirection: 'row', gap: Spacing.sm, borderTopWidth: 1, borderTopColor: Colors.border, paddingTop: Spacing.sm },
-    actionBtn: { paddingVertical: Spacing.xs, paddingHorizontal: Spacing.sm },
-    actionText: { fontSize: FontSizes.sm, color: Colors.textSecondary },
-    empty: { alignItems: 'center', padding: Spacing.xxl },
-    emptyIcon: { fontSize: 48, marginBottom: Spacing.md },
-    emptyText: { color: Colors.textSecondary, marginBottom: Spacing.lg },
-    createBtn: { backgroundColor: Colors.brand, paddingHorizontal: Spacing.xl, paddingVertical: Spacing.md, borderRadius: BorderRadius.sm },
-    createBtnText: { color: '#fff', fontWeight: '600' },
+  container: {
+    flex: 1,
+    backgroundColor: '#0a0b10',
+        paddingTop: Platform.OS === 'android' ? (RNStatusBar.currentHeight || 0) + 4 : 0,
+    },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 20,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  headerSub: {
+    fontSize: 14,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  createBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#2B7DE9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 4,
+    shadowColor: '#2B7DE9',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 24,
+  },
+  emptyState: {
+    paddingVertical: 80,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#12131a',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.04)',
+    marginTop: 20,
+  },
+  emptyText: {
+    color: '#F1F5F9',
+    fontSize: 18,
+    fontWeight: '600',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptyBtn: {
+    marginTop: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    backgroundColor: 'rgba(43, 125, 233, 0.1)',
+    borderRadius: 8,
+  },
+  emptyBtnText: {
+    color: '#2B7DE9',
+    fontWeight: '600',
+  },
+  linkCard: {
+    backgroundColor: '#12131a',
+    borderRadius: 20,
+    overflow: 'hidden',
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  cardImageContainer: {
+    height: 160,
+    width: '100%',
+    backgroundColor: '#1a1b21',
+    position: 'relative',
+  },
+  productImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  imagePlaceholder: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statusBadge: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backdropFilter: 'blur(10px)',
+  },
+  statusText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  cardContent: {
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  contentLeft: {
+    flex: 1,
+  },
+  productTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#ffffff',
+    marginBottom: 4,
+  },
+  productPrice: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2B7DE9',
+    marginBottom: 4,
+  },
+  linkCode: {
+    fontSize: 12,
+    color: '#64748B',
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  contentRight: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  actionBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'flex-end',
+  },
+  bottomSheet: {
+    backgroundColor: '#1a1b21',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+    paddingTop: 12,
+  },
+  sheetHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  sheetTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#ffffff',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  sheetOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  sheetOptionText: {
+    fontSize: 16,
+    color: '#F1F5F9',
+    fontWeight: '600',
+    marginLeft: 16,
+  },
 });

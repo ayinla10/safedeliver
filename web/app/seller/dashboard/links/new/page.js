@@ -1,9 +1,9 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
 
-export default function NewLinkPage() {
+function InnerNewLinkPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const editCode = searchParams.get('code');
@@ -111,5 +111,13 @@ export default function NewLinkPage() {
                 </form>
             </div>
         </div>
+    );
+}
+
+export default function NewLinkPage() {
+    return (
+        <Suspense fallback={<div className="flex-center" style={{ padding: '4rem' }}><div className="spinner" /></div>}>
+            <InnerNewLinkPage />
+        </Suspense>
     );
 }

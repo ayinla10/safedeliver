@@ -11,6 +11,39 @@ const audit = require('../services/audit');
 
 const FEE_PERCENT = parseFloat(process.env.PLATFORM_FEE_PERCENT || '5');
 
+// ── Seller: List all transactions for authenticated seller ──
+router.get('/', authenticateSeller, async (req, res, next) => {
+    try {
+        const result = await db.query(
+            `SELECT * FROM transactions WHERE seller_id = $1 ORDER BY created_at DESC`,
+            [req.seller.id]
+        );
+        res.json(result.rows);
+    } catch (err) { next(err); }
+});
+
+// ── Seller: Get performance stats ──
+router.get('/stats', authenticateSeller, async (req, res, next) => {
+    try {
+        const stats = await db.query(
+            `SELECT 
+                COUNT(*) as total_orders,
+                SUM(CASE WHEN status IN ('PAID', 'SHIPPED', 'DELIVERED', 'RELEASED') THEN 1 ELSE 0 END) as active_orders,
+                SUM(CASE WHEN status = 'RELEASED' THEN seller_payout_amount ELSE 0 END) as wallet_balance,
+                SUM(CASE WHEN status = 'PAID' THEN total_amount ELSE 0 END) as incoming_funds
+             FROM transactions WHERE seller_id = $1`,
+            [req.seller.id]
+        );
+        const s = stats.rows[0];
+        res.json({
+            total_orders: parseInt(s.total_orders || 0),
+            active_orders: parseInt(s.active_orders || 0),
+            wallet_balance: parseFloat(s.wallet_balance || 0) / 100,
+            incoming_funds: parseFloat(s.incoming_funds || 0) / 100
+        });
+    } catch (err) { next(err); }
+});
+
 // ── Public: get checkout link info (includes seller city/region) ──
 router.get('/pay/:linkCode', async (req, res) => {
     const result = await db.query(
