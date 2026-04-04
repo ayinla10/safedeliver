@@ -12,13 +12,22 @@ export default function CheckoutPage() {
     const [product, setProduct] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [step, setStep] = useState('details'); // details | success
+    const [step, setStep] = useState('choice'); // choice | details | success
     const [form, setForm] = useState({ buyer_name: '', buyer_phone: '', buyer_email: '', buyer_address: '', buyer_lat: null, buyer_lng: null, buyer_location_text: '' });
     const [txData, setTxData] = useState(null);
 
     useEffect(() => {
         api.get(`/checkout-links/${linkCode}`)
-            .then(data => { setProduct(data); setLoading(false); })
+            .then(data => { 
+                setProduct(data); 
+                setLoading(false); 
+                
+                // If not on mobile, skip choice
+                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                if (!isMobile) {
+                    setStep('details');
+                }
+            })
             .catch(err => { setError(err.message); setLoading(false); });
     }, [linkCode]);
 
@@ -91,6 +100,52 @@ export default function CheckoutPage() {
             <Navbar />
             <div className="section">
                 <div className="container-sm">
+                    {step === 'choice' && product && (
+                        <div className="animate-in text-center" style={{ padding: '2rem 1rem' }}>
+                            <div className="card" style={{ maxWidth: 450, margin: '0 auto' }}>
+                                <div style={{ 
+                                    width: 80, height: 80, borderRadius: 40, 
+                                    backgroundColor: 'rgba(43,125,233,0.1)', 
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    margin: '0 auto 1.5rem auto',
+                                    border: '1px solid rgba(43,125,233,0.2)'
+                                }}>
+                                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#2B7DE9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                                        <path d="m9 12 2 2 4-4"/>
+                                    </svg>
+                                </div>
+                                
+                                <h1 style={{ fontSize: '1.75rem', marginBottom: '0.5rem' }}>Secure Checkout</h1>
+                                <p className="text-muted" style={{ marginBottom: '2rem' }}>
+                                    Get the best experience and real-time tracking with the SafeDeliver App.
+                                </p>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                    <a 
+                                        href={`safedeliver://pay/${linkCode}`} 
+                                        className="btn btn-primary btn-lg" 
+                                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem' }}
+                                    >
+                                        <span>Open in SafeDeliver App</span>
+                                    </a>
+
+                                    <button 
+                                        onClick={() => setStep('details')}
+                                        className="btn btn-outline btn-lg"
+                                        style={{ border: '1px solid rgba(255,255,255,0.1)' }}
+                                    >
+                                        Continue as Guest in Browser
+                                    </button>
+                                </div>
+
+                                <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                                    <p className="text-xs text-muted">Don't have the app yet? <span className="text-brand">Download on Stores</span></p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {step === 'details' && product && (
                         <div className="animate-in">
                             {/* Product Info */}

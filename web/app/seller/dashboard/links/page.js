@@ -63,6 +63,7 @@ export default function LinksPage() {
                             </div>
                             <div style={{ display: 'flex', gap: '0.5rem' }}>
                                 <button className="btn btn-primary btn-sm" onClick={() => copyLink(link.link_code)}>Copy</button>
+                                <Link href={`/seller/dashboard/links/new?code=${link.link_code}`} className="btn btn-secondary btn-sm" style={{ border: '1px solid var(--border-color)', color: 'var(--text-color)', background: 'transparent' }}>Edit</Link>
                                 <button className="btn btn-ghost btn-sm" onClick={() => toggleLink(link.link_code, link.is_active)}>{link.is_active ? 'Pause' : 'Enable'}</button>
                                 <button className="btn btn-ghost btn-sm" style={{ color: 'var(--danger)' }} onClick={() => deleteLink(link.link_code)}>Delete</button>
                             </div>

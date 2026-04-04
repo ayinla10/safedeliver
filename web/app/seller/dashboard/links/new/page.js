@@ -1,15 +1,36 @@
 'use client';
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
 
 export default function NewLinkPage() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const editCode = searchParams.get('code');
     const [form, setForm] = useState({ product_name: '', description: '', price: '' });
     const [error, setError] = useState('');
     const [creating, setCreating] = useState(false);
     const [imageFile, setImageFile] = useState(null);
     const [uploadingImage, setUploadingImage] = useState(false);
+    const [loadingEdit, setLoadingEdit] = useState(!!editCode);
+
+    useEffect(() => {
+        if (editCode) {
+            api.get(`/checkout-links/${editCode}`)
+                .then(data => {
+                    setForm({
+                        product_name: data.product_name || '',
+                        description: data.description || '',
+                        price: data.price ? (data.price / 100).toString() : ''
+                    });
+                    setLoadingEdit(false);
+                })
+                .catch(err => {
+                    setError('Failed to load link');
+                    setLoadingEdit(false);
+                });
+        }
+    }, [editCode]);
 
     async function create(e) {
         e.preventDefault();
@@ -36,17 +57,24 @@ export default function NewLinkPage() {
             const data = {
                 product_name: form.product_name,
                 description: form.description,
-                price: Math.round(parseFloat(form.price) * 100),
-                image_url: imageUrl
+                price: Math.round(parseFloat(form.price) * 100)
             };
-            await api.post('/checkout-links', data);
+            if (imageUrl) data.image_url = imageUrl;
+            
+            if (editCode) {
+                await api.patch(`/checkout-links/${editCode}`, data);
+            } else {
+                await api.post('/checkout-links', data);
+            }
             router.push('/seller/dashboard/links');
         } catch (err) { setError(err.message); setCreating(false); setUploadingImage(false); }
     }
 
+    if (loadingEdit) return <div className="flex-center" style={{ padding: '4rem' }}><div className="spinner" /></div>;
+
     return (
         <div className="animate-in" style={{ maxWidth: 520 }}>
-            <h1 style={{ fontSize: '1.5rem', marginBottom: '1.5rem' }}>Create Checkout Link</h1>
+            <h1 style={{ fontSize: '1.5rem', marginBottom: '1.5rem' }}>{editCode ? 'Edit Checkout Link' : 'Create Checkout Link'}</h1>
             {error && <div className="alert alert-danger">{error}</div>}
             <div className="card">
                 <form onSubmit={create}>
@@ -78,7 +106,7 @@ export default function NewLinkPage() {
                     </div>
 
                     <button className="btn btn-primary btn-block" disabled={creating || uploadingImage}>
-                        {uploadingImage ? 'Uploading Image...' : creating ? 'Creating...' : 'Create Checkout Link'}
+                        {uploadingImage ? 'Uploading Image...' : creating ? (editCode ? 'Updating...' : 'Creating...') : (editCode ? 'Update Checkout Link' : 'Create Checkout Link')}
                     </button>
                 </form>
             </div>
