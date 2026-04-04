@@ -45,4 +45,25 @@ export const api = {
     post: (endpoint, body) => request(endpoint, { method: 'POST', body: JSON.stringify(body) }),
     patch: (endpoint, body) => request(endpoint, { method: 'PATCH', body: JSON.stringify(body) }),
     delete: (endpoint) => request(endpoint, { method: 'DELETE' }),
+    upload: async (uri) => {
+        const token = await AsyncStorage.getItem('sd-token');
+        const ext = uri.split('.').pop() || 'jpg';
+        const formData = new FormData();
+        formData.append('file', {
+            uri,
+            name: `upload-${Date.now()}.${ext}`,
+            type: `image/${ext === 'png' ? 'png' : 'jpeg'}`,
+        });
+        const response = await fetch(`${API_URL}/upload`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'multipart/form-data',
+            },
+            body: formData,
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Upload failed');
+        return data;
+    },
 };

@@ -150,4 +150,31 @@ router.post('/refresh', async (req, res) => {
 // Logout (client-side)
 router.post('/logout', authenticateSeller, (req, res) => { res.json({ message: 'Logged out' }); });
 
+// Update profile
+router.patch('/profile', authenticateSeller, async (req, res) => {
+    try {
+        const { full_name, business_name, phone, city, region } = req.body;
+        const normalizedPhone = phone ? normalizePhone(phone) : undefined;
+        
+        await db.query(
+            `UPDATE sellers SET 
+                full_name = COALESCE($1, full_name), 
+                business_name = COALESCE($2, business_name), 
+                phone = COALESCE($3, phone),
+                city = COALESCE($4, city), 
+                region = COALESCE($5, region),
+                updated_at = NOW() 
+             WHERE id = $6`,
+            [full_name, business_name, normalizedPhone, city, region, req.seller.id]
+        );
+
+        const result = await db.query('SELECT id, full_name, email, phone, business_name, city, region, is_admin FROM sellers WHERE id = $1', [req.seller.id]);
+        res.json({ message: 'Profile updated', seller: result.rows[0] });
+    } catch (err) {
+        console.error('Profile update error:', err);
+        res.status(500).json({ error: 'Failed to update profile' });
+    }
+});
+
 module.exports = router;
+

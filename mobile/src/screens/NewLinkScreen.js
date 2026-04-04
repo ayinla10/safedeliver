@@ -1,16 +1,40 @@
 import React, { useState } from 'react';
-import {View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, Platform, KeyboardAvoidingView, StatusBar as RNStatusBar, ActivityIndicator} from 'react-native';
+import {View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, Platform, KeyboardAvoidingView, StatusBar as RNStatusBar, ActivityIndicator, Image, Alert} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { api } from '../api';
 
 export default function NewLinkScreen({ navigation }) {
   const [productName, setProductName] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
+  const [imageUri, setImageUri] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
 
-  const isFormValid = productName && price && !loading;
+  const isFormValid = productName && price && imageUri && !loading;
+
+  const pickImage = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Please allow access to your photo library to upload product images.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets[0]) {
+        setImageUri(result.assets[0].uri);
+      }
+    } catch (err) {
+      Alert.alert('Error', 'Could not open image picker');
+    }
+  };
 
   const handleCreate = async () => {
     if (!isFormValid) return;
@@ -18,6 +42,11 @@ export default function NewLinkScreen({ navigation }) {
     setError('');
     
     try {
+      // Upload image first
+      setUploading(true);
+      const uploadData = await api.upload(imageUri);
+      setUploading(false);
+
       // Backend expects price in pesewas
       const priceInPesewas = Math.round(parseFloat(price) * 100);
       
@@ -25,12 +54,13 @@ export default function NewLinkScreen({ navigation }) {
         product_name: productName,
         description: description,
         price: priceInPesewas,
-        image_url: null // TODO: Image upload
+        image_url: uploadData.url,
       });
       
       navigation?.goBack();
     } catch (err) {
       setError(err.message || 'Failed to create link');
+      setUploading(false);
     } finally {
       setLoading(false);
     }
@@ -55,11 +85,24 @@ export default function NewLinkScreen({ navigation }) {
           </View>
 
           {/* Image Upload Area */}
-          <TouchableOpacity style={styles.imageUploadBox} activeOpacity={0.7}>
-            <View style={styles.uploadIconCircle}>
-              <Ionicons name="camera-outline" size={28} color="#2B7DE9" />
-            </View>
-            <Text style={styles.uploadText}>Tap to add product photo</Text>
+          <TouchableOpacity style={[styles.imageUploadBox, imageUri && styles.imageUploadBoxFilled]} activeOpacity={0.7} onPress={pickImage}>
+            {imageUri ? (
+              <View style={{ width: '100%', height: '100%', position: 'relative' }}>
+                <Image source={{ uri: imageUri }} style={styles.uploadedImage} />
+                <View style={styles.imageOverlay}>
+                  <Ionicons name="camera-outline" size={22} color="#fff" />
+                  <Text style={styles.changePhotoText}>Change Photo</Text>
+                </View>
+              </View>
+            ) : (
+              <>
+                <View style={styles.uploadIconCircle}>
+                  <Ionicons name="camera-outline" size={28} color="#2B7DE9" />
+                </View>
+                <Text style={styles.uploadText}>Tap to add product photo</Text>
+                <Text style={styles.uploadRequired}>Required *</Text>
+              </>
+            )}
           </TouchableOpacity>
 
           {/* Form Fields */}
@@ -134,11 +177,18 @@ export default function NewLinkScreen({ navigation }) {
             disabled={!isFormValid || loading}
           >
             {loading ? (
-              <ActivityIndicator color="#ffffff" />
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <ActivityIndicator color="#ffffff" />
+                <Text style={styles.primaryButtonText}>{uploading ? 'Uploading Image...' : 'Creating...'}</Text>
+              </View>
             ) : (
               <Text style={styles.primaryButtonText}>Create Link</Text>
             )}
           </TouchableOpacity>
+
+          {!imageUri && productName && price ? (
+            <Text style={styles.hintText}>Add a product photo to enable creating the link</Text>
+          ) : null}
 
         </ScrollView>
       </KeyboardAvoidingView>
@@ -150,8 +200,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0a0b10',
-        paddingTop: Platform.OS === 'android' ? (RNStatusBar.currentHeight || 0) + 4 : 0,
-    },
+    paddingTop: Platform.OS === 'android' ? (RNStatusBar.currentHeight || 0) + 4 : 0,
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -186,6 +236,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 24,
+    overflow: 'hidden',
+  },
+  imageUploadBoxFilled: {
+    borderStyle: 'solid',
+    borderColor: '#2B7DE9',
+    borderWidth: 2,
+  },
+  uploadedImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  imageOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+  },
+  changePhotoText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
   },
   uploadIconCircle: {
     width: 50,
@@ -200,6 +278,12 @@ const styles = StyleSheet.create({
     color: '#2B7DE9',
     fontSize: 14,
     fontWeight: '600',
+  },
+  uploadRequired: {
+    color: '#EF4444',
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 4,
   },
   formGroup: {
     gap: 16,
@@ -317,5 +401,12 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 18,
     fontWeight: '600',
+  },
+  hintText: {
+    color: '#EAB308',
+    fontSize: 13,
+    textAlign: 'center',
+    marginTop: 12,
+    fontWeight: '500',
   },
 });

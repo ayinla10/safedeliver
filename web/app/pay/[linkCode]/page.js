@@ -2,8 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
 import LocationPicker from '@/components/LocationPicker';
 import { api } from '@/lib/api';
 
@@ -75,7 +73,9 @@ export default function CheckoutPage() {
     if (loading && !product) {
         return (
             <div className="page-wrapper">
-                <Navbar />
+                <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)', textAlign: 'center' }}>
+                    <span style={{ fontSize: '1.1rem', fontWeight: 700 }}>🛡️ Safe<span style={{ color: 'var(--brand)' }}>Deliver</span></span>
+                </div>
                 <div className="flex-center" style={{ minHeight: '60vh' }}><div className="spinner" /></div>
             </div>
         );
@@ -84,20 +84,23 @@ export default function CheckoutPage() {
     if (error && !product) {
         return (
             <div className="page-wrapper">
-                <Navbar />
+                <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)', textAlign: 'center' }}>
+                    <span style={{ fontSize: '1.1rem', fontWeight: 700 }}>🛡️ Safe<span style={{ color: 'var(--brand)' }}>Deliver</span></span>
+                </div>
                 <div className="container-sm" style={{ padding: '4rem 1.5rem', textAlign: 'center' }}>
                     <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>😔</div>
                     <h2>Checkout link not found</h2>
                     <p className="text-sm mt-1">{error}</p>
                 </div>
-                <Footer />
             </div>
         );
     }
 
     return (
         <div className="page-wrapper">
-            <Navbar />
+            <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)', textAlign: 'center' }}>
+                <span style={{ fontSize: '1.1rem', fontWeight: 700 }}>🛡️ Safe<span style={{ color: 'var(--brand)' }}>Deliver</span> — Secure Checkout</span>
+            </div>
             <div className="section">
                 <div className="container-sm">
                     {step === 'choice' && product && (
@@ -237,7 +240,9 @@ export default function CheckoutPage() {
                     )}
                 </div>
             </div>
-            <Footer />
+            <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                Protected by SafeDeliver Escrow · <a href="/" style={{ color: 'var(--brand)' }}>safedeliver.com</a>
+            </div>
         </div>
     );
 }

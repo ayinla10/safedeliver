@@ -8,6 +8,7 @@ export default function LinksScreen({ navigation }) {
   const [links, setLinks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedLink, setSelectedLink] = useState(null); // Used for Options Modal
+  const [previewImage, setPreviewImage] = useState(null); // Image preview modal
 
   useEffect(() => {
     fetchLinks();
@@ -114,7 +115,11 @@ export default function LinksScreen({ navigation }) {
         ) : (
           links.map((link) => (
             <TouchableOpacity key={link.id} style={styles.linkCard} activeOpacity={0.8}>
-              <View style={styles.cardImageContainer}>
+              <TouchableOpacity 
+                style={styles.cardImageContainer} 
+                activeOpacity={0.9}
+                onPress={() => link.image_url && setPreviewImage(link.image_url)}
+              >
                 {link.image_url ? (
                   <Image source={{ uri: link.image_url }} style={styles.productImage} />
                 ) : (
@@ -127,7 +132,12 @@ export default function LinksScreen({ navigation }) {
                     {link.is_active ? 'ACTIVE' : 'INACTIVE'}
                   </Text>
                 </View>
-              </View>
+                {link.image_url && (
+                  <View style={styles.previewHint}>
+                    <Ionicons name="expand-outline" size={14} color="#fff" />
+                  </View>
+                )}
+              </TouchableOpacity>
 
               <View style={styles.cardContent}>
                 <View style={styles.contentLeft}>
@@ -196,6 +206,27 @@ export default function LinksScreen({ navigation }) {
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
+      </Modal>
+
+      {/* Image Preview Modal */}
+      <Modal
+        visible={!!previewImage}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPreviewImage(null)}
+      >
+        <View style={styles.imagePreviewOverlay}>
+          <TouchableOpacity style={styles.imagePreviewClose} onPress={() => setPreviewImage(null)}>
+            <Ionicons name="close" size={28} color="#fff" />
+          </TouchableOpacity>
+          {previewImage && (
+            <Image
+              source={{ uri: previewImage }}
+              style={styles.imagePreviewFull}
+              resizeMode="contain"
+            />
+          )}
+        </View>
       </Modal>
 
     </SafeAreaView>
@@ -390,5 +421,38 @@ const styles = StyleSheet.create({
     color: '#F1F5F9',
     fontWeight: '600',
     marginLeft: 16,
+  },
+  previewHint: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  imagePreviewOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  imagePreviewClose: {
+    position: 'absolute',
+    top: Platform.OS === 'android' ? (RNStatusBar.currentHeight || 0) + 12 : 56,
+    right: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  imagePreviewFull: {
+    width: '100%',
+    height: '80%',
   },
 });
