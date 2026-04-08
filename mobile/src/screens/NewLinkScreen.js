@@ -4,24 +4,30 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../ThemeContext';
 import { api } from '../api';
+import { optimizeImage } from '../utils/image';
 
 export default function NewLinkScreen({ navigation }) {
   const { colors } = useTheme();
   const [productName, setProductName] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
-  const [imageUri, setImageUri] = useState(null);
+  const [images, setImages] = useState([]); // Array of { uri, id }
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
 
-  const isFormValid = productName && price && imageUri && !loading;
+  const isFormValid = productName && price && images.length > 0 && !loading;
 
   const pickImage = async () => {
+    if (images.length >= 6) {
+      Alert.alert('Limit Reached', 'You can upload up to 6 images per product.');
+      return;
+    }
+
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission Required', 'Please allow access to your photo library to upload product images.');
+        Alert.alert('Permission Required', 'Please allow access to your photo library to email product images.');
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -29,13 +35,24 @@ export default function NewLinkScreen({ navigation }) {
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.8,
+        allowsMultipleSelection: true,
+        selectionLimit: 6 - images.length,
       });
-      if (!result.canceled && result.assets[0]) {
-        setImageUri(result.assets[0].uri);
+
+      if (!result.canceled && result.assets) {
+        const newImages = result.assets.map(asset => ({
+          uri: asset.uri,
+          id: Math.random().toString(36).substring(7)
+        }));
+        setImages(prev => [...prev, ...newImages]);
       }
     } catch (err) {
       Alert.alert('Error', 'Could not open image picker');
     }
+  };
+
+  const removeImage = (id) => {
+    setImages(prev => prev.filter(img => img.id !== id));
   };
 
   const handleCreate = async () => {
@@ -44,9 +61,14 @@ export default function NewLinkScreen({ navigation }) {
     setError('');
     
     try {
-      // Upload image first
+      // Optimize all images before upload
       setUploading(true);
-      const uploadData = await api.upload(imageUri);
+      const optimizedImages = await Promise.all(images.map(img => optimizeImage(img.uri)));
+      
+      // Upload all optimized images concurrently
+      const uploadPromises = optimizedImages.map(uri => api.upload(uri));
+      const uploadResults = await Promise.all(uploadPromises);
+      const imageUrls = uploadResults.map(res => res.url);
       setUploading(false);
 
       // Backend expects price in pesewas
@@ -56,7 +78,8 @@ export default function NewLinkScreen({ navigation }) {
         product_name: productName,
         description: description,
         price: priceInPesewas,
-        image_url: uploadData.url,
+        image_url: imageUrls[0], // Primary image
+        images: imageUrls, // Full list
       });
       
       navigation?.goBack();
@@ -88,26 +111,45 @@ export default function NewLinkScreen({ navigation }) {
             <View style={{ width: 40 }} />
           </View>
 
-          {/* Image Upload Area */}
-          <TouchableOpacity style={[styles.imageUploadBox, imageUri && styles.imageUploadBoxFilled]} activeOpacity={0.7} onPress={pickImage}>
-            {imageUri ? (
-              <View style={{ width: '100%', height: '100%', position: 'relative' }}>
-                <Image source={{ uri: imageUri }} style={styles.uploadedImage} />
-                <View style={styles.imageOverlay}>
-                  <Ionicons name="camera-outline" size={22} color="#fff" />
-                  <Text style={styles.changePhotoText}>Change Photo</Text>
+          {/* Multi-Image Upload Area */}
+          <View style={styles.imageSection}>
+            <View style={styles.imageSectionHeader}>
+              <Text style={styles.sectionLabel}>Product Images ({images.length}/6)</Text>
+              {images.length < 6 && (
+                <TouchableOpacity onPress={pickImage} style={styles.addMoreBtn}>
+                  <Ionicons name="add-circle" size={20} color={colors.brand} />
+                  <Text style={styles.addMoreText}>Add</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.imageGrid}
+            >
+              {images.map((img) => (
+                <View key={img.id} style={styles.imageWrapper}>
+                  <Image source={{ uri: img.uri }} style={styles.thumbnail} />
+                  <TouchableOpacity 
+                    style={styles.removeBtn} 
+                    onPress={() => removeImage(img.id)}
+                  >
+                    <Ionicons name="close-circle" size={22} color={colors.danger} />
+                  </TouchableOpacity>
                 </View>
-              </View>
-            ) : (
-              <>
-                <View style={styles.uploadIconCircle}>
-                  <Ionicons name="camera-outline" size={28} color={colors.brand} />
-                </View>
-                <Text style={styles.uploadText}>Tap to add product photo</Text>
-                <Text style={styles.uploadRequired}>Required *</Text>
-              </>
-            )}
-          </TouchableOpacity>
+              ))}
+
+              {images.length === 0 && (
+                <TouchableOpacity style={styles.uploadPlaceholder} onPress={pickImage}>
+                  <View style={styles.uploadIconCircle}>
+                    <Ionicons name="camera-outline" size={28} color={colors.brand} />
+                  </View>
+                  <Text style={styles.uploadPlaceholderText}>Tap to add product photos</Text>
+                </TouchableOpacity>
+              )}
+            </ScrollView>
+          </View>
 
           {/* Form Fields */}
           <View style={styles.formGroup}>
@@ -183,15 +225,15 @@ export default function NewLinkScreen({ navigation }) {
             {loading ? (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <ActivityIndicator color="#ffffff" />
-                <Text style={styles.primaryButtonText}>{uploading ? 'Uploading Image...' : 'Creating...'}</Text>
+                <Text style={styles.primaryButtonText}>{uploading ? `Uploading Images (${images.length})...` : 'Creating...'}</Text>
               </View>
             ) : (
               <Text style={styles.primaryButtonText}>Create Link</Text>
             )}
           </TouchableOpacity>
 
-          {!imageUri && productName && price ? (
-            <Text style={styles.hintText}>Add a product photo to enable creating the link</Text>
+          {!images.length && productName && price ? (
+            <Text style={styles.hintText}>Add at least one product photo to enable creating the link</Text>
           ) : null}
 
         </ScrollView>
@@ -231,69 +273,84 @@ const createStyles = (colors) => StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 40,
   },
-  imageUploadBox: {
-    height: 200,
-    backgroundColor: colors.cardGlass,
-    borderWidth: 1.5,
-    borderColor: colors.glassBorder,
-    borderStyle: 'dashed',
-    borderRadius: 24,
+  imageSection: {
+    marginBottom: 32,
+  },
+  imageSectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 28,
+    marginBottom: 16,
+  },
+  sectionLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  addMoreBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  addMoreText: {
+    color: colors.brand,
+    fontWeight: '800',
+    fontSize: 14,
+  },
+  imageGrid: {
+    gap: 12,
+    paddingRight: 20,
+  },
+  imageWrapper: {
+    width: 140,
+    height: 140,
+    borderRadius: 20,
+    backgroundColor: colors.cardAlt,
     overflow: 'hidden',
-    shadowColor: colors.brand,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.05,
-    shadowRadius: 20,
-    elevation: 4,
+    position: 'relative',
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  imageUploadBoxFilled: {
-    borderStyle: 'solid',
-    borderColor: colors.brand,
-    borderWidth: 2,
-  },
-  uploadedImage: {
+  thumbnail: {
     width: '100%',
     height: '100%',
     resizeMode: 'cover',
   },
-  imageOverlay: {
+  removeBtn: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
+    top: 6,
+    right: 6,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderRadius: 12,
+  },
+  uploadPlaceholder: {
+    width: 200,
+    height: 140,
+    borderRadius: 24,
+    backgroundColor: colors.cardGlass,
+    borderWidth: 1.5,
+    borderColor: colors.glassBorder,
+    borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    backgroundColor: colors.overlay,
+    padding: 20,
   },
-  changePhotoText: {
-    color: '#fff',
-    fontSize: 14,
+  uploadPlaceholderText: {
+    color: colors.brand,
+    fontSize: 13,
     fontWeight: '700',
+    textAlign: 'center',
   },
   uploadIconCircle: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     backgroundColor: colors.brandLight,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
-  },
-  uploadText: {
-    color: colors.brand,
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  uploadRequired: {
-    color: colors.danger,
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 6,
+    marginBottom: 12,
   },
   formGroup: {
     gap: 20,

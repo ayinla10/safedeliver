@@ -11,6 +11,7 @@ export function AuthProvider({ children }) {
     const [verifyPhone, setVerifyPhone] = useState('');
 
     useEffect(() => {
+        api.onTokenExpired = logout;
         checkAuth();
     }, []);
 

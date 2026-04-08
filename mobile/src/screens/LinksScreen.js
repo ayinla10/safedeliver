@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import {View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Image, StatusBar as RNStatusBar, RefreshControl, Share, Alert, Platform, Modal} from 'react-native';
+import {View, Text, StyleSheet, SafeAreaView, FlatList, TouchableOpacity, Image, StatusBar as RNStatusBar, RefreshControl, Share, Alert, Platform, Modal} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../api';
 import { useTheme } from '../ThemeContext';
@@ -98,14 +98,17 @@ export default function LinksScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      <ScrollView 
-        contentContainerStyle={styles.scrollContent} 
+      <FlatList
+        data={links}
+        keyExtractor={(item) => item.id.toString()}
+        numColumns={2}
+        columnWrapperStyle={styles.columnWrapper}
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={loading} onRefresh={fetchLinks} tintColor={colors.brand} />
         }
-      >
-        {links.length === 0 ? (
+        ListEmptyComponent={
           <View style={styles.emptyState}>
             <Ionicons name="link-outline" size={48} color={colors.brandLight} />
             <Text style={styles.emptyText}>{loading ? 'Loading links...' : 'No checkout links yet'}</Text>
@@ -116,60 +119,53 @@ export default function LinksScreen({ navigation }) {
               <Text style={styles.emptyBtnText}>Create Your First Link</Text>
             </TouchableOpacity>
           </View>
-        ) : (
-          links.map((link) => (
-            <TouchableOpacity key={link.id} style={styles.linkCard} activeOpacity={0.8}>
+        }
+        renderItem={({ item: link }) => (
+          <TouchableOpacity 
+            style={styles.linkCard} 
+            activeOpacity={0.9}
+            longPressDelay={350}
+            onLongPress={() => setSelectedLink(link)}
+            onPress={() => handleShare(link.link_code, link.product_name)}
+          >
+            <View style={styles.cardImageContainer}>
+              {link.image_url ? (
+                <Image source={{ uri: link.image_url }} style={styles.productImage} />
+              ) : (
+                <View style={styles.imagePlaceholder}>
+                  <Ionicons name="image-outline" size={32} color={colors.border} />
+                </View>
+              )}
+              
+              <View style={[styles.statusIndicator, { backgroundColor: link.is_active ? colors.success : colors.danger }]} />
+              
+              {link.images && link.images.length > 1 && (
+                <View style={styles.multiImageBadge}>
+                  <Ionicons name="images" size={10} color={colors.white} />
+                  <Text style={styles.multiImageText}>{link.images.length}</Text>
+                </View>
+              )}
+              
               <TouchableOpacity 
-                style={styles.cardImageContainer} 
-                activeOpacity={0.9}
-                onPress={() => link.image_url && setPreviewImage(link.image_url)}
+                style={styles.miniOptionsBtn}
+                onPress={() => setSelectedLink(link)}
               >
-                {link.image_url ? (
-                  <Image source={{ uri: link.image_url }} style={styles.productImage} />
-                ) : (
-                  <View style={styles.imagePlaceholder}>
-                    <Ionicons name="image-outline" size={32} color={colors.border} />
-                  </View>
-                )}
-                <View style={[styles.statusBadge, { backgroundColor: link.is_active ? colors.success + '20' : colors.danger + '20' }]}>
-                  <Text style={[styles.statusText, { color: link.is_active ? colors.success : colors.danger }]}>
-                    {link.is_active ? 'ACTIVE' : 'INACTIVE'}
-                  </Text>
-                </View>
-                {link.image_url && (
-                  <View style={styles.previewHint}>
-                    <Ionicons name="expand-outline" size={14} color={colors.white} />
-                  </View>
-                )}
+                <Ionicons name="ellipsis-vertical" size={16} color={colors.white} />
               </TouchableOpacity>
+            </View>
 
-              <View style={styles.cardContent}>
-                <View style={styles.contentLeft}>
-                  <Text style={styles.productTitle} numberOfLines={1}>{link.product_name}</Text>
-                  <Text style={styles.productPrice}>GHS {(link.price / 100).toFixed(2)}</Text>
-                  <Text style={styles.linkCode}>Code: {link.link_code}</Text>
-                </View>
-
-                <View style={styles.contentRight}>
-                  <TouchableOpacity 
-                    style={styles.actionBtn} 
-                    onPress={() => handleShare(link.link_code, link.product_name)}
-                  >
-                    <Ionicons name="share-social-outline" size={20} color={colors.brand} />
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={styles.actionBtn} 
-                    onPress={() => setSelectedLink(link)}
-                  >
-                    <Ionicons name="ellipsis-horizontal" size={20} color={colors.textSecondary} />
-                  </TouchableOpacity>
+            <View style={styles.cardContent}>
+              <Text style={styles.productTitle} numberOfLines={1}>{link.product_name}</Text>
+              <View style={styles.priceRow}>
+                <Text style={styles.productPrice}>GHS {(link.price / 100).toFixed(0)}</Text>
+                <View style={styles.codeTag}>
+                  <Text style={styles.linkCode}>{link.link_code}</Text>
                 </View>
               </View>
-            </TouchableOpacity>
-          ))
+            </View>
+          </TouchableOpacity>
         )}
-        <View style={{ height: 40 }} />
-      </ScrollView>
+      />
 
       {/* Options Modal Bottom Sheet */}
       <Modal
@@ -277,23 +273,23 @@ const createStyles = (colors) => StyleSheet.create({
     shadowRadius: 12,
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 24,
+    paddingHorizontal: 16,
+    paddingBottom: 40,
+  },
+  columnWrapper: {
+    justifyContent: 'space-between',
+    paddingBottom: 16,
   },
   emptyState: {
+    width: '100%',
     paddingVertical: 100,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.card,
+    backgroundColor: colors.cardGlass,
     borderRadius: 32,
     borderWidth: 1,
     borderColor: colors.border,
     marginTop: 20,
-    shadowColor: colors.brand,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
   },
   emptyText: {
     color: colors.text,
@@ -315,22 +311,25 @@ const createStyles = (colors) => StyleSheet.create({
     fontSize: 15,
   },
   linkCard: {
-    backgroundColor: colors.cardGlass,
+    width: '48%',
+    backgroundColor: colors.card,
     borderRadius: 24,
     overflow: 'hidden',
-    marginBottom: 24,
     borderWidth: 1,
-    borderColor: colors.glassBorder,
+    borderColor: colors.border,
     shadowColor: colors.brand,
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.06,
-    shadowRadius: 24,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    elevation: 3,
   },
   cardImageContainer: {
-    height: 180,
+    height: 160,
     width: '100%',
     backgroundColor: colors.cardAlt,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    overflow: 'hidden',
     position: 'relative',
   },
   productImage: {
@@ -344,59 +343,80 @@ const createStyles = (colors) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  statusBadge: {
+  statusIndicator: {
     position: 'absolute',
-    top: 14,
-    right: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: colors.overlay,
+    top: 12,
+    left: 12,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 1.5,
+    borderColor: colors.white,
   },
-  statusText: {
+  multiImageBadge: {
+    position: 'absolute',
+    bottom: 12,
+    left: 12,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  multiImageText: {
+    color: colors.white,
     fontSize: 10,
     fontWeight: '800',
-    letterSpacing: 0.8,
+  },
+  miniOptionsBtn: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.brand,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
   cardContent: {
-    padding: 20,
+    padding: 12,
+  },
+  productTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 6,
+    letterSpacing: -0.2,
+  },
+  priceRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  contentLeft: {
-    flex: 1,
-  },
-  productTitle: {
-    fontSize: 19,
-    fontWeight: '800',
-    color: colors.text,
-    marginBottom: 4,
-    letterSpacing: -0.3,
-  },
   productPrice: {
-    fontSize: 17,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: '800',
     color: colors.brand,
-    marginBottom: 6,
+  },
+  codeTag: {
+    backgroundColor: colors.brandLight,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
   },
   linkCode: {
-    fontSize: 12,
-    color: colors.textMuted,
-    fontWeight: '600',
-    letterSpacing: 0.5,
-  },
-  contentRight: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  actionBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: colors.buttonGhost,
-    alignItems: 'center',
-    justifyContent: 'center',
+    fontSize: 10,
+    color: colors.brand,
+    fontWeight: '800',
+    textTransform: 'uppercase',
   },
   modalOverlay: {
     flex: 1,
@@ -410,11 +430,6 @@ const createStyles = (colors) => StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: Platform.OS === 'ios' ? 40 : 24,
     paddingTop: 12,
-    shadowColor: colors.brand,
-    shadowOffset: { width: 0, height: -10 },
-    shadowOpacity: 0.08,
-    shadowRadius: 20,
-    elevation: 10,
     borderWidth: 1,
     borderColor: colors.glassBorder,
   },
@@ -427,12 +442,11 @@ const createStyles = (colors) => StyleSheet.create({
     marginBottom: 24,
   },
   sheetTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '800',
     color: colors.text,
     marginBottom: 20,
     textAlign: 'center',
-    letterSpacing: -0.3,
   },
   sheetOption: {
     flexDirection: 'row',
@@ -446,17 +460,6 @@ const createStyles = (colors) => StyleSheet.create({
     color: colors.text,
     fontWeight: '600',
     marginLeft: 16,
-  },
-  previewHint: {
-    position: 'absolute',
-    bottom: 10,
-    right: 10,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.overlay,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   imagePreviewOverlay: {
     flex: 1,

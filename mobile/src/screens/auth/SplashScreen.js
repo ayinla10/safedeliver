@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Platform, StatusBar as RNStatusBar} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../ThemeContext';

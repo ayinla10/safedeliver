@@ -33,6 +33,9 @@ app.use(cors({
 app.use(express.json());
 app.use(generalLimiter);
 
+// Serve uploads folder as static files
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 // Health check
 app.get('/api/v1/health', (req, res) => {
     res.json({ status: 'ok', version: '2.0.0', timestamp: new Date().toISOString() });
@@ -59,24 +62,37 @@ const upload = multer({
     }
 });
 
-// Upload endpoint — stores in Supabase Storage
+// Upload endpoint — stores in Supabase Storage or Local Fallback
 app.post('/api/v1/upload', require('./middleware/auth').authenticateSeller, upload.single('file'), async (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
     try {
-        if (!supabase) {
-            return res.status(500).json({ error: 'Storage not configured. Add SUPABASE_URL and SUPABASE_SERVICE_KEY to Render environment.' });
-        }
         const ext = path.extname(req.file.originalname);
         const filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`;
-        const { error } = await supabase.storage
-            .from('safedeliver-uploads')
-            .upload(filename, req.file.buffer, {
-                contentType: req.file.mimetype,
-                upsert: false,
-            });
-        if (error) throw error;
-        const { data } = supabase.storage.from('safedeliver-uploads').getPublicUrl(filename);
-        res.json({ url: data.publicUrl });
+
+        if (supabase) {
+            // Supabase Upload
+            const { error } = await supabase.storage
+                .from('safedeliver-uploads')
+                .upload(filename, req.file.buffer, {
+                    contentType: req.file.mimetype,
+                    upsert: false,
+                });
+            if (error) throw error;
+            const { data } = supabase.storage.from('safedeliver-uploads').getPublicUrl(filename);
+            return res.json({ url: data.publicUrl });
+        } else {
+            // Local Fallback
+            const fs = require('fs');
+            const fsPath = path.join(__dirname, 'uploads', filename);
+            fs.writeFileSync(fsPath, req.file.buffer);
+            
+            // Generate local URL (using host from request)
+            const host = req.get('host');
+            const protocol = req.protocol;
+            const url = `${protocol}://${host}/uploads/${filename}`;
+            console.log('Using Local Storage Fallback:', url);
+            return res.json({ url });
+        }
     } catch (err) {
         console.error('Upload error:', err);
         res.status(500).json({ error: err.message });

@@ -19,6 +19,7 @@ export default function DashboardScreen({ navigation }) {
   const { colors } = useTheme();
   const [stats, setStats] = useState({ wallet_balance: 0, active_orders: 0, total_orders: 0, incoming_funds: 0 });
   const [recentOrders, setRecentOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
   const statusColors = useMemo(() => getStatusColors(colors), [colors]);
   const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -56,8 +57,10 @@ export default function DashboardScreen({ navigation }) {
         </View>
 
         <View style={styles.greetingSection}>
-          <Text style={styles.greetingText}>Hello, {seller?.full_name?.split(' ')[0] || 'Kwame'}</Text>
-          <Text style={styles.greetingSubtext}>Here's your overview</Text>
+          <View style={styles.greetingGlass}>
+            <Text style={styles.greetingText}>Hello, {seller?.full_name?.split(' ')[0] || 'Kwame'}</Text>
+            <Text style={styles.greetingSubtext}>Here's your overview</Text>
+          </View>
         </View>
 
         <View style={styles.statsGrid}>
@@ -152,7 +155,7 @@ const createStyles = (colors) => StyleSheet.create({
   notificationBtn: {
     width: 48,
     height: 48,
-    borderRadius: 24,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -173,18 +176,34 @@ const createStyles = (colors) => StyleSheet.create({
   },
   greetingSection: {
     marginBottom: 36,
+    marginTop: 8,
+  },
+  greetingGlass: {
+    backgroundColor: colors.brand + '15', // Subtle translucent orange
+    padding: 24,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: colors.brand + '25',
+    overflow: 'hidden',
+    position: 'relative',
+    shadowColor: colors.brand,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 8,
   },
   greetingText: {
-    fontSize: 36,
+    fontSize: 34,
     fontWeight: '900',
     color: colors.text,
-    marginBottom: 6,
+    marginBottom: 4,
     letterSpacing: -1,
   },
   greetingSubtext: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: colors.textSecondary,
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.brand,
+    opacity: 0.8,
   },
   statsGrid: {
     flexDirection: 'row',
@@ -195,7 +214,7 @@ const createStyles = (colors) => StyleSheet.create({
   },
   statCard: {
     width: '48%',
-    borderRadius: 24,
+    borderRadius: 16,
     padding: 20,
     borderWidth: 1,
     borderColor: colors.border,
@@ -250,7 +269,7 @@ const createStyles = (colors) => StyleSheet.create({
     color: colors.brand,
   },
   orderCard: {
-    borderRadius: 24,
+    borderRadius: 16,
     padding: 20,
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -277,7 +296,7 @@ const createStyles = (colors) => StyleSheet.create({
     paddingVertical: 60, 
     alignItems: 'center', 
     justifyContent: 'center', 
-    borderRadius: 24, 
+    borderRadius: 16, 
     borderWidth: 1, 
     borderColor: colors.border,
     backgroundColor: colors.cardAlt,

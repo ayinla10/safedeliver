@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../ThemeContext';
 import { api } from '../api';
+import { optimizeImage } from '../utils/image';
 
 export default function KYCScreen() {
   const { colors } = useTheme();
@@ -11,6 +12,7 @@ export default function KYCScreen() {
   const [idImage, setIdImage] = useState(null);
   const [selfieImage, setSelfieImage] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [shouldLaunchCamera, setShouldLaunchCamera] = useState(false);
 
   const pickIDPhoto = async () => {
     try {
@@ -46,24 +48,31 @@ export default function KYCScreen() {
   };
 
   const launchCamera = async () => {
-    // 1. Close the guide modal FIRST to clear the activity stack and avoid race conditions
+    // Just trigger the state change so useEffect can handle it after modal closes
     setShowSelfieGuide(false);
-    
-    // 2. Add a small delay to allow the modal's closing animation to finish
-    await new Promise(resolve => setTimeout(resolve, 150));
+    setTimeout(() => {
+      setShouldLaunchCamera(true);
+    }, 300);
+  };
 
+  // Dedicated effect to launch camera after modal is safely gone
+  React.useEffect(() => {
+    if (shouldLaunchCamera) {
+      setShouldLaunchCamera(false);
+      performCameraLaunch();
+    }
+  }, [shouldLaunchCamera]);
+
+  const performCameraLaunch = async () => {
     try {
-      // 3. Re-verify permissions immediately before launch
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== 'granted') {
         Alert.alert('Camera Access Required', 'Please allow camera access in your settings.');
         return;
       }
 
-      // 4. Launch camera with stability defaults (allowsEditing: false is safer for front camera)
       const result = await ImagePicker.launchCameraAsync({
         allowsEditing: false, 
-        aspect: [4, 3],
         quality: 0.7,
         cameraType: ImagePicker.CameraType.front,
       });
@@ -73,7 +82,7 @@ export default function KYCScreen() {
       }
     } catch (err) {
       console.error('Launch Camera Error:', err);
-      Alert.alert('Error', 'Could not open camera. Please ensure you have granted camera permissions.');
+      Alert.alert('Camera Error', `Could not open camera: ${err.message || 'Unknown error'}`);
     }
   };
 
@@ -85,9 +94,15 @@ export default function KYCScreen() {
 
     setUploading(true);
     try {
+      // Optimize images before upload
+      const [optId, optSelfie] = await Promise.all([
+        optimizeImage(idImage),
+        optimizeImage(selfieImage)
+      ]);
+
       const [idUpload, selfieUpload] = await Promise.all([
-        api.upload(idImage),
-        api.upload(selfieImage),
+        api.upload(optId),
+        api.upload(optSelfie),
       ]);
 
       await api.post('/kyc/apply', {

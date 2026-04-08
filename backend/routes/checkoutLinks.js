@@ -19,14 +19,19 @@ router.get('/', authenticateSeller, async (req, res, next) => {
 // Create link (no delivery_fee — seller quotes per order)
 router.post('/', authenticateSeller, async (req, res) => {
     try {
-        const { product_name, description, price, image_url } = req.body;
+        const { product_name, description, price, image_url, images } = req.body;
         if (!product_name || !price) return res.status(400).json({ error: 'Product name and price required' });
         const id = uuid();
         const linkCode = genCode();
+        
+        // Use images[0] as image_url for legacy support if images is provided
+        const finalImageUrl = (images && images.length > 0) ? images[0] : (image_url || null);
+        const finalImages = images ? JSON.stringify(images) : '[]';
+
         await db.query(
-            `INSERT INTO checkout_links (id, seller_id, link_code, product_name, description, price, image_url)
-             VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-            [id, req.seller.id, linkCode, product_name, description || null, price, image_url || null]
+            `INSERT INTO checkout_links (id, seller_id, link_code, product_name, description, price, image_url, images)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+            [id, req.seller.id, linkCode, product_name, description || null, price, finalImageUrl, finalImages]
         );
         res.status(201).json({ id, link_code: linkCode, product_name, price, fee_percent: FEE_PERCENT });
     } catch (err) {
@@ -53,12 +58,21 @@ router.get('/:code', async (req, res, next) => {
 // Update link (no delivery_fee)
 router.patch('/:code', authenticateSeller, async (req, res, next) => {
     try {
-        const { product_name, description, price, image_url, is_active } = req.body;
+        const { product_name, description, price, image_url, images, is_active } = req.body;
+        
+        let finalImageUrl = image_url;
+        let finalImages = images ? JSON.stringify(images) : null;
+
+        if (images && images.length > 0) {
+            finalImageUrl = images[0];
+        }
+
         await db.query(
             `UPDATE checkout_links SET product_name = COALESCE($1, product_name), description = COALESCE($2, description),
              price = COALESCE($3, price), image_url = COALESCE($4, image_url),
-             is_active = COALESCE($5, is_active), updated_at = NOW() WHERE link_code = $6 AND seller_id = $7`,
-            [product_name, description, price, image_url, is_active, req.params.code, req.seller.id]
+             images = COALESCE($5, images),
+             is_active = COALESCE($6, is_active), updated_at = NOW() WHERE link_code = $7 AND seller_id = $8`,
+            [product_name, description, price, finalImageUrl, finalImages, is_active, req.params.code, req.seller.id]
         );
         res.json({ message: 'Updated' });
     } catch (err) { next(err); }

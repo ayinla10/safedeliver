@@ -31,7 +31,10 @@ async function request(endpoint, options = {}) {
                 }
             } catch {
                 await AsyncStorage.multiRemove(['sd-token', 'sd-refresh-token', 'sd-seller']);
+                if (api.onTokenExpired) api.onTokenExpired();
             }
+        } else {
+            if (api.onTokenExpired) api.onTokenExpired();
         }
     }
 
@@ -41,6 +44,7 @@ async function request(endpoint, options = {}) {
 }
 
 export const api = {
+    onTokenExpired: null, // Global hook for AuthContext
     get: (endpoint) => request(endpoint),
     post: (endpoint, body) => request(endpoint, { method: 'POST', body: JSON.stringify(body) }),
     patch: (endpoint, body) => request(endpoint, { method: 'PATCH', body: JSON.stringify(body) }),
