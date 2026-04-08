@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView, StatusBar as RNStatusBar} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../../AuthContext'; 
+import { useAuth } from '../../AuthContext';
+import { useTheme } from '../../ThemeContext';
 
 export default function RegisterScreen({ navigation }) {
+  const { colors } = useTheme();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -49,6 +51,8 @@ export default function RegisterScreen({ navigation }) {
 
   const isFormValid = fullName && email && phone && password && confirmPassword === password && agreed;
 
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView 
@@ -60,18 +64,18 @@ export default function RegisterScreen({ navigation }) {
           {/* Header */}
           <View style={styles.header}>
             <Text style={styles.title}>Create Account</Text>
-            <Text style={styles.subtitle}>Start selling securely</Text>
+            <Text style={styles.subtitle}>Start transacting with total peace of mind</Text>
           </View>
 
           {/* Form */}
           <View style={styles.formContainer}>
             {/* Full Name */}
             <View style={styles.inputContainer}>
-              <Ionicons name="person-outline" size={20} color="#64748B" style={styles.inputIcon} />
+              <Ionicons name="person-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="Full Name"
-                placeholderTextColor="#64748B"
+                placeholderTextColor={colors.textMuted}
                 value={fullName}
                 onChangeText={setFullName}
               />
@@ -79,11 +83,11 @@ export default function RegisterScreen({ navigation }) {
 
             {/* Email */}
             <View style={styles.inputContainer}>
-              <Ionicons name="mail-outline" size={20} color="#64748B" style={styles.inputIcon} />
+              <Ionicons name="mail-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="Email Address"
-                placeholderTextColor="#64748B"
+                placeholderTextColor={colors.textMuted}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 value={email}
@@ -93,14 +97,14 @@ export default function RegisterScreen({ navigation }) {
 
             {/* Phone Number with Prefix Badge */}
             <View style={styles.inputContainer}>
-              <Ionicons name="call-outline" size={20} color="#64748B" style={styles.inputIcon} />
+              <Ionicons name="call-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
               <View style={styles.prefixBadge}>
                 <Text style={styles.prefixText}>+233</Text>
               </View>
               <TextInput
                 style={styles.input}
                 placeholder="Phone Number"
-                placeholderTextColor="#64748B"
+                placeholderTextColor={colors.textMuted}
                 keyboardType="phone-pad"
                 value={phone}
                 onChangeText={setPhone}
@@ -109,27 +113,27 @@ export default function RegisterScreen({ navigation }) {
 
             {/* Password Input */}
             <View style={styles.inputContainer}>
-              <Ionicons name="lock-closed-outline" size={20} color="#64748B" style={styles.inputIcon} />
+              <Ionicons name="lock-closed-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="Password"
-                placeholderTextColor="#64748B"
+                placeholderTextColor={colors.textMuted}
                 secureTextEntry={!showPassword}
                 value={password}
                 onChangeText={setPassword}
               />
               <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
-                <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={20} color="#64748B" />
+                <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={20} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
 
             {/* Confirm Password Input */}
             <View style={styles.inputContainer}>
-              <Ionicons name="lock-closed-outline" size={20} color="#64748B" style={styles.inputIcon} />
+              <Ionicons name="lock-closed-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="Confirm Password"
-                placeholderTextColor="#64748B"
+                placeholderTextColor={colors.textMuted}
                 secureTextEntry={!showPassword}
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
@@ -176,31 +180,32 @@ export default function RegisterScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0a0b10',
-        paddingTop: Platform.OS === 'android' ? (RNStatusBar.currentHeight || 0) + 4 : 0,
-    },
+    backgroundColor: colors.bg,
+    paddingTop: Platform.OS === 'android' ? (RNStatusBar.currentHeight || 0) + 4 : 0,
+  },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: 28,
     paddingTop: 60,
-    paddingBottom: 24,
+    paddingBottom: 40,
   },
   header: {
-    marginBottom: 40,
+    marginBottom: 44,
   },
   title: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: '#ffffff',
-    marginBottom: 8,
+    fontSize: 36,
+    fontWeight: '800',
+    color: colors.text,
+    marginBottom: 10,
+    letterSpacing: -1,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#64748B',
-    fontWeight: '500',
+    fontSize: 17,
+    color: colors.textSecondary,
+    fontWeight: '600',
   },
   formContainer: {
     flex: 1,
@@ -208,100 +213,115 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#12131a', 
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
+    backgroundColor: colors.cardGlass, 
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: colors.glassBorder,
     marginBottom: 16,
-    height: 56,
+    height: 60,
+    shadowColor: colors.brand,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.02,
+    shadowRadius: 10,
+    elevation: 2,
   },
   inputIcon: {
-    paddingLeft: 16,
-    paddingRight: 12,
+    paddingLeft: 20,
+    paddingRight: 16,
   },
   prefixBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
+    backgroundColor: colors.cardAlt,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
     marginRight: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   prefixText: {
-    color: '#F1F5F9',
-    fontWeight: '600',
+    color: colors.text,
+    fontWeight: '700',
     fontSize: 14,
   },
   input: {
     flex: 1,
-    color: '#F1F5F9',
+    color: colors.text,
     fontSize: 16,
     height: '100%',
+    fontWeight: '600',
   },
   eyeIcon: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     height: '100%',
     justifyContent: 'center',
   },
   checkboxContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 32,
-    marginTop: 8,
+    marginBottom: 36,
+    marginTop: 12,
   },
   checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: '#64748B',
+    width: 24,
+    height: 24,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: colors.border,
     marginRight: 12,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: colors.cardAlt,
   },
   checkboxActive: {
-    backgroundColor: '#2B7DE9',
-    borderColor: '#2B7DE9',
+    backgroundColor: colors.brand,
+    borderColor: colors.brand,
   },
   checkboxText: {
-    color: '#F1F5F9',
-    fontSize: 14,
+    color: colors.textSecondary,
+    fontSize: 15,
+    fontWeight: '600',
   },
   errorText: {
-    color: '#EF4444',
+    color: colors.danger,
     fontSize: 14,
-    marginBottom: 16,
+    marginBottom: 20,
     textAlign: 'center',
-    fontWeight: '500',
+    fontWeight: '600',
+    backgroundColor: colors.danger + '10',
+    padding: 12,
+    borderRadius: 12,
   },
   primaryButton: {
-    backgroundColor: '#2B7DE9',
-    paddingVertical: 18,
-    borderRadius: 16,
+    backgroundColor: colors.brand,
+    paddingVertical: 20,
+    borderRadius: 22,
     alignItems: 'center',
-    shadowColor: '#2B7DE9',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowColor: colors.brand,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 8,
   },
   buttonDisabled: {
-    opacity: 0.5,
+    opacity: 0.6,
   },
   primaryButtonText: {
     color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 17,
+    fontWeight: '800',
+    letterSpacing: -0.3,
   },
   footer: {
     alignItems: 'center',
-    marginTop: 32,
+    marginTop: 40,
   },
   footerText: {
-    color: '#64748B',
-    fontSize: 15,
+    color: colors.textSecondary,
+    fontSize: 16,
+    fontWeight: '500',
   },
   footerHighlight: {
-    color: '#2B7DE9',
-    fontWeight: '600',
+    color: colors.brand,
+    fontWeight: '800',
   },
 });

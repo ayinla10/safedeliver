@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, Platform, KeyboardAvoidingView, StatusBar as RNStatusBar, Image} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../../ThemeContext';
 
 export default function BuyerCheckoutScreen({ navigation, route }) {
+  const { colors } = useTheme();
   // Mock product data from linkCode
   const product = {
     title: 'MacBook Pro M2 2023',
@@ -26,19 +28,21 @@ export default function BuyerCheckoutScreen({ navigation, route }) {
     navigation?.navigate('BuyerWaiting');
   };
 
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <SafeAreaView style={styles.container}>
-      <RNStatusBar barStyle="light-content" backgroundColor="#0a0b10" />
+      <RNStatusBar barStyle={colors.statusBar} backgroundColor={colors.bg} />
       <KeyboardAvoidingView 
         style={{ flex: 1 }} 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <View style={styles.header}>
           <TouchableOpacity style={styles.backBtn} onPress={() => navigation?.goBack()}>
-            <Ionicons name="arrow-back" size={24} color="#F1F5F9" />
+            <Ionicons name="arrow-back" size={24} color={colors.text} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Secure Checkout</Text>
-          <Ionicons name="shield-checkmark" size={20} color="#2B7DE9" style={{ width: 40, textAlign: 'center' }} />
+          <Ionicons name="shield-checkmark" size={24} color={colors.brand} style={{ width: 44, textAlign: 'right' }} />
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
@@ -52,7 +56,7 @@ export default function BuyerCheckoutScreen({ navigation, route }) {
               <Text style={styles.sellerName}>{product.sellerName}</Text>
               <View style={styles.sellerBadges}>
                 <View style={styles.trustBadge}>
-                  <Ionicons name="star" size={12} color="#EAB308" />
+                  <Ionicons name="star" size={12} color={colors.warning} />
                   <Text style={styles.trustText}>{product.sellerTrust}</Text>
                 </View>
                 <View style={styles.tierBadge}>
@@ -80,7 +84,7 @@ export default function BuyerCheckoutScreen({ navigation, route }) {
                 <TextInput
                   style={styles.input}
                   placeholder="First Name"
-                  placeholderTextColor="#64748B"
+                  placeholderTextColor={colors.textMuted}
                   value={firstName}
                   onChangeText={setFirstName}
                 />
@@ -89,7 +93,7 @@ export default function BuyerCheckoutScreen({ navigation, route }) {
                 <TextInput
                   style={styles.input}
                   placeholder="Last Name"
-                  placeholderTextColor="#64748B"
+                  placeholderTextColor={colors.textMuted}
                   value={lastName}
                   onChangeText={setLastName}
                 />
@@ -97,11 +101,11 @@ export default function BuyerCheckoutScreen({ navigation, route }) {
             </View>
 
             <View style={[styles.inputWrapper, styles.marginTop16]}>
-              <Ionicons name="call-outline" size={20} color="#64748B" style={styles.inputIcon} />
+              <Ionicons name="call-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="Phone Number (e.g. 055...)"
-                placeholderTextColor="#64748B"
+                placeholderTextColor={colors.textMuted}
                 keyboardType="phone-pad"
                 value={phone}
                 onChangeText={setPhone}
@@ -112,7 +116,7 @@ export default function BuyerCheckoutScreen({ navigation, route }) {
               <TextInput
                 style={[styles.input, styles.textArea]}
                 placeholder="Full Delivery Address & Landmark"
-                placeholderTextColor="#64748B"
+                placeholderTextColor={colors.textMuted}
                 multiline
                 numberOfLines={3}
                 value={address}
@@ -125,7 +129,7 @@ export default function BuyerCheckoutScreen({ navigation, route }) {
           {/* Guarantee Info */}
           <View style={styles.guaranteeCard}>
             <View style={styles.guaranteeHeader}>
-              <Ionicons name="shield-half" size={20} color="#22C55E" />
+              <Ionicons name="shield-half" size={20} color={colors.success} />
               <Text style={styles.guaranteeTitle}>SafeDeliver Guarantee</Text>
             </View>
             <Text style={styles.guaranteeDesc}>
@@ -159,72 +163,81 @@ export default function BuyerCheckoutScreen({ navigation, route }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0a0b10',
-        paddingTop: Platform.OS === 'android' ? (RNStatusBar.currentHeight || 0) + 4 : 0,
-    },
+    backgroundColor: colors.bg,
+    paddingTop: Platform.OS === 'android' ? (RNStatusBar.currentHeight || 0) + 4 : 0,
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingTop: 16,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.06)',
+    paddingBottom: 24,
   },
   backBtn: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 22,
+    backgroundColor: colors.cardAlt,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#ffffff',
+    fontSize: 22,
+    fontWeight: '800',
+    color: colors.text,
+    letterSpacing: -0.5,
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 24,
-    paddingBottom: 40,
+    paddingHorizontal: 24,
+    paddingTop: 8,
+    paddingBottom: 140, 
   },
   sellerCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#12131a',
-    borderRadius: 16,
-    padding: 16,
+    backgroundColor: colors.cardGlass,
+    borderRadius: 24,
+    padding: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
-    marginBottom: 16,
+    borderColor: colors.glassBorder,
+    marginBottom: 24,
+    shadowColor: colors.brand,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.05,
+    shadowRadius: 20,
+    elevation: 4,
   },
   avatarCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(43, 125, 233, 0.15)',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.brandLight,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 16,
+    borderWidth: 1,
+    borderColor: colors.brandBorder,
   },
   avatarText: {
-    color: '#2B7DE9',
-    fontSize: 20,
-    fontWeight: '700',
+    color: colors.brand,
+    fontSize: 22,
+    fontWeight: '800',
   },
   sellerInfo: {
     flex: 1,
   },
   sellerName: {
-    color: '#F1F5F9',
-    fontSize: 16,
-    fontWeight: '700',
+    color: colors.text,
+    fontSize: 17,
+    fontWeight: '800',
     marginBottom: 6,
+    letterSpacing: -0.3,
   },
   sellerBadges: {
     flexDirection: 'row',
@@ -234,66 +247,79 @@ const styles = StyleSheet.create({
   trustBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(234, 179, 8, 0.1)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
+    backgroundColor: colors.warning + '15',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
     gap: 4,
   },
   trustText: {
-    color: '#EAB308',
+    color: colors.warning,
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   tierBadge: {
-    backgroundColor: 'rgba(43, 125, 233, 0.1)',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
+    backgroundColor: colors.cardAlt,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   tierText: {
-    color: '#2B7DE9',
+    color: colors.textSecondary,
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   productCard: {
     flexDirection: 'row',
-    backgroundColor: '#12131a',
-    borderRadius: 16,
+    backgroundColor: colors.bg,
+    borderRadius: 24,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
-    marginBottom: 32,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    marginBottom: 40,
+    shadowColor: colors.brand,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
   productImage: {
-    width: 100,
-    height: 100,
+    width: 110,
+    height: 110,
+    borderRadius: 16,
+    margin: 10,
+    resizeMode: 'cover',
   },
   productDetails: {
     flex: 1,
-    padding: 16,
+    paddingVertical: 12,
+    paddingRight: 20,
     justifyContent: 'center',
   },
   productTitle: {
-    color: '#F1F5F9',
+    color: colors.textSecondary,
     fontSize: 15,
     fontWeight: '600',
-    marginBottom: 8,
+    marginBottom: 6,
     lineHeight: 20,
   },
   productPrice: {
-    color: '#ffffff',
-    fontSize: 18,
-    fontWeight: '800',
+    color: colors.text,
+    fontSize: 24,
+    fontWeight: '900',
+    letterSpacing: -0.5,
   },
   formSection: {
-    marginBottom: 32,
+    marginBottom: 40,
   },
   sectionTitle: {
-    color: '#ffffff',
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 16,
+    color: colors.text,
+    fontSize: 20,
+    fontWeight: '800',
+    marginBottom: 20,
+    letterSpacing: -0.5,
   },
   rowInputs: {
     flexDirection: 'row',
@@ -304,96 +330,120 @@ const styles = StyleSheet.create({
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#12131a',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
-    height: 56,
+    backgroundColor: colors.cardAlt,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    height: 64,
   },
   inputIcon: {
-    paddingLeft: 16,
-    paddingRight: 12,
+    paddingLeft: 20,
   },
   input: {
     flex: 1,
-    color: '#F1F5F9',
-    fontSize: 15,
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '600',
     height: '100%',
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
   },
   textAreaWrapper: {
-    height: 100,
+    height: 140,
     alignItems: 'flex-start',
-    paddingTop: 16,
+    paddingTop: 10,
   },
   textArea: {
     height: '100%',
   },
   guaranteeCard: {
-    backgroundColor: 'rgba(34, 197, 94, 0.05)',
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(34, 197, 94, 0.2)',
-    marginBottom: 8,
+    backgroundColor: colors.success + '08',
+    borderRadius: 24,
+    padding: 24,
+    borderWidth: 1.5,
+    borderColor: colors.success + '15',
+    marginBottom: 40,
   },
   guaranteeHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
-    gap: 8,
+    marginBottom: 12,
+    gap: 12,
   },
   guaranteeTitle: {
-    color: '#22C55E',
-    fontSize: 15,
-    fontWeight: '700',
+    color: colors.success,
+    fontSize: 17,
+    fontWeight: '800',
+    letterSpacing: -0.3,
   },
   guaranteeDesc: {
-    color: '#E3E1E9',
+    color: colors.textSecondary,
     fontSize: 14,
-    lineHeight: 22,
+    lineHeight: 24,
+    fontWeight: '600',
   },
   bottomBar: {
-    backgroundColor: '#12131a',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.06)',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    paddingBottom: Platform.OS === 'ios' ? 32 : 16,
+    backgroundColor: colors.cardGlass,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    paddingHorizontal: 28,
+    paddingVertical: 24,
+    paddingBottom: Platform.OS === 'ios' ? 44 : 24,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    shadowColor: colors.brand,
+    shadowOffset: { width: 0, height: -12 },
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+    elevation: 15,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
   },
   totalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 24,
   },
   totalLabel: {
-    color: '#64748B',
-    fontSize: 15,
+    color: colors.textSecondary,
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
   totalValue: {
-    color: '#ffffff',
-    fontSize: 24,
-    fontWeight: '800',
+    color: colors.text,
+    fontSize: 32,
+    fontWeight: '900',
+    letterSpacing: -1,
   },
   pendingQuoteText: {
-    color: '#2B7DE9',
-    fontSize: 13,
-    fontWeight: '600',
-    marginTop: 2,
+    color: colors.brand,
+    fontSize: 14,
+    fontWeight: '800',
+    marginTop: 4,
   },
   submitBtn: {
-    backgroundColor: '#2B7DE9',
-    paddingVertical: 18,
-    borderRadius: 16,
+    backgroundColor: colors.brand,
+    height: 64,
+    borderRadius: 22,
     alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.brand,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.3,
+    shadowRadius: 24,
+    elevation: 10,
   },
   buttonDisabled: {
-    opacity: 0.5,
+    opacity: 0.6,
   },
   submitBtnText: {
     color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: -0.3,
   },
 });

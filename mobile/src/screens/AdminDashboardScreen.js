@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, RefreshControl, StatusBar as RNStatusBar, ActivityIndicator, Platform} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../ThemeContext';
 import { api } from '../api';
 
 export default function AdminDashboardScreen({ navigation }) {
+    const { colors } = useTheme();
     const [stats, setStats] = useState({
         totalVolume: 0,
         activeDisputes: 0,
@@ -42,9 +44,11 @@ export default function AdminDashboardScreen({ navigation }) {
         }
     };
 
+    const styles = useMemo(() => createStyles(colors), [colors]);
+
     return (
         <SafeAreaView style={styles.container}>
-            <RNStatusBar barStyle="light-content" backgroundColor="#0a0b10" />
+            <RNStatusBar barStyle={colors.statusBar} backgroundColor={colors.bg} />
             
             <View style={styles.header}>
                 <View>
@@ -52,27 +56,27 @@ export default function AdminDashboardScreen({ navigation }) {
                     <Text style={styles.headerSub}>Platform Overview</Text>
                 </View>
                 <TouchableOpacity style={styles.refreshBtn} onPress={fetchAdminData}>
-                    <Ionicons name="refresh" size={20} color="#F1F5F9" />
+                    <Ionicons name="refresh" size={20} color={colors.text} />
                 </TouchableOpacity>
             </View>
 
             <ScrollView 
                 contentContainerStyle={styles.scrollContent}
-                refreshControl={<RefreshControl refreshing={loading} onRefresh={fetchAdminData} tintColor="#2B7DE9" />}
+                refreshControl={<RefreshControl refreshing={loading} onRefresh={fetchAdminData} tintColor={colors.brand} />}
             >
                 {/* Stats Grid */}
                 <View style={styles.statsGrid}>
                     <View style={styles.statBox}>
                         <Text style={styles.statLabel}>Total Volume</Text>
                         <Text style={styles.statValue}>GHS {(stats.totalVolume / 100).toLocaleString()}</Text>
-                        <View style={[styles.statBadge, {backgroundColor: '#22C55E20'}]}>
-                            <Text style={[styles.statBadgeText, {color: '#22C55E'}]}>+12.5%</Text>
+                        <View style={[styles.statBadge, {backgroundColor: colors.success + '20'}]}>
+                            <Text style={[styles.statBadgeText, {color: colors.success}]}>+12.5%</Text>
                         </View>
                     </View>
 
                     <View style={styles.statBox}>
                         <Text style={styles.statLabel}>Active Disputes</Text>
-                        <Text style={[styles.statValue, {color: stats.activeDisputes > 0 ? '#EF4444' : '#ffffff'}]}>
+                        <Text style={[styles.statValue, {color: stats.activeDisputes > 0 ? colors.danger : colors.text}]}>
                             {stats.activeDisputes}
                         </Text>
                         <TouchableOpacity onPress={() => navigation.navigate('AdminDisputes')}>
@@ -83,7 +87,7 @@ export default function AdminDashboardScreen({ navigation }) {
                     <View style={styles.statBox}>
                         <Text style={styles.statLabel}>Pending KYC</Text>
                         <Text style={styles.statValue}>{stats.pendingKyc}</Text>
-                        <TouchableOpacity>
+                        <TouchableOpacity onPress={() => navigation.navigate('AdminKYC')}>
                             <Text style={styles.statAction}>Review</Text>
                         </TouchableOpacity>
                     </View>
@@ -98,23 +102,23 @@ export default function AdminDashboardScreen({ navigation }) {
                 {/* Quick Actions */}
                 <Text style={styles.sectionTitle}>Quick Actions</Text>
                 <View style={styles.actionsContainer}>
-                    <TouchableOpacity style={styles.actionBtn}>
-                        <View style={[styles.iconContainer, {backgroundColor: '#EF444415'}]}>
-                            <Ionicons name="alert-circle" size={24} color="#EF4444" />
+                    <TouchableOpacity style={styles.actionBtn} onPress={() => navigation.navigate('AdminDisputes')}>
+                        <View style={[styles.iconContainer, {backgroundColor: colors.danger + '15'}]}>
+                            <Ionicons name="alert-circle" size={24} color={colors.danger} />
                         </View>
                         <Text style={styles.actionText}>Review Disputes</Text>
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={styles.actionBtn}>
-                        <View style={[styles.iconContainer, {backgroundColor: '#22C55E15'}]}>
-                            <Ionicons name="checkmark-shield" size={24} color="#22C55E" />
+                    <TouchableOpacity style={styles.actionBtn} onPress={() => navigation.navigate('AdminKYC')}>
+                        <View style={[styles.iconContainer, {backgroundColor: colors.success + '15'}]}>
+                            <Ionicons name="checkmark-shield" size={24} color={colors.success} />
                         </View>
                         <Text style={styles.actionText}>KYC Approval</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity style={styles.actionBtn}>
-                        <View style={[styles.iconContainer, {backgroundColor: '#2B7DE915'}]}>
-                            <Ionicons name="list" size={24} color="#2B7DE9" />
+                        <View style={[styles.iconContainer, {backgroundColor: colors.brand + '15'}]}>
+                            <Ionicons name="list" size={24} color={colors.brand} />
                         </View>
                         <Text style={styles.actionText}>Audit Logs</Text>
                     </TouchableOpacity>
@@ -123,11 +127,11 @@ export default function AdminDashboardScreen({ navigation }) {
                 {/* System Health placeholder */}
                 <View style={styles.healthCard}>
                     <View style={styles.healthRow}>
-                        <Ionicons name="server-outline" size={20} color="#22C55E" />
+                        <Ionicons name="server-outline" size={20} color={colors.success} />
                         <Text style={styles.healthText}>System Status: Healthy</Text>
                     </View>
                     <View style={styles.healthRow}>
-                        <Ionicons name="flash-outline" size={20} color="#EAB308" />
+                        <Ionicons name="flash-outline" size={20} color={colors.warning} />
                         <Text style={styles.healthText}>Latency: 45ms</Text>
                     </View>
                 </View>
@@ -137,10 +141,10 @@ export default function AdminDashboardScreen({ navigation }) {
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#0a0b10',
+        backgroundColor: colors.bg,
         paddingTop: Platform.OS === 'android' ? (RNStatusBar.currentHeight || 0) + 4 : 0,
     },
     header: {
@@ -148,25 +152,29 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         paddingHorizontal: 20,
-        paddingVertical: 20,
+        paddingVertical: 24,
     },
     headerTitle: {
-        fontSize: 24,
-        fontWeight: '700',
-        color: '#ffffff',
+        fontSize: 28,
+        fontWeight: '800',
+        color: colors.text,
+        letterSpacing: -1,
     },
     headerSub: {
-        fontSize: 14,
-        color: '#64748B',
-        marginTop: 2,
+        fontSize: 15,
+        color: colors.textSecondary,
+        marginTop: 4,
+        fontWeight: '600',
     },
     refreshBtn: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: 'rgba(255,255,255,0.05)',
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: colors.cardAlt,
         alignItems: 'center',
         justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: colors.border,
     },
     scrollContent: {
         paddingHorizontal: 20,
@@ -176,80 +184,96 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         flexWrap: 'wrap',
         gap: 16,
-        marginBottom: 32,
+        marginBottom: 40,
     },
     statBox: {
-        width: '47%',
-        backgroundColor: '#12131a',
-        borderRadius: 16,
-        padding: 16,
+        width: '47.5%',
+        backgroundColor: colors.cardGlass,
+        borderRadius: 24,
+        padding: 20,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.06)',
+        borderColor: colors.glassBorder,
+        shadowColor: colors.brand,
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.05,
+        shadowRadius: 15,
+        elevation: 4,
     },
     statLabel: {
-        color: '#64748B',
-        fontSize: 12,
-        marginBottom: 8,
+        color: colors.textSecondary,
+        fontSize: 13,
+        fontWeight: '700',
+        marginBottom: 10,
     },
     statValue: {
-        color: '#ffffff',
-        fontSize: 20,
-        fontWeight: '700',
+        color: colors.text,
+        fontSize: 22,
+        fontWeight: '900',
+        letterSpacing: -0.5,
     },
     statBadge: {
         alignSelf: 'flex-start',
-        paddingHorizontal: 6,
-        paddingVertical: 2,
-        borderRadius: 4,
-        marginTop: 8,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 8,
+        marginTop: 12,
     },
     statBadgeText: {
-        fontSize: 10,
-        fontWeight: '600',
+        fontSize: 11,
+        fontWeight: '800',
     },
     statAction: {
-        color: '#2B7DE9',
-        fontSize: 12,
-        marginTop: 8,
-        fontWeight: '600',
+        color: colors.brand,
+        fontSize: 13,
+        marginTop: 12,
+        fontWeight: '700',
     },
     sectionTitle: {
-        color: '#ffffff',
-        fontSize: 18,
-        fontWeight: '700',
-        marginBottom: 16,
+        color: colors.text,
+        fontSize: 20,
+        fontWeight: '800',
+        marginBottom: 20,
+        letterSpacing: -0.3,
     },
     actionsContainer: {
-        gap: 12,
-        marginBottom: 32,
+        gap: 16,
+        marginBottom: 40,
     },
     actionBtn: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#12131a',
-        padding: 16,
-        borderRadius: 16,
+        backgroundColor: colors.cardGlass,
+        padding: 20,
+        borderRadius: 24,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.05)',
+        borderColor: colors.glassBorder,
+        shadowColor: colors.brand,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.02,
+        shadowRadius: 10,
+        elevation: 2,
     },
     iconContainer: {
-        width: 44,
-        height: 44,
-        borderRadius: 12,
+        width: 52,
+        height: 52,
+        borderRadius: 16,
         alignItems: 'center',
         justifyContent: 'center',
-        marginRight: 16,
+        marginRight: 20,
     },
     actionText: {
-        color: '#F1F5F9',
-        fontSize: 16,
-        fontWeight: '600',
+        color: colors.text,
+        fontSize: 17,
+        fontWeight: '800',
+        letterSpacing: -0.3,
     },
     healthCard: {
-        backgroundColor: '#1a1b21',
-        borderRadius: 12,
-        padding: 16,
-        gap: 12,
+        backgroundColor: colors.cardAlt,
+        borderRadius: 20,
+        padding: 20,
+        gap: 16,
+        borderWidth: 1,
+        borderColor: colors.border,
     },
     healthRow: {
         flexDirection: 'row',
@@ -257,7 +281,8 @@ const styles = StyleSheet.create({
         gap: 12,
     },
     healthText: {
-        color: '#64748B',
-        fontSize: 14,
+        color: colors.textMuted,
+        fontSize: 15,
+        fontWeight: '600',
     }
 });

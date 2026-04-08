@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Image, StatusBar as RNStatusBar, Platform} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../../ThemeContext';
 
 export default function WaitingQuoteScreen({ navigation }) {
+  const { colors } = useTheme();
   // Mock data representing the submitted order
   const mockOrder = {
     productTitle: 'MacBook Pro M2 2023',
@@ -21,16 +23,18 @@ export default function WaitingQuoteScreen({ navigation }) {
     navigation?.navigate('BuyerQuoteReceived');
   };
 
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <SafeAreaView style={styles.container}>
-      <RNStatusBar barStyle="light-content" backgroundColor="#0a0b10" />
+      <RNStatusBar barStyle={colors.statusBar} backgroundColor={colors.bg} />
       
       {/* Product Header Thumbnail */}
       <View style={styles.headerImageContainer}>
         <Image source={{ uri: mockOrder.image }} style={styles.headerImage} />
         <View style={styles.imageOverlay} />
         <TouchableOpacity style={styles.backBtn} onPress={handleCancel}>
-          <Ionicons name="close" size={24} color="#ffffff" />
+          <Ionicons name="close" size={24} color={colors.text} />
         </TouchableOpacity>
       </View>
 
@@ -39,7 +43,7 @@ export default function WaitingQuoteScreen({ navigation }) {
         <TouchableOpacity activeOpacity={1} delayLongPress={1500} onLongPress={handleSimulateQuote} style={styles.loadingContainer}>
           <View style={styles.iconOuterCircle}>
             <View style={styles.iconInnerCircle}>
-              <Ionicons name="hourglass-outline" size={32} color="#2B7DE9" />
+              <Ionicons name="hourglass-outline" size={32} color={colors.brand} />
             </View>
           </View>
         </TouchableOpacity>
@@ -58,12 +62,12 @@ export default function WaitingQuoteScreen({ navigation }) {
           </View>
           
           <View style={styles.detailRow}>
-            <Ionicons name="cube-outline" size={18} color="#64748B" style={styles.detailIcon} />
+            <Ionicons name="cube-outline" size={18} color={colors.textMuted} style={styles.detailIcon} />
             <Text style={styles.detailText} numberOfLines={1}>{mockOrder.productTitle}</Text>
           </View>
 
           <View style={styles.detailRow}>
-            <Ionicons name="location-outline" size={18} color="#64748B" style={styles.detailIcon} />
+            <Ionicons name="location-outline" size={18} color={colors.textMuted} style={styles.detailIcon} />
             <Text style={styles.detailText} numberOfLines={2}>{mockOrder.address}</Text>
           </View>
         </View>
@@ -80,14 +84,14 @@ export default function WaitingQuoteScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0a0b10',
-        paddingTop: Platform.OS === 'android' ? (RNStatusBar.currentHeight || 0) + 4 : 0,
-    },
+    backgroundColor: colors.bg,
+    paddingTop: Platform.OS === 'android' ? (RNStatusBar.currentHeight || 0) + 4 : 0,
+  },
   headerImageContainer: {
-    height: 160,
+    height: 220,
     width: '100%',
     position: 'relative',
   },
@@ -98,106 +102,121 @@ const styles = StyleSheet.create({
   },
   imageOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(10, 11, 16, 0.6)',
+    backgroundColor: colors.bg + '20', 
   },
   backBtn: {
     position: 'absolute',
-    top: 16,
-    left: 16,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    top: 20,
+    left: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.cardAlt,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   content: {
     flex: 1,
     paddingHorizontal: 24,
     alignItems: 'center',
-    transform: [{ translateY: -40 }], // Pull content up over the image
+    transform: [{ translateY: -60 }], 
   },
   loadingContainer: {
-    marginBottom: 24,
+    marginBottom: 32,
   },
   iconOuterCircle: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: colors.brandLight + '40',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: colors.brandBorder,
+  },
+  iconInnerCircle: {
     width: 88,
     height: 88,
     borderRadius: 44,
-    backgroundColor: 'rgba(43, 125, 233, 0.1)',
+    backgroundColor: colors.cardAlt,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: colors.brand,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.2,
+    shadowRadius: 24,
+    elevation: 10,
     borderWidth: 1,
-    borderColor: 'rgba(43, 125, 233, 0.2)',
-  },
-  iconInnerCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#12131a',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#2B7DE9',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 8,
+    borderColor: colors.border,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#ffffff',
+    fontSize: 28,
+    fontWeight: '900',
+    color: colors.text,
     textAlign: 'center',
     marginBottom: 12,
+    letterSpacing: -0.6,
   },
   subtitle: {
-    fontSize: 15,
-    color: '#64748B',
+    fontSize: 16,
+    color: colors.textSecondary,
     textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 32,
+    lineHeight: 26,
+    marginBottom: 44,
     paddingHorizontal: 16,
+    fontWeight: '600',
+    letterSpacing: -0.2,
   },
   detailsCard: {
     width: '100%',
-    backgroundColor: '#12131a',
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: colors.cardGlass,
+    borderRadius: 32,
+    padding: 28,
+    borderWidth: 1.5,
+    borderColor: colors.glassBorder,
+    shadowColor: colors.brand,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.1,
+    shadowRadius: 24,
+    elevation: 8,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.06)',
+    marginBottom: 24,
+    paddingBottom: 24,
+    borderBottomWidth: 1.5,
+    borderBottomColor: colors.border,
   },
   cardTitle: {
-    color: '#F1F5F9',
-    fontSize: 16,
-    fontWeight: '600',
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: -0.4,
   },
   cardDate: {
-    color: '#64748B',
-    fontSize: 13,
+    color: colors.textMuted,
+    fontSize: 14,
+    fontWeight: '700',
   },
   detailRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   detailIcon: {
     marginTop: 2,
-    marginRight: 12,
+    marginRight: 16,
   },
   detailText: {
     flex: 1,
-    color: '#E3E1E9',
-    fontSize: 15,
-    lineHeight: 22,
+    color: colors.textSecondary,
+    fontSize: 16,
+    lineHeight: 24,
+    fontWeight: '600',
   },
   actionContainer: {
     marginTop: 'auto',
@@ -205,16 +224,18 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   cancelBtn: {
-    paddingVertical: 18,
-    borderRadius: 16,
+    height: 64,
+    borderRadius: 22,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
-    backgroundColor: 'rgba(239, 68, 68, 0.05)',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: colors.danger + '30',
+    backgroundColor: colors.danger + '08',
   },
   cancelBtnText: {
-    color: '#EF4444',
-    fontSize: 16,
-    fontWeight: '600',
+    color: colors.danger,
+    fontSize: 17,
+    fontWeight: '800',
+    letterSpacing: -0.3,
   },
 });

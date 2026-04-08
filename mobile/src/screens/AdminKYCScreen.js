@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, RefreshControl, StatusBar as RNStatusBar, Alert, ActivityIndicator, Image, Modal, TextInput, Platform, } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../ThemeContext';
 import { api } from '../api';
 
 export default function AdminKYCScreen({ navigation }) {
+    const { colors } = useTheme();
     const [apps, setApps] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedApp, setSelectedApp] = useState(null);
@@ -47,9 +49,11 @@ export default function AdminKYCScreen({ navigation }) {
         }
     };
 
+    const styles = useMemo(() => createStyles(colors), [colors]);
+
     return (
         <SafeAreaView style={styles.container}>
-            <RNStatusBar barStyle="light-content" backgroundColor="#0a0b10" />
+            <RNStatusBar barStyle={colors.statusBar} backgroundColor={colors.bg} />
             
             <View style={styles.header}>
                 <Text style={styles.headerTitle}>KYC Review</Text>
@@ -58,11 +62,11 @@ export default function AdminKYCScreen({ navigation }) {
 
             <ScrollView 
                 contentContainerStyle={styles.scrollContent}
-                refreshControl={<RefreshControl refreshing={loading} onRefresh={fetchApps} tintColor="#2B7DE9" />}
+                refreshControl={<RefreshControl refreshing={loading} onRefresh={fetchApps} tintColor={colors.brand} />}
             >
                 {apps.length === 0 ? (
                     <View style={styles.emptyState}>
-                        <Ionicons name="documents-outline" size={48} color="rgba(255,255,255,0.05)" />
+                        <Ionicons name="documents-outline" size={64} color={colors.border} />
                         <Text style={styles.emptyText}>{loading ? 'Loading applications...' : 'All caught up! No pending KYC.'}</Text>
                     </View>
                 ) : (
@@ -77,7 +81,7 @@ export default function AdminKYCScreen({ navigation }) {
                                 <Text style={styles.sellerDetails}>{app.seller_email} • Tier {app.current_tier} → {app.target_tier}</Text>
                                 <Text style={styles.timeText}>Applied: {new Date(app.created_at).toLocaleDateString()}</Text>
                             </View>
-                            <Ionicons name="chevron-forward" size={20} color="#64748B" />
+                            <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
                         </TouchableOpacity>
                     ))
                 )}
@@ -89,8 +93,8 @@ export default function AdminKYCScreen({ navigation }) {
                     <View style={styles.modalContent}>
                         <View style={styles.modalHeader}>
                             <Text style={styles.modalTitle}>Review Application</Text>
-                            <TouchableOpacity onPress={() => setShowModal(false)}>
-                                <Ionicons name="close" size={24} color="#F1F5F9" />
+                            <TouchableOpacity onPress={() => setShowModal(false)} style={styles.modalCloseBtn}>
+                                <Ionicons name="close" size={24} color={colors.text} />
                             </TouchableOpacity>
                         </View>
 
@@ -106,21 +110,55 @@ export default function AdminKYCScreen({ navigation }) {
                                     <Text style={styles.infoValue}>Tier {selectedApp.target_tier}</Text>
                                 </View>
 
+                                {/* AI Verification Insights */}
+                                <View style={styles.aiSection}>
+                                    <View style={styles.aiHeader}>
+                                        <Ionicons name="shield-checkmark" size={20} color={colors.success} />
+                                        <Text style={styles.aiTitle}>AI Verification Signals</Text>
+                                    </View>
+                                    
+                                    <View style={styles.aiGrid}>
+                                        <View style={styles.aiCard}>
+                                            <Text style={styles.aiLabel}>Face Match</Text>
+                                            <Text style={[styles.aiValue, { color: selectedApp.auto_verify_score > 70 ? colors.success : colors.warning }]}>
+                                                {selectedApp.auto_verify_score ? `${selectedApp.auto_verify_score}%` : 'N/A'}
+                                            </Text>
+                                        </View>
+                                        <View style={styles.aiCard}>
+                                            <Text style={styles.aiLabel}>Status</Text>
+                                            <Text style={[styles.aiValue, { color: selectedApp.is_auto_verified ? colors.success : colors.danger }]}>
+                                                {selectedApp.is_auto_verified ? 'VERIFIED' : 'FLAGGED'}
+                                            </Text>
+                                        </View>
+                                    </View>
+
+                                    {selectedApp.verification_error && (
+                                        <Text style={styles.aiError}>⚠️ {selectedApp.verification_error}</Text>
+                                    )}
+
+                                    {selectedApp.ocr_data?.raw_text && (
+                                        <View style={styles.ocrBox}>
+                                            <Text style={styles.aiLabel}>OCR Extraction Sample</Text>
+                                            <Text style={styles.ocrText} numberOfLines={3}>{selectedApp.ocr_data.raw_text}</Text>
+                                        </View>
+                                    )}
+                                </View>
+
                                 <View style={styles.docSection}>
                                     <Text style={styles.infoLabel}>Selfie with ID</Text>
                                     <View style={styles.imagePlaceholder}>
-                                        <Ionicons name="image-outline" size={48} color="#34343a" />
+                                        <Ionicons name="image-outline" size={48} color={colors.border} />
                                         <Text style={styles.imagePlaceholderText}>Image would be shown here 🔗</Text>
-                                        <Text style={styles.linkText}>{selectedApp.selfie_url || 'No selfie provided'}</Text>
+                                        <Text style={styles.linkText} numberOfLines={1}>{selectedApp.selfie_url || 'No selfie provided'}</Text>
                                     </View>
                                 </View>
 
                                 <View style={styles.docSection}>
                                     <Text style={styles.infoLabel}>Government ID Card</Text>
                                     <View style={styles.imagePlaceholder}>
-                                        <Ionicons name="card-outline" size={48} color="#34343a" />
+                                        <Ionicons name="card-outline" size={48} color={colors.border} />
                                         <Text style={styles.imagePlaceholderText}>Image would be shown here 🔗</Text>
-                                        <Text style={styles.linkText}>{selectedApp.id_card_url || 'No ID provided'}</Text>
+                                        <Text style={styles.linkText} numberOfLines={1}>{selectedApp.gov_id_url || 'No ID provided'}</Text>
                                     </View>
                                 </View>
 
@@ -129,7 +167,7 @@ export default function AdminKYCScreen({ navigation }) {
                                     <TextInput 
                                         style={styles.reasonInput}
                                         placeholder="e.g. ID is blurry, Name doesn't match"
-                                        placeholderTextColor="#64748B"
+                                        placeholderTextColor={colors.textMuted}
                                         multiline
                                         value={rejectReason}
                                         onChangeText={setRejectReason}
@@ -160,25 +198,28 @@ export default function AdminKYCScreen({ navigation }) {
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#0a0b10',
+        backgroundColor: colors.bg,
         paddingTop: Platform.OS === 'android' ? (RNStatusBar.currentHeight || 0) + 4 : 0,
     },
     header: {
         paddingHorizontal: 20,
         paddingBottom: 24,
+        paddingTop: 16,
     },
     headerTitle: {
-        fontSize: 24,
-        fontWeight: '700',
-        color: '#ffffff',
+        fontSize: 28,
+        fontWeight: '800',
+        color: colors.text,
+        letterSpacing: -1,
     },
     headerSub: {
-        fontSize: 14,
-        color: '#64748B',
+        fontSize: 15,
+        color: colors.textSecondary,
         marginTop: 4,
+        fontWeight: '600',
     },
     scrollContent: {
         paddingHorizontal: 20,
@@ -187,149 +228,254 @@ const styles = StyleSheet.create({
     appCard: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#12131a',
-        padding: 16,
-        borderRadius: 16,
-        marginBottom: 12,
+        backgroundColor: colors.cardGlass,
+        padding: 20,
+        borderRadius: 24,
+        marginBottom: 16,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.06)',
+        borderColor: colors.glassBorder,
+        shadowColor: colors.brand,
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.05,
+        shadowRadius: 15,
+        elevation: 4,
     },
     cardInfo: {
         flex: 1,
     },
     sellerName: {
-        color: '#ffffff',
-        fontSize: 16,
-        fontWeight: '700',
+        color: colors.text,
+        fontSize: 17,
+        fontWeight: '800',
         marginBottom: 4,
+        letterSpacing: -0.3,
     },
     sellerDetails: {
-        color: '#64748B',
-        fontSize: 12,
-        marginBottom: 4,
+        color: colors.textSecondary,
+        fontSize: 13,
+        fontWeight: '600',
+        marginBottom: 8,
     },
     timeText: {
-        color: '#2B7DE9',
-        fontSize: 10,
-        fontWeight: '600',
+        color: colors.brand,
+        fontSize: 11,
+        fontWeight: '700',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
     },
     emptyState: {
-        paddingVertical: 100,
+        paddingVertical: 120,
         alignItems: 'center',
         justifyContent: 'center',
     },
     emptyText: {
-        color: '#64748B',
-        fontSize: 16,
-        marginTop: 16,
+        color: colors.textMuted,
+        fontSize: 17,
+        fontWeight: '600',
+        marginTop: 20,
     },
     modalOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.8)',
+        backgroundColor: colors.overlay,
         justifyContent: 'flex-end',
     },
     modalContent: {
-        backgroundColor: '#12131a',
-        borderTopLeftRadius: 32,
-        borderTopRightRadius: 32,
-        maxHeight: '90%',
-        paddingTop: 24,
+        backgroundColor: colors.bg,
+        borderTopLeftRadius: 36,
+        borderTopRightRadius: 36,
+        maxHeight: '92%',
+        paddingTop: 32,
+        shadowColor: colors.brand,
+        shadowOffset: { width: 0, height: -10 },
+        shadowOpacity: 0.1,
+        shadowRadius: 20,
+        elevation: 20,
+        borderWidth: 1,
+        borderColor: colors.glassBorder,
     },
     modalHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingHorizontal: 24,
-        marginBottom: 24,
+        paddingHorizontal: 28,
+        marginBottom: 32,
     },
     modalTitle: {
-        color: '#ffffff',
-        fontSize: 20,
-        fontWeight: '700',
+        color: colors.text,
+        fontSize: 22,
+        fontWeight: '800',
+        letterSpacing: -0.5,
+    },
+    modalCloseBtn: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: colors.cardAlt,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: colors.border,
     },
     modalBody: {
-        paddingHorizontal: 24,
+        paddingHorizontal: 28,
         paddingBottom: 40,
     },
     infoSection: {
-        marginBottom: 16,
+        marginBottom: 20,
     },
     infoLabel: {
-        color: '#64748B',
+        color: colors.textMuted,
         fontSize: 12,
-        fontWeight: '600',
+        fontWeight: '800',
         textTransform: 'uppercase',
-        marginBottom: 8,
+        marginBottom: 10,
+        letterSpacing: 0.5,
     },
     infoValue: {
-        color: '#F1F5F9',
+        color: colors.text,
+        fontSize: 18,
+        fontWeight: '700',
+    },
+    aiSection: {
+        backgroundColor: colors.success + '08',
+        borderRadius: 24,
+        padding: 20,
+        marginBottom: 32,
+        borderWidth: 1,
+        borderColor: colors.success + '20',
+    },
+    aiHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        marginBottom: 20,
+    },
+    aiTitle: {
+        color: colors.success,
         fontSize: 16,
+        fontWeight: '800',
+        letterSpacing: -0.3,
+    },
+    aiGrid: {
+        flexDirection: 'row',
+        gap: 16,
+        marginBottom: 16,
+    },
+    aiCard: {
+        flex: 1,
+        backgroundColor: colors.bg,
+        padding: 16,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: colors.border,
+    },
+    aiLabel: {
+        color: colors.textMuted,
+        fontSize: 10,
+        fontWeight: '800',
+        textTransform: 'uppercase',
+        marginBottom: 6,
+        letterSpacing: 0.5,
+    },
+    aiValue: {
+        fontSize: 18,
+        fontWeight: '800',
+    },
+    aiError: {
+        color: colors.danger,
+        fontSize: 13,
         fontWeight: '600',
+        marginTop: 6,
+    },
+    ocrBox: {
+        marginTop: 16,
+        paddingTop: 16,
+        borderTopWidth: 1,
+        borderTopColor: colors.border,
+    },
+    ocrText: {
+        color: colors.textSecondary,
+        fontSize: 12,
+        lineHeight: 18,
+        fontStyle: 'italic',
+        fontWeight: '500',
     },
     docSection: {
-        marginBottom: 24,
+        marginBottom: 32,
     },
     imagePlaceholder: {
         width: '100%',
-        height: 160,
-        backgroundColor: '#0a0b10',
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.05)',
+        height: 180,
+        backgroundColor: colors.cardAlt,
+        borderRadius: 24,
+        borderWidth: 1.5,
+        borderColor: colors.border,
+        borderStyle: 'dashed',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 20,
+        padding: 24,
     },
     imagePlaceholderText: {
-        color: '#64748B',
-        fontSize: 12,
-        marginTop: 8,
+        color: colors.textSecondary,
+        fontSize: 13,
+        fontWeight: '600',
+        marginTop: 12,
     },
     linkText: {
-        color: '#2B7DE9',
-        fontSize: 10,
-        marginTop: 4,
+        color: colors.brand,
+        fontSize: 11,
+        marginTop: 6,
         textAlign: 'center',
+        fontWeight: '500',
     },
     rejectGroup: {
-        marginBottom: 24,
+        marginBottom: 32,
     },
     reasonInput: {
-        backgroundColor: '#0a0b10',
-        borderRadius: 12,
+        backgroundColor: colors.cardAlt,
+        borderRadius: 20,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.06)',
-        color: '#F1F5F9',
-        padding: 16,
-        height: 80,
+        borderColor: colors.border,
+        color: colors.text,
+        padding: 20,
+        height: 100,
         textAlignVertical: 'top',
+        fontSize: 15,
+        fontWeight: '500',
     },
     modalActions: {
         flexDirection: 'row',
-        gap: 12,
-        marginBottom: 40,
+        gap: 16,
+        marginBottom: 48,
     },
     modalBtn: {
         flex: 1,
-        height: 56,
-        borderRadius: 16,
+        height: 60,
+        borderRadius: 20,
         alignItems: 'center',
         justifyContent: 'center',
     },
     rejectBtn: {
-        backgroundColor: '#EF444415',
+        backgroundColor: colors.danger + '10',
         borderWidth: 1,
-        borderColor: '#EF444430',
+        borderColor: colors.danger + '30',
     },
     rejectText: {
-        color: '#EF4444',
-        fontWeight: '700',
+        color: colors.danger,
+        fontWeight: '800',
+        fontSize: 15,
     },
     approveBtn: {
-        backgroundColor: '#22C55E',
+        backgroundColor: colors.success,
+        shadowColor: colors.success,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.2,
+        shadowRadius: 16,
+        elevation: 8,
     },
     approveText: {
-        color: '#ffffff',
-        fontWeight: '700',
+        color: colors.white,
+        fontWeight: '800',
+        fontSize: 15,
     }
 });

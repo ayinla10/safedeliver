@@ -1,21 +1,22 @@
 import React from 'react';
 import {View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Platform, StatusBar as RNStatusBar} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../../ThemeContext';
 
 export default function SplashScreen({ navigation }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <SafeAreaView style={styles.container}>
-      <RNStatusBar barStyle="light-content" backgroundColor="#0a0b10" />
-      
-      {/* Subtle background glow effect could be added here with an Image/LinearGradient */}
+      <RNStatusBar barStyle={colors.statusBar} backgroundColor={colors.bg} />
       
       <View style={styles.contentContainer}>
         <View style={styles.logoContainer}>
           <View style={styles.shieldWrapper}>
-            <Ionicons name="shield-checkmark" size={64} color="#2B7DE9" />
+            <Ionicons name="shield-checkmark" size={64} color={colors.brand} />
           </View>
           <Text style={styles.logoText}>SafeDeliver</Text>
-          <Text style={styles.tagline}>Sell with confidence. Get paid securely.</Text>
+          <Text style={styles.tagline}>Social commerce, secured with trust.</Text>
         </View>
 
         <View style={styles.dotsContainer}>
@@ -47,93 +48,100 @@ export default function SplashScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0a0b10', // Deep black void
-        paddingTop: Platform.OS === 'android' ? (RNStatusBar.currentHeight || 0) + 4 : 0,
-    },
+    backgroundColor: colors.bg,
+  },
   contentContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: 28,
   },
   logoContainer: {
     alignItems: 'center',
-    marginBottom: 48,
+    marginBottom: 60,
   },
   shieldWrapper: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: 'rgba(43, 125, 233, 0.1)', // Subtle radial blue glow
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: colors.brandLight,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(43, 125, 233, 0.2)',
+    marginBottom: 32,
+    borderWidth: 2,
+    borderColor: colors.brand + '20',
+    shadowColor: colors.brand,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 12,
   },
   logoText: {
-    fontSize: 40,
-    fontWeight: '800',
-    color: '#ffffff',
-    letterSpacing: -1,
+    fontSize: 44,
+    fontWeight: '900',
+    color: colors.text,
+    letterSpacing: -1.5,
     marginBottom: 12,
   },
   tagline: {
-    fontSize: 16,
-    color: '#64748B',
+    fontSize: 17,
+    color: colors.textSecondary,
     textAlign: 'center',
-    fontWeight: '500',
+    fontWeight: '600',
+    lineHeight: 24,
   },
   dotsContainer: {
     flexDirection: 'row',
-    gap: 8,
-    marginTop: 20,
+    gap: 10,
+    marginTop: 32,
   },
   dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.border,
   },
   dotActive: {
-    backgroundColor: '#2B7DE9',
-    width: 24,
+    backgroundColor: colors.brand,
+    width: 32,
   },
   footerContainer: {
-    paddingHorizontal: 24,
-    paddingBottom: Platform.OS === 'ios' ? 10 : 32,
+    paddingHorizontal: 28,
+    paddingBottom: Platform.OS === 'ios' ? 20 : 40,
     paddingTop: 24,
   },
   primaryButton: {
-    backgroundColor: '#2B7DE9',
-    paddingVertical: 18,
-    borderRadius: 16,
+    backgroundColor: colors.brand,
+    paddingVertical: 22,
+    borderRadius: 22,
     alignItems: 'center',
-    marginBottom: 24,
-    shadowColor: '#2B7DE9',
-    shadowOffset: { width: 0, height: 8 },
+    marginBottom: 28,
+    shadowColor: colors.brand,
+    shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 8,
+    shadowRadius: 20,
+    elevation: 10,
   },
   primaryButtonText: {
     color: '#ffffff',
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '800',
+    letterSpacing: -0.3,
   },
   loginLinkContainer: {
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 14,
   },
   loginText: {
-    color: '#64748B',
-    fontSize: 15,
+    color: colors.textSecondary,
+    fontSize: 16,
+    fontWeight: '500',
   },
   loginTextHighlight: {
-    color: '#2B7DE9',
-    fontWeight: '600',
+    color: colors.brand,
+    fontWeight: '800',
   },
 });

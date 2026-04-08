@@ -5,12 +5,16 @@
 
 /* ── CSS Variables ─────────────────────────────────── */
 :root {
-  --brand: #2B7DE9;
-  --brand-light: #5BA3F5;
-  --brand-dark: #1A5BB8;
-  --brand-gradient: linear-gradient(135deg, #2B7DE9 0%, #6DBBFF 50%, #A8D8FF 100%);
-  --brand-gradient-hover: linear-gradient(135deg, #1A5BB8 0%, #4A9AEF 50%, #8ECAFF 100%);
-  --hero-gradient: linear-gradient(160deg, #EEF6FF 0%, #FAFCFF 30%, #FFFFFF 50%, #F0F7FF 100%);
+  /* Royal Aura — High-Trust Premium Palette */
+  --brand: #FF6B35;
+  --brand-light: #FF8A5C;
+  --brand-dark: #E85A2A;
+  --brand-gradient: linear-gradient(135deg, #FF6B35 0%, #FF9E67 100%);
+  --brand-gradient-hover: linear-gradient(145deg, #E85A2A 0%, #FF8A5C 70%, #FFB48F 100%);
+  --hero-gradient: radial-gradient(at 0% 0%, rgba(255, 107, 53, 0.05) 0%, transparent 50%), 
+                   radial-gradient(at 100% 100%, rgba(255, 107, 53, 0.03) 0%, transparent 50%),
+                   linear-gradient(180deg, #FBFBFE 0%, #FFFFFF 100%);
+  
   --accent: #FF6B35;
   --accent-light: #FF8A5C;
   --success: #10B981;
@@ -21,28 +25,31 @@
   --danger-bg: #FEF2F2;
   --info: #3B82F6;
 
-  --bg: #FAFCFF;
-  --bg-alt: #F0F4FA;
+  /* Surface & Depth */
+  --bg: #FBFBFE; /* Warm Aura Porcelain */
+  --bg-alt: #F1F4F9;
   --white: #FFFFFF;
   --card-bg: #FFFFFF;
-  --card-shadow: 0 2px 16px rgba(43, 125, 233, 0.06), 0 1px 4px rgba(0, 0, 0, 0.04);
-  --card-shadow-hover: 0 8px 32px rgba(43, 125, 233, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
-  --text: #1A2332;
-  --text-secondary: #5A6B7F;
-  --text-muted: #8B99AB;
-  --border: #E2E8F0;
-  --border-focus: #2B7DE9;
-  --navbar-bg: rgba(255, 255, 255, 0.85);
-  --sidebar-bg: #F8FAFD;
+  
+  /* Luxury Layered Shadows (Stripe/Apple Style) */
+  --card-shadow: 0 2px 4px rgba(0, 48, 120, 0.02), 0 8px 16px rgba(0, 48, 120, 0.03), 0 24px 48px rgba(0, 48, 120, 0.04);
+  --card-shadow-hover: 0 4px 8px rgba(0, 48, 120, 0.06), 0 16px 32px rgba(0, 48, 120, 0.08), 0 48px 96px rgba(0, 48, 120, 0.12);
+  
+  --text: #0E141E; /* Deeper Indigo Black */
+  --text-secondary: #404E67;
+  --text-muted: #7A8AA0;
+  --border: rgba(0, 48, 120, 0.06);
+  --border-focus: #FF6B35;
+  --navbar-bg: rgba(255, 255, 255, 0.8);
 
   --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 24px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 32px;
   --radius-full: 9999px;
 
-  --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  --transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  --font: 'Inter', system-ui, -apple-system, sans-serif;
+  --transition: 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 [data-theme="dark"] {
@@ -50,18 +57,69 @@
   --bg-alt: #1A2332;
   --white: #1E293B;
   --card-bg: #1A2332;
-  --card-shadow: 0 2px 16px rgba(0, 0, 0, 0.3);
-  --card-shadow-hover: 0 8px 32px rgba(43, 125, 233, 0.15);
+  --card-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+  --card-shadow-hover: 0 8px 48px rgba(43, 125, 233, 0.15);
   --text: #F1F5F9;
   --text-secondary: #94A3B8;
   --text-muted: #64748B;
   --border: #2D3B4E;
-  --navbar-bg: rgba(15, 20, 25, 0.9);
+  --navbar-bg: rgba(15, 20, 25, 0.85);
   --sidebar-bg: #141C27;
-  --hero-gradient: linear-gradient(160deg, #0F1419 0%, #121B26 50%, #172333 100%);
-  --success-bg: rgba(16, 185, 129, 0.1);
-  --warning-bg: rgba(245, 158, 11, 0.1);
-  --danger-bg: rgba(239, 68, 68, 0.1);
+  --hero-gradient: radial-gradient(at 0% 0%, rgba(255, 107, 53, 0.15) 0%, transparent 50%), 
+                   radial-gradient(at 100% 100%, rgba(255, 107, 53, 0.1) 0%, transparent 50%),
+                   linear-gradient(180deg, #0A0F14 0%, #121822 100%);
+  --brand-gradient: linear-gradient(135deg, #FF6B35 0%, #FF9E67 100%);
+}
+
+.light-mode-enforced {
+  --bg: #FBFBFE !important;
+  --bg-alt: #F1F4F9 !important;
+  --white: #FFFFFF !important;
+  --card-bg: #FFFFFF !important;
+  --navbar-bg: rgba(255, 255, 255, 0.8) !important;
+  --text: #0E141E !important;
+  --text-secondary: #404E67 !important;
+  --text-muted: #7A8AA0 !important;
+  --border: rgba(0, 48, 120, 0.08) !important;
+  --card-shadow: 0 4px 12px rgba(0, 48, 120, 0.04) !important;
+  --card-shadow-hover: 0 8px 24px rgba(0, 48, 120, 0.08) !important;
+  background-color: var(--bg) !important;
+  color: var(--text) !important;
+}
+
+.light-mode-enforced .glass {
+  background: rgba(255, 255, 255, 0.75) !important;
+  border: 1px solid rgba(255, 255, 255, 0.4) !important;
+  backdrop-filter: blur(12px) saturate(180%) !important;
+}
+
+/* ── Glassmorphism Utilities ─────────────────────── */
+.glass {
+  background: rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(24px) saturate(190%);
+  -webkit-backdrop-filter: blur(24px) saturate(190%);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+[data-theme="dark"] .glass {
+  background: rgba(15, 20, 25, 0.7);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+  box-shadow: var(--card-shadow);
+  border-radius: var(--radius-lg);
+}
+
+.glass-nav {
+  background: var(--navbar-bg);
+  backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1px solid var(--border);
 }
 
 /* ── Base Reset ────────────────────────────────────── */
@@ -492,7 +550,8 @@ h3 {
 }
 
 [data-theme="dark"] .hero-orb {
-  opacity: 0.5;
+  opacity: 0.8;
+  box-shadow: 0 4px 20px rgba(43, 125, 233, 0.2);
 }
 
 .hero-orb-1 {

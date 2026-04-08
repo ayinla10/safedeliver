@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
-import {View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, StatusBar as RNStatusBar, Platform, Image, Alert, ActivityIndicator} from 'react-native';
+import React, { useState, useMemo } from 'react';
+import {View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, StatusBar as RNStatusBar, Platform, Image, Alert, ActivityIndicator, Modal} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { useTheme } from '../ThemeContext';
 import { api } from '../api';
 
 export default function KYCScreen() {
+  const { colors } = useTheme();
   const [kycState, setKycState] = useState('Tier 1');
   const [idImage, setIdImage] = useState(null);
   const [selfieImage, setSelfieImage] = useState(null);
@@ -31,32 +33,47 @@ export default function KYCScreen() {
     }
   };
 
+  const [showSelfieGuide, setShowSelfieGuide] = useState(false);
+  const [previewImage, setPreviewImage] = useState(null);
+
   const takeSelfie = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Camera Access Required', 'Please allow camera access.');
+      return;
+    }
+    setShowSelfieGuide(true);
+  };
+
+  const launchCamera = async () => {
+    // 1. Close the guide modal FIRST to clear the activity stack and avoid race conditions
+    setShowSelfieGuide(false);
+    
+    // 2. Add a small delay to allow the modal's closing animation to finish
+    await new Promise(resolve => setTimeout(resolve, 150));
+
     try {
+      // 3. Re-verify permissions immediately before launch
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Camera Access Required', 'Please allow camera access to take a selfie for verification.');
+        Alert.alert('Camera Access Required', 'Please allow camera access in your settings.');
         return;
       }
 
-      Alert.alert(
-        '📸 Selfie Instructions',
-        '1. Hold your Government ID card next to your face\n2. Make sure your face and ID are clearly visible\n3. Use good lighting — avoid shadows\n4. Look straight at the camera\n5. Don\'t wear sunglasses or hats',
-        [{ text: 'Open Camera', onPress: async () => {
-          const result = await ImagePicker.launchCameraAsync({
-            allowsEditing: true,
-            aspect: [1, 1],
-            quality: 0.8,
-            cameraType: ImagePicker.CameraType.front,
-          });
-          if (!result.canceled && result.assets[0]) {
-            setSelfieImage(result.assets[0].uri);
-          }
-        }},
-        { text: 'Cancel', style: 'cancel' }]
-      );
+      // 4. Launch camera with stability defaults (allowsEditing: false is safer for front camera)
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: false, 
+        aspect: [4, 3],
+        quality: 0.7,
+        cameraType: ImagePicker.CameraType.front,
+      });
+      
+      if (!result.canceled && result.assets[0]) {
+        setSelfieImage(result.assets[0].uri);
+      }
     } catch (err) {
-      Alert.alert('Error', 'Could not open camera');
+      console.error('Launch Camera Error:', err);
+      Alert.alert('Error', 'Could not open camera. Please ensure you have granted camera permissions.');
     }
   };
 
@@ -74,7 +91,8 @@ export default function KYCScreen() {
       ]);
 
       await api.post('/kyc/apply', {
-        id_document_url: idUpload.url,
+        target_tier: 2,
+        gov_id_url: idUpload.url,
         selfie_url: selfieUpload.url,
       });
 
@@ -92,12 +110,14 @@ export default function KYCScreen() {
     setKycState('Tier 1');
   };
 
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
-    <SafeAreaView style={styles.container}>
-      <RNStatusBar barStyle="light-content" backgroundColor="#0a0b10" />
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
+      <RNStatusBar barStyle={colors.statusBar} backgroundColor={colors.bg} />
       
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>KYC Verification</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>KYC Verification</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -108,7 +128,7 @@ export default function KYCScreen() {
           
           <View style={styles.tierNodeWrapper}>
             <View style={[styles.tierNode, styles.nodeCompletedAmber]}>
-              <Ionicons name="checkmark" size={14} color="#0a0b10" />
+              <Ionicons name="checkmark" size={14} color={colors.white} />
             </View>
             <Text style={styles.tierNameActive}>Tier 1</Text>
           </View>
@@ -131,7 +151,7 @@ export default function KYCScreen() {
         {/* Current Status */}
         <View style={styles.statusSection}>
           <Text style={styles.statusText}>
-            Your Current Tier: <Text style={{ color: '#EAB308' }}>1 (Basic)</Text>
+            Your Current Tier: <Text style={{ color: colors.warning }}>1 (Basic)</Text>
           </Text>
         </View>
 
@@ -139,7 +159,7 @@ export default function KYCScreen() {
         <View style={styles.limitsCard}>
           <View style={styles.limitRow}>
             <View style={styles.limitIconWrapper}>
-              <Ionicons name="cash-outline" size={20} color="#F1F5F9" />
+              <Ionicons name="cash-outline" size={20} color={colors.text} />
             </View>
             <View>
               <Text style={styles.limitLabel}>Max Transaction</Text>
@@ -151,7 +171,7 @@ export default function KYCScreen() {
           
           <View style={styles.limitRow}>
             <View style={styles.limitIconWrapper}>
-              <Ionicons name="wallet-outline" size={20} color="#F1F5F9" />
+              <Ionicons name="wallet-outline" size={20} color={colors.text} />
             </View>
             <View>
               <Text style={styles.limitLabel}>Weekly Withdrawal</Text>
@@ -164,7 +184,7 @@ export default function KYCScreen() {
         {kycState === 'Tier 1' && (
           <View style={styles.upgradeCard}>
             <View style={styles.upgradeHeader}>
-              <Ionicons name="arrow-up-circle" size={24} color="#2B7DE9" />
+              <Ionicons name="arrow-up-circle" size={24} color={colors.brand} />
               <Text style={styles.upgradeTitle}>Upgrade to Tier 2 — Verified</Text>
             </View>
             <Text style={styles.upgradeDesc}>
@@ -183,7 +203,7 @@ export default function KYCScreen() {
                   </View>
                 ) : (
                   <>
-                    <Ionicons name="id-card-outline" size={24} color="#64748B" style={styles.uploadIcon} />
+                    <Ionicons name="id-card-outline" size={24} color={colors.textMuted} style={styles.uploadIcon} />
                     <Text style={styles.uploadBoxText}>Government ID</Text>
                     <Text style={styles.uploadBoxHint}>Tap to upload</Text>
                   </>
@@ -201,7 +221,7 @@ export default function KYCScreen() {
                   </View>
                 ) : (
                   <>
-                    <Ionicons name="camera-outline" size={24} color="#64748B" style={styles.uploadIcon} />
+                    <Ionicons name="camera-outline" size={24} color={colors.textMuted} style={styles.uploadIcon} />
                     <Text style={styles.uploadBoxText}>Selfie with ID</Text>
                     <Text style={styles.uploadBoxHint}>Tap to take photo</Text>
                   </>
@@ -211,7 +231,7 @@ export default function KYCScreen() {
 
             {/* Selfie Instructions */}
             <View style={styles.instructionBox}>
-              <Ionicons name="information-circle-outline" size={18} color="#2B7DE9" />
+              <Ionicons name="information-circle-outline" size={18} color={colors.brand} />
               <Text style={styles.instructionText}>
                 For the selfie: hold your ID next to your face, look directly at the camera, and ensure good lighting.
               </Text>
@@ -236,7 +256,7 @@ export default function KYCScreen() {
 
         {kycState === 'PENDING' && (
           <View style={styles.pendingCard}>
-            <Ionicons name="hourglass-outline" size={48} color="#2B7DE9" style={styles.statusIcon} />
+            <Ionicons name="hourglass-outline" size={48} color={colors.brand} style={styles.statusIcon} />
             <Text style={styles.pendingTitle}>Application under review</Text>
             <Text style={styles.pendingDesc}>
               We are currently reviewing your documents. This usually takes 1-2 business days.
@@ -246,7 +266,7 @@ export default function KYCScreen() {
 
         {kycState === 'REJECTED' && (
           <View style={styles.rejectedCard}>
-            <Ionicons name="alert-circle-outline" size={48} color="#EF4444" style={styles.statusIcon} />
+            <Ionicons name="alert-circle-outline" size={48} color={colors.danger} style={styles.statusIcon} />
             <Text style={styles.rejectedTitle}>Application Rejected</Text>
             <Text style={styles.rejectedDesc}>
               The selfie you provided was blurry. Please resubmit clear photos to upgrade to Tier 2.
@@ -258,91 +278,495 @@ export default function KYCScreen() {
         )}
 
       </ScrollView>
+
+      {/* Modern Selfie Guide Modal */}
+      <Modal visible={showSelfieGuide} transparent animationType="fade">
+        <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}>
+          <View style={styles.guideCard}>
+            <View style={styles.guideHeader}>
+              <Ionicons name="camera" size={32} color={colors.brand} />
+              <Text style={styles.guideTitle}>Verification Selfie</Text>
+            </View>
+            
+            <View style={styles.instructionList}>
+              <View style={styles.instructionRow}>
+                <View style={styles.instructionStep}><Text style={styles.stepNum}>1</Text></View>
+                <Text style={styles.stepText}>Hold your ID card next to your face</Text>
+              </View>
+              <View style={styles.instructionRow}>
+                <View style={styles.instructionStep}><Text style={styles.stepNum}>2</Text></View>
+                <Text style={styles.stepText}>Ensure both face and ID are fully visible</Text>
+              </View>
+              <View style={styles.instructionRow}>
+                <View style={styles.instructionStep}><Text style={styles.stepNum}>3</Text></View>
+                <Text style={styles.stepText}>Use bright, even lighting</Text>
+              </View>
+            </View>
+
+            <View style={styles.guideActions}>
+              <TouchableOpacity style={styles.cancelGuideBtn} onPress={() => setShowSelfieGuide(false)}>
+                <Text style={styles.cancelGuideText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.startCameraBtn} onPress={launchCamera}>
+                <Text style={styles.startCameraText}>Open Camera</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Image Preview Modal */}
+      <Modal visible={!!previewImage} transparent animationType="fade">
+        <TouchableOpacity style={[styles.previewOverlay, { backgroundColor: colors.bg }]} activeOpacity={1} onPress={() => setPreviewImage(null)}>
+          <Image source={{ uri: previewImage }} style={styles.fullPreviewImage} resizeMode="contain" />
+          <TouchableOpacity style={styles.closePreview} onPress={() => setPreviewImage(null)}>
+            <Ionicons name="close" size={30} color={colors.text} />
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0a0b10',
+    backgroundColor: colors.bg,
     paddingTop: Platform.OS === 'android' ? (RNStatusBar.currentHeight || 0) + 4 : 0,
   },
-  header: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 24 },
-  headerTitle: { fontSize: 24, fontWeight: '700', color: '#ffffff', letterSpacing: -0.5 },
-  scrollContent: { paddingHorizontal: 20, paddingBottom: 40 },
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 24,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: colors.text,
+    letterSpacing: -1,
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+  },
   progressContainer: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
-    marginBottom: 32, position: 'relative', paddingHorizontal: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 44,
+    position: 'relative',
+    paddingHorizontal: 20,
   },
-  progressTrack: { position: 'absolute', top: 14, left: 40, right: 40, height: 2, backgroundColor: '#1a1b21', zIndex: 0 },
-  tierNodeWrapper: { alignItems: 'center', zIndex: 1 },
+  progressTrack: {
+    position: 'absolute',
+    top: 18,
+    left: 48,
+    right: 48,
+    height: 3,
+    backgroundColor: colors.border,
+    zIndex: 0,
+  },
+  tierNodeWrapper: {
+    alignItems: 'center',
+    zIndex: 1,
+  },
   tierNode: {
-    width: 28, height: 28, borderRadius: 14, borderWidth: 2,
-    alignItems: 'center', justifyContent: 'center', marginBottom: 8, backgroundColor: '#0a0b10',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+    backgroundColor: colors.bg,
   },
-  nodeCompletedAmber: { backgroundColor: '#EAB308', borderColor: '#EAB308' },
-  nodeCurrent: { borderColor: '#2B7DE9' },
-  nodeFuture: { borderColor: '#34343a' },
-  nodeInnerBlue: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#2B7DE9' },
-  nodeInnerGray: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#34343a' },
-  tierNameActive: { color: '#ffffff', fontSize: 12, fontWeight: '600' },
-  tierNameGray: { color: '#64748B', fontSize: 12, fontWeight: '500' },
-  statusSection: { alignItems: 'center', marginBottom: 24 },
-  statusText: { fontSize: 18, fontWeight: '700', color: '#F1F5F9' },
+  nodeCompletedAmber: {
+    backgroundColor: colors.warning,
+    borderColor: colors.warning,
+  },
+  nodeCurrent: {
+    borderColor: colors.brand,
+    backgroundColor: colors.brandLight,
+  },
+  nodeFuture: {
+    borderColor: colors.border,
+    backgroundColor: colors.cardAlt,
+  },
+  nodeInnerBlue: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: colors.brand,
+  },
+  nodeInnerGray: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: colors.border,
+  },
+  tierNameActive: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  tierNameGray: {
+    color: colors.textMuted,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  statusSection: {
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  statusText: {
+    fontSize: 19,
+    fontWeight: '800',
+    color: colors.text,
+    letterSpacing: -0.3,
+  },
   limitsCard: {
-    backgroundColor: '#12131a', borderRadius: 16, padding: 20,
-    borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.06)', marginBottom: 32,
+    backgroundColor: colors.cardGlass,
+    borderRadius: 24,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    marginBottom: 40,
+    shadowColor: colors.brand,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.04,
+    shadowRadius: 24,
+    elevation: 6,
   },
-  limitRow: { flexDirection: 'row', alignItems: 'center' },
+  limitRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   limitIconWrapper: {
-    width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    alignItems: 'center', justifyContent: 'center', marginRight: 16,
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: colors.brandLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 20,
   },
-  limitLabel: { color: '#64748B', fontSize: 13, marginBottom: 4 },
-  limitValue: { color: '#ffffff', fontSize: 18, fontWeight: '700' },
-  divider: { height: 1, backgroundColor: 'rgba(255, 255, 255, 0.06)', marginVertical: 16 },
+  limitLabel: {
+    color: colors.textMuted,
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  limitValue: {
+    color: colors.text,
+    fontSize: 20,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginVertical: 20,
+  },
   upgradeCard: {
-    backgroundColor: 'rgba(43, 125, 233, 0.05)', borderRadius: 16, padding: 24,
-    borderWidth: 1, borderColor: 'rgba(43, 125, 233, 0.3)',
+    backgroundColor: colors.cardGlass,
+    borderRadius: 28,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: colors.brandBorder,
+    shadowColor: colors.brand,
+    shadowOffset: { width: 0, height: 20 },
+    shadowOpacity: 0.08,
+    shadowRadius: 30,
+    elevation: 10,
   },
-  upgradeHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  upgradeTitle: { color: '#F1F5F9', fontSize: 18, fontWeight: '700', marginLeft: 8 },
-  upgradeDesc: { color: '#E3E1E9', fontSize: 14, lineHeight: 22, marginBottom: 24 },
-  uploadRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16, gap: 16 },
+  upgradeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  upgradeTitle: {
+    color: colors.text,
+    fontSize: 20,
+    fontWeight: '800',
+    marginLeft: 10,
+    letterSpacing: -0.3,
+  },
+  upgradeDesc: {
+    color: colors.textSecondary,
+    fontSize: 15,
+    lineHeight: 24,
+    marginBottom: 28,
+    fontWeight: '500',
+  },
+  uploadRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+    gap: 16,
+  },
   uploadBox: {
-    flex: 1, height: 120, backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.1)', borderStyle: 'dashed',
-    borderRadius: 12, alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+    flex: 1,
+    height: 140,
+    backgroundColor: colors.cardAlt,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    borderStyle: 'dashed',
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
   },
-  uploadBoxFilled: { borderStyle: 'solid', borderColor: '#22C55E', borderWidth: 2 },
-  uploadPreviewWrap: { width: '100%', height: '100%', position: 'relative' },
-  uploadPreview: { width: '100%', height: '100%', resizeMode: 'cover' },
-  uploadCheckmark: { position: 'absolute', top: 6, right: 6 },
-  uploadIcon: { marginBottom: 8 },
-  uploadBoxText: { color: '#E3E1E9', fontSize: 13, fontWeight: '500' },
-  uploadBoxHint: { color: '#64748B', fontSize: 11, marginTop: 4 },
+  uploadBoxFilled: {
+    borderStyle: 'solid',
+    borderColor: colors.success,
+    borderWidth: 2,
+  },
+  uploadPreviewWrap: {
+    width: '100%',
+    height: '100%',
+    position: 'relative',
+  },
+  uploadPreview: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  uploadCheckmark: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+  },
+  uploadIcon: {
+    marginBottom: 12,
+  },
+  uploadBoxText: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  uploadBoxHint: {
+    color: colors.textMuted,
+    fontSize: 12,
+    marginTop: 4,
+    fontWeight: '500',
+  },
   instructionBox: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: 8,
-    backgroundColor: 'rgba(43, 125, 233, 0.08)', padding: 12, borderRadius: 10, marginBottom: 20,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: colors.brandLight,
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 28,
+    borderWidth: 1,
+    borderColor: colors.brandBorder,
   },
-  instructionText: { flex: 1, color: '#94A3B8', fontSize: 12, lineHeight: 18 },
-  primaryButton: { backgroundColor: '#2B7DE9', paddingVertical: 16, borderRadius: 16, alignItems: 'center' },
-  primaryButtonText: { color: '#ffffff', fontSize: 16, fontWeight: '600' },
-  buttonDisabled: { opacity: 0.5 },
+  instructionText: {
+    flex: 1,
+    color: colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: '600',
+  },
+  primaryButton: {
+    backgroundColor: colors.brand,
+    paddingVertical: 20,
+    borderRadius: 20,
+    alignItems: 'center',
+    shadowColor: colors.brand,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 8,
+  },
+  primaryButtonText: {
+    color: '#ffffff',
+    fontSize: 17,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+  },
+  buttonDisabled: {
+    opacity: 0.5,
+  },
   pendingCard: {
-    backgroundColor: '#12131a', borderRadius: 16, padding: 32,
-    borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.06)', alignItems: 'center',
+    backgroundColor: colors.cardGlass,
+    borderRadius: 24,
+    padding: 32,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    alignItems: 'center',
+    shadowColor: colors.brand,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.05,
+    shadowRadius: 24,
+    elevation: 6,
   },
-  statusIcon: { marginBottom: 16 },
-  pendingTitle: { color: '#ffffff', fontSize: 20, fontWeight: '700', marginBottom: 8 },
-  pendingDesc: { color: '#64748B', fontSize: 15, textAlign: 'center', lineHeight: 22 },
+  statusIcon: {
+    marginBottom: 20,
+  },
+  pendingTitle: {
+    color: colors.text,
+    fontSize: 22,
+    fontWeight: '800',
+    marginBottom: 10,
+    letterSpacing: -0.3,
+  },
+  pendingDesc: {
+    color: colors.textSecondary,
+    fontSize: 16,
+    textAlign: 'center',
+    lineHeight: 24,
+    fontWeight: '500',
+  },
   rejectedCard: {
-    backgroundColor: 'rgba(239, 68, 68, 0.05)', borderRadius: 16, padding: 32,
-    borderWidth: 1, borderColor: 'rgba(239, 68, 68, 0.3)', alignItems: 'center',
+    backgroundColor: colors.danger + '08',
+    borderRadius: 24,
+    padding: 32,
+    borderWidth: 1,
+    borderColor: colors.danger + '30',
+    alignItems: 'center',
   },
-  rejectedTitle: { color: '#EF4444', fontSize: 20, fontWeight: '700', marginBottom: 8 },
-  rejectedDesc: { color: '#E3E1E9', fontSize: 15, textAlign: 'center', lineHeight: 22, marginBottom: 24 },
-  dangerButton: { backgroundColor: '#EF4444', paddingVertical: 16, paddingHorizontal: 32, borderRadius: 16, alignItems: 'center' },
-  dangerButtonText: { color: '#ffffff', fontSize: 16, fontWeight: '600' },
+  rejectedTitle: {
+    color: colors.danger,
+    fontSize: 22,
+    fontWeight: '800',
+    marginBottom: 10,
+    letterSpacing: -0.3,
+  },
+  rejectedDesc: {
+    color: colors.textSecondary,
+    fontSize: 16,
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 28,
+    fontWeight: '500',
+  },
+  dangerButton: {
+    backgroundColor: colors.danger,
+    paddingVertical: 18,
+    paddingHorizontal: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    shadowColor: colors.danger,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 6,
+  },
+  dangerButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  guideCard: {
+    backgroundColor: colors.bg,
+    borderRadius: 32,
+    padding: 32,
+    width: '100%',
+    maxWidth: 400,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    shadowColor: colors.brand,
+    shadowOffset: { width: 0, height: 20 },
+    shadowOpacity: 0.1,
+    shadowRadius: 40,
+    elevation: 20,
+  },
+  guideHeader: {
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  guideTitle: {
+    color: colors.text,
+    fontSize: 24,
+    fontWeight: '800',
+    marginTop: 16,
+    letterSpacing: -0.5,
+  },
+  instructionList: {
+    gap: 20,
+    marginBottom: 40,
+  },
+  instructionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  instructionStep: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.brand,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepNum: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  stepText: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  guideActions: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  cancelGuideBtn: {
+    flex: 1,
+    paddingVertical: 18,
+    alignItems: 'center',
+  },
+  cancelGuideText: {
+    color: colors.textMuted,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  startCameraBtn: {
+    flex: 2,
+    backgroundColor: colors.brand,
+    paddingVertical: 18,
+    borderRadius: 18,
+    alignItems: 'center',
+    shadowColor: colors.brand,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 6,
+  },
+  startCameraText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  previewOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullPreviewImage: {
+    width: '100%',
+    height: '80%',
+  },
+  closePreview: {
+    position: 'absolute',
+    top: 60,
+    right: 24,
+    width: 50,
+    height: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 25,
+    backgroundColor: colors.cardAlt,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
 });

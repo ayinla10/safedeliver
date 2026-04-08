@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthProvider, useAuth } from './src/AuthContext';
-import { Colors } from './src/theme';
+import { ThemeProvider, useTheme } from './src/ThemeContext';
 import * as Linking from 'expo-linking';
 import { registerForPushNotifications, addNotificationListeners } from './src/notifications';
 
@@ -56,14 +56,14 @@ const Tab = createBottomTabNavigator();
 const LinksStack = createNativeStackNavigator();
 const OrdersStack = createNativeStackNavigator();
 
-const screenOpts = {
-  headerStyle: { backgroundColor: '#0a0b10' },
-  headerTintColor: '#ffffff',
-  headerShadowVisible: false,
-  contentStyle: { backgroundColor: '#0a0b10' },
-};
-
 function LinksStackNav() {
+  const { colors } = useTheme();
+  const screenOpts = {
+    headerStyle: { backgroundColor: colors.bg },
+    headerTintColor: colors.text,
+    headerShadowVisible: false,
+    contentStyle: { backgroundColor: colors.bg },
+  };
   return (
     <LinksStack.Navigator screenOptions={screenOpts}>
       <LinksStack.Screen name="LinksList" component={LinksScreen} options={{ headerShown: false }} />
@@ -73,6 +73,13 @@ function LinksStackNav() {
 }
 
 function OrdersStackNav() {
+  const { colors } = useTheme();
+  const screenOpts = {
+    headerStyle: { backgroundColor: colors.bg },
+    headerTintColor: colors.text,
+    headerShadowVisible: false,
+    contentStyle: { backgroundColor: colors.bg },
+  };
   return (
     <OrdersStack.Navigator screenOptions={screenOpts}>
       <OrdersStack.Screen name="OrdersList" component={OrdersScreen} options={{ headerShown: false }} />
@@ -82,6 +89,7 @@ function OrdersStackNav() {
 }
 
 function MainTabs() {
+  const { colors } = useTheme();
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -100,11 +108,11 @@ function MainTabs() {
           }
           return <Ionicons name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: '#2B7DE9',
-        tabBarInactiveTintColor: '#64748B',
+        tabBarActiveTintColor: colors.brand,
+        tabBarInactiveTintColor: colors.tabInactive,
         tabBarStyle: {
-          backgroundColor: '#0a0b10',
-          borderTopColor: 'rgba(255,255,255,0.06)',
+          backgroundColor: colors.tabBar,
+          borderTopColor: colors.border,
           height: Platform.OS === 'android' ? 70 : 80,
           paddingBottom: Platform.OS === 'android' ? 12 : 24,
           paddingTop: 8,
@@ -129,6 +137,13 @@ import AdminKYCScreen from './src/screens/AdminKYCScreen';
 const AdminStack = createNativeStackNavigator();
 
 function AdminStackNav() {
+  const { colors } = useTheme();
+  const screenOpts = {
+    headerStyle: { backgroundColor: colors.bg },
+    headerTintColor: colors.text,
+    headerShadowVisible: false,
+    contentStyle: { backgroundColor: colors.bg },
+  };
   return (
     <AdminStack.Navigator screenOptions={screenOpts}>
       <AdminStack.Screen name="AdminHome" component={AdminDashboardScreen} options={{ headerShown: false }} />
@@ -138,6 +153,7 @@ function AdminStackNav() {
 }
 
 function AdminTabs() {
+  const { colors } = useTheme();
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -154,11 +170,11 @@ function AdminTabs() {
           }
           return <Ionicons name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: '#EF4444',
-        tabBarInactiveTintColor: '#64748B',
+        tabBarActiveTintColor: colors.danger,
+        tabBarInactiveTintColor: colors.tabInactive,
         tabBarStyle: {
-          backgroundColor: '#0a0b10',
-          borderTopColor: 'rgba(255,255,255,0.06)',
+          backgroundColor: colors.tabBar,
+          borderTopColor: colors.border,
           height: Platform.OS === 'android' ? 70 : 80,
           paddingBottom: Platform.OS === 'android' ? 12 : 24,
           paddingTop: 8,
@@ -175,11 +191,19 @@ function AdminTabs() {
 
 function AppNavigator() {
   const { seller, loading } = useAuth();
+  const { colors } = useTheme();
+
+  const screenOpts = {
+    headerStyle: { backgroundColor: colors.bg },
+    headerTintColor: colors.text,
+    headerShadowVisible: false,
+    contentStyle: { backgroundColor: colors.bg },
+  };
 
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0a0b10' }}>
-        <ActivityIndicator size="large" color="#2B7DE9" />
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.bg }}>
+        <ActivityIndicator size="large" color={colors.brand} />
       </View>
     );
   }
@@ -187,7 +211,6 @@ function AppNavigator() {
   return (
     <Stack.Navigator screenOptions={screenOpts}>
       {seller ? (
-        // Seller or Admin is logged in
         <>
           {seller.is_admin ? (
             <Stack.Screen name="AdminMain" component={AdminTabs} options={{ headerShown: false }} />
@@ -196,7 +219,6 @@ function AppNavigator() {
           )}
         </>
       ) : (
-        // Unauthenticated
         <>
           <Stack.Screen name="Splash" component={SplashScreen} options={{ headerShown: false }} />
           <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
@@ -215,14 +237,14 @@ function AppNavigator() {
   );
 }
 
-export default function App() {
+function AppWithTheme() {
+  const { isDark, colors } = useTheme();
+
   useEffect(() => {
-    // Register for push notifications on app start
     registerForPushNotifications().then(token => {
       if (token) console.log('Push notifications registered:', token);
     });
 
-    // Listen for notification taps
     const cleanup = addNotificationListeners(
       (notification) => {
         console.log('Notification received:', notification.request.content.title);
@@ -235,13 +257,33 @@ export default function App() {
     return cleanup;
   }, []);
 
+  const navTheme = {
+    dark: isDark,
+    colors: {
+      primary: colors.brand,
+      background: colors.bg,
+      card: colors.tabBar,
+      text: colors.text,
+      border: colors.border,
+      notification: colors.danger,
+    },
+  };
+
+  return (
+    <NavigationContainer linking={linking} theme={navTheme}>
+      <StatusBar style={isDark ? 'light' : 'dark'} backgroundColor={colors.bg} />
+      <AppNavigator />
+    </NavigationContainer>
+  );
+}
+
+export default function App() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <NavigationContainer linking={linking}>
-          <StatusBar style="light" backgroundColor="#0a0b10" />
-          <AppNavigator />
-        </NavigationContainer>
+        <ThemeProvider>
+          <AppWithTheme />
+        </ThemeProvider>
       </AuthProvider>
     </SafeAreaProvider>
   );

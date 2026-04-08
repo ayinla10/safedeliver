@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Image, StatusBar as RNStatusBar, RefreshControl, Share, Alert, Platform, Modal} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../api';
+import { useTheme } from '../ThemeContext';
 import * as Clipboard from 'expo-clipboard';
 
 export default function LinksScreen({ navigation }) {
+  const { colors } = useTheme();
   const [links, setLinks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedLink, setSelectedLink] = useState(null); // Used for Options Modal
@@ -76,9 +78,11 @@ export default function LinksScreen({ navigation }) {
     ]);
   };
 
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <SafeAreaView style={styles.container}>
-      <RNStatusBar barStyle="light-content" backgroundColor="#0a0b10" />
+      <RNStatusBar barStyle={colors.statusBar} backgroundColor={colors.bg} />
       
       {/* Header Area */}
       <View style={styles.header}>
@@ -90,7 +94,7 @@ export default function LinksScreen({ navigation }) {
           style={styles.createBtn}
           onPress={() => navigation.navigate('NewLink')}
         >
-          <Ionicons name="add" size={24} color="#ffffff" />
+          <Ionicons name="add" size={24} color={colors.white} />
         </TouchableOpacity>
       </View>
 
@@ -98,12 +102,12 @@ export default function LinksScreen({ navigation }) {
         contentContainerStyle={styles.scrollContent} 
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={fetchLinks} tintColor="#2B7DE9" />
+          <RefreshControl refreshing={loading} onRefresh={fetchLinks} tintColor={colors.brand} />
         }
       >
         {links.length === 0 ? (
           <View style={styles.emptyState}>
-            <Ionicons name="link-outline" size={48} color="rgba(255,255,255,0.05)" />
+            <Ionicons name="link-outline" size={48} color={colors.brandLight} />
             <Text style={styles.emptyText}>{loading ? 'Loading links...' : 'No checkout links yet'}</Text>
             <TouchableOpacity 
               style={styles.emptyBtn}
@@ -124,17 +128,17 @@ export default function LinksScreen({ navigation }) {
                   <Image source={{ uri: link.image_url }} style={styles.productImage} />
                 ) : (
                   <View style={styles.imagePlaceholder}>
-                    <Ionicons name="image-outline" size={32} color="rgba(255,255,255,0.1)" />
+                    <Ionicons name="image-outline" size={32} color={colors.border} />
                   </View>
                 )}
-                <View style={[styles.statusBadge, { backgroundColor: link.is_active ? '#22C55E20' : '#EF444420' }]}>
-                  <Text style={[styles.statusText, { color: link.is_active ? '#22C55E' : '#EF4444' }]}>
+                <View style={[styles.statusBadge, { backgroundColor: link.is_active ? colors.success + '20' : colors.danger + '20' }]}>
+                  <Text style={[styles.statusText, { color: link.is_active ? colors.success : colors.danger }]}>
                     {link.is_active ? 'ACTIVE' : 'INACTIVE'}
                   </Text>
                 </View>
                 {link.image_url && (
                   <View style={styles.previewHint}>
-                    <Ionicons name="expand-outline" size={14} color="#fff" />
+                    <Ionicons name="expand-outline" size={14} color={colors.white} />
                   </View>
                 )}
               </TouchableOpacity>
@@ -151,13 +155,13 @@ export default function LinksScreen({ navigation }) {
                     style={styles.actionBtn} 
                     onPress={() => handleShare(link.link_code, link.product_name)}
                   >
-                    <Ionicons name="share-social-outline" size={20} color="#2B7DE9" />
+                    <Ionicons name="share-social-outline" size={20} color={colors.brand} />
                   </TouchableOpacity>
                   <TouchableOpacity 
                     style={styles.actionBtn} 
                     onPress={() => setSelectedLink(link)}
                   >
-                    <Ionicons name="ellipsis-horizontal" size={20} color="#64748B" />
+                    <Ionicons name="ellipsis-horizontal" size={20} color={colors.textSecondary} />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -184,25 +188,25 @@ export default function LinksScreen({ navigation }) {
             <Text style={styles.sheetTitle}>{selectedLink?.product_name}</Text>
             
             <TouchableOpacity style={styles.sheetOption} onPress={handleCopyLink}>
-              <Ionicons name="copy-outline" size={24} color="#F1F5F9" />
+              <Ionicons name="copy-outline" size={24} color={colors.text} />
               <Text style={styles.sheetOptionText}>Copy Link</Text>
             </TouchableOpacity>
             
             <TouchableOpacity style={styles.sheetOption} onPress={handleToggleStatus}>
-              <Ionicons name={selectedLink?.is_active ? "pause-circle-outline" : "play-circle-outline"} size={24} color={selectedLink?.is_active ? "#EAB308" : "#22C55E"} />
-              <Text style={[styles.sheetOptionText, { color: selectedLink?.is_active ? "#EAB308" : "#22C55E" }]}>
+              <Ionicons name={selectedLink?.is_active ? "pause-circle-outline" : "play-circle-outline"} size={24} color={selectedLink?.is_active ? colors.warning : colors.success} />
+              <Text style={[styles.sheetOptionText, { color: selectedLink?.is_active ? colors.warning : colors.success }]}>
                 {selectedLink?.is_active ? 'Pause Link' : 'Resume Link'}
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.sheetOption} onPress={() => { setSelectedLink(null); navigation.navigate('NewLink', { linkCode: selectedLink.link_code }); }}>
-              <Ionicons name="create-outline" size={24} color="#2B7DE9" />
-              <Text style={[styles.sheetOptionText, { color: '#2B7DE9' }]}>Edit Link</Text>
+              <Ionicons name="create-outline" size={24} color={colors.brand} />
+              <Text style={[styles.sheetOptionText, { color: colors.brand }]}>Edit Link</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={[styles.sheetOption, { borderBottomWidth: 0 }]} onPress={handleDelete}>
-              <Ionicons name="trash-outline" size={24} color="#EF4444" />
-              <Text style={[styles.sheetOptionText, { color: '#EF4444' }]}>Delete Link</Text>
+              <Ionicons name="trash-outline" size={24} color={colors.danger} />
+              <Text style={[styles.sheetOptionText, { color: colors.danger }]}>Delete Link</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -217,7 +221,7 @@ export default function LinksScreen({ navigation }) {
       >
         <View style={styles.imagePreviewOverlay}>
           <TouchableOpacity style={styles.imagePreviewClose} onPress={() => setPreviewImage(null)}>
-            <Ionicons name="close" size={28} color="#fff" />
+            <Ionicons name="close" size={28} color={colors.text} />
           </TouchableOpacity>
           {previewImage && (
             <Image
@@ -233,87 +237,100 @@ export default function LinksScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0a0b10',
-        paddingTop: Platform.OS === 'android' ? (RNStatusBar.currentHeight || 0) + 4 : 0,
-    },
+    backgroundColor: colors.bg,
+    paddingTop: Platform.OS === 'android' ? (RNStatusBar.currentHeight || 0) + 4 : 0,
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 16,
-    paddingBottom: 20,
+    paddingBottom: 24,
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#ffffff',
+    fontSize: 26,
+    fontWeight: '800',
+    color: colors.text,
+    letterSpacing: -0.5,
   },
   headerSub: {
     fontSize: 14,
-    color: '#64748B',
+    color: colors.textSecondary,
     marginTop: 2,
+    fontWeight: '500',
   },
   createBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: '#2B7DE9',
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: colors.brand,
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 4,
-    shadowColor: '#2B7DE9',
-    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
+    shadowColor: colors.brand,
+    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3,
-    shadowRadius: 8,
+    shadowRadius: 12,
   },
   scrollContent: {
     paddingHorizontal: 20,
     paddingBottom: 24,
   },
   emptyState: {
-    paddingVertical: 80,
+    paddingVertical: 100,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#12131a',
-    borderRadius: 24,
+    backgroundColor: colors.card,
+    borderRadius: 32,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.04)',
+    borderColor: colors.border,
     marginTop: 20,
+    shadowColor: colors.brand,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
   },
   emptyText: {
-    color: '#F1F5F9',
+    color: colors.text,
     fontSize: 18,
-    fontWeight: '600',
-    marginTop: 16,
+    fontWeight: '700',
+    marginTop: 20,
     marginBottom: 8,
   },
   emptyBtn: {
-    marginTop: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    backgroundColor: 'rgba(43, 125, 233, 0.1)',
-    borderRadius: 8,
+    marginTop: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    backgroundColor: colors.brandLight,
+    borderRadius: 12,
   },
   emptyBtnText: {
-    color: '#2B7DE9',
-    fontWeight: '600',
+    color: colors.brand,
+    fontWeight: '700',
+    fontSize: 15,
   },
   linkCard: {
-    backgroundColor: '#12131a',
-    borderRadius: 20,
+    backgroundColor: colors.cardGlass,
+    borderRadius: 24,
     overflow: 'hidden',
-    marginBottom: 20,
+    marginBottom: 24,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: colors.glassBorder,
+    shadowColor: colors.brand,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.06,
+    shadowRadius: 24,
+    elevation: 6,
   },
   cardImageContainer: {
-    height: 160,
+    height: 180,
     width: '100%',
-    backgroundColor: '#1a1b21',
+    backgroundColor: colors.cardAlt,
     position: 'relative',
   },
   productImage: {
@@ -329,20 +346,20 @@ const styles = StyleSheet.create({
   },
   statusBadge: {
     position: 'absolute',
-    top: 12,
-    right: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
-    backdropFilter: 'blur(10px)',
+    top: 14,
+    right: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: colors.overlay,
   },
   statusText: {
     fontSize: 10,
     fontWeight: '800',
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
   },
   cardContent: {
-    padding: 16,
+    padding: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -351,102 +368,112 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   productTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#ffffff',
+    fontSize: 19,
+    fontWeight: '800',
+    color: colors.text,
     marginBottom: 4,
+    letterSpacing: -0.3,
   },
   productPrice: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#2B7DE9',
-    marginBottom: 4,
+    fontSize: 17,
+    fontWeight: '700',
+    color: colors.brand,
+    marginBottom: 6,
   },
   linkCode: {
     fontSize: 12,
-    color: '#64748B',
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    color: colors.textMuted,
+    fontWeight: '600',
+    letterSpacing: 0.5,
   },
   contentRight: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 10,
   },
   actionBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: colors.buttonGhost,
     alignItems: 'center',
     justifyContent: 'center',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: colors.overlay,
     justifyContent: 'flex-end',
   },
   bottomSheet: {
-    backgroundColor: '#1a1b21',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 20,
+    backgroundColor: colors.sheetBg,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    paddingHorizontal: 24,
     paddingBottom: Platform.OS === 'ios' ? 40 : 24,
     paddingTop: 12,
+    shadowColor: colors.brand,
+    shadowOffset: { width: 0, height: -10 },
+    shadowOpacity: 0.08,
+    shadowRadius: 20,
+    elevation: 10,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
   },
   sheetHandle: {
     width: 40,
     height: 4,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: colors.border,
     borderRadius: 2,
     alignSelf: 'center',
-    marginBottom: 20,
+    marginBottom: 24,
   },
   sheetTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#ffffff',
-    marginBottom: 16,
+    fontSize: 20,
+    fontWeight: '800',
+    color: colors.text,
+    marginBottom: 20,
     textAlign: 'center',
+    letterSpacing: -0.3,
   },
   sheetOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: 18,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.05)',
+    borderBottomColor: colors.border,
   },
   sheetOptionText: {
     fontSize: 16,
-    color: '#F1F5F9',
+    color: colors.text,
     fontWeight: '600',
     marginLeft: 16,
   },
   previewHint: {
     position: 'absolute',
-    bottom: 8,
-    right: 8,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    bottom: 10,
+    right: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.overlay,
     alignItems: 'center',
     justifyContent: 'center',
   },
   imagePreviewOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.95)',
+    backgroundColor: colors.bg,
     justifyContent: 'center',
     alignItems: 'center',
   },
   imagePreviewClose: {
     position: 'absolute',
-    top: Platform.OS === 'android' ? (RNStatusBar.currentHeight || 0) + 12 : 56,
+    top: Platform.OS === 'android' ? (RNStatusBar.currentHeight || 0) + 16 : 60,
     right: 20,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.cardAlt,
+    borderWidth: 1,
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 10,

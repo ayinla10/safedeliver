@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, Platform, KeyboardAvoidingView, StatusBar as RNStatusBar, ActivityIndicator, Image, Alert} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { useTheme } from '../ThemeContext';
 import { api } from '../api';
 
 export default function NewLinkScreen({ navigation }) {
+  const { colors } = useTheme();
   const [productName, setProductName] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
@@ -66,9 +68,11 @@ export default function NewLinkScreen({ navigation }) {
     }
   };
 
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <SafeAreaView style={styles.container}>
-      <RNStatusBar barStyle="light-content" backgroundColor="#0a0b10" />
+      <RNStatusBar barStyle={colors.statusBar} backgroundColor={colors.bg} />
       <KeyboardAvoidingView 
         style={{ flex: 1 }} 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -78,7 +82,7 @@ export default function NewLinkScreen({ navigation }) {
           
           <View style={styles.header}>
             <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-              <Ionicons name="arrow-back" size={24} color="#F1F5F9" />
+              <Ionicons name="arrow-back" size={24} color={colors.text} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>New Checkout Link</Text>
             <View style={{ width: 40 }} />
@@ -97,7 +101,7 @@ export default function NewLinkScreen({ navigation }) {
             ) : (
               <>
                 <View style={styles.uploadIconCircle}>
-                  <Ionicons name="camera-outline" size={28} color="#2B7DE9" />
+                  <Ionicons name="camera-outline" size={28} color={colors.brand} />
                 </View>
                 <Text style={styles.uploadText}>Tap to add product photo</Text>
                 <Text style={styles.uploadRequired}>Required *</Text>
@@ -113,7 +117,7 @@ export default function NewLinkScreen({ navigation }) {
               <TextInput
                 style={styles.input}
                 placeholder="Product Name"
-                placeholderTextColor="#64748B"
+                placeholderTextColor={colors.textMuted}
                 value={productName}
                 onChangeText={setProductName}
               />
@@ -123,7 +127,7 @@ export default function NewLinkScreen({ navigation }) {
               <TextInput
                 style={[styles.input, styles.textArea]}
                 placeholder="Description (Optional)"
-                placeholderTextColor="#64748B"
+                placeholderTextColor={colors.textMuted}
                 multiline
                 numberOfLines={4}
                 value={description}
@@ -139,7 +143,7 @@ export default function NewLinkScreen({ navigation }) {
               <TextInput
                 style={styles.priceInput}
                 placeholder="0.00"
-                placeholderTextColor="#64748B"
+                placeholderTextColor={colors.textMuted}
                 keyboardType="decimal-pad"
                 value={price}
                 onChangeText={setPrice}
@@ -150,7 +154,7 @@ export default function NewLinkScreen({ navigation }) {
           {/* Info Card */}
           <View style={styles.infoCard}>
             <View style={styles.infoHeader}>
-              <Ionicons name="information-circle-outline" size={20} color="#2B7DE9" />
+              <Ionicons name="information-circle-outline" size={20} color={colors.brand} />
               <Text style={styles.infoTitle}>How delivery works</Text>
             </View>
             <View style={styles.bulletList}>
@@ -196,10 +200,10 @@ export default function NewLinkScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0a0b10',
+    backgroundColor: colors.bg,
     paddingTop: Platform.OS === 'android' ? (RNStatusBar.currentHeight || 0) + 4 : 0,
   },
   header: {
@@ -209,17 +213,18 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.buttonGhost,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#ffffff',
+    fontSize: 20,
+    fontWeight: '800',
+    color: colors.text,
+    letterSpacing: -0.3,
   },
   scrollContent: {
     paddingHorizontal: 20,
@@ -227,20 +232,25 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   imageUploadBox: {
-    height: 180,
-    backgroundColor: 'rgba(43, 125, 233, 0.03)',
+    height: 200,
+    backgroundColor: colors.cardGlass,
     borderWidth: 1.5,
-    borderColor: 'rgba(43, 125, 233, 0.2)',
+    borderColor: colors.glassBorder,
     borderStyle: 'dashed',
-    borderRadius: 16,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 24,
+    marginBottom: 28,
     overflow: 'hidden',
+    shadowColor: colors.brand,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.05,
+    shadowRadius: 20,
+    elevation: 4,
   },
   imageUploadBoxFilled: {
     borderStyle: 'solid',
-    borderColor: '#2B7DE9',
+    borderColor: colors.brand,
     borderWidth: 2,
   },
   uploadedImage: {
@@ -256,62 +266,69 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    gap: 8,
+    paddingVertical: 12,
+    backgroundColor: colors.overlay,
   },
   changePhotoText: {
     color: '#fff',
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '700',
   },
   uploadIconCircle: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: 'rgba(43, 125, 233, 0.1)',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: colors.brandLight,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   uploadText: {
-    color: '#2B7DE9',
-    fontSize: 14,
-    fontWeight: '600',
+    color: colors.brand,
+    fontSize: 15,
+    fontWeight: '700',
   },
   uploadRequired: {
-    color: '#EF4444',
+    color: colors.danger,
     fontSize: 12,
-    fontWeight: '500',
-    marginTop: 4,
+    fontWeight: '600',
+    marginTop: 6,
   },
   formGroup: {
-    gap: 16,
+    gap: 20,
     marginBottom: 32,
   },
   errorText: {
-    color: '#EF4444',
+    color: colors.danger,
     fontSize: 14,
+    fontWeight: '600',
     textAlign: 'center',
     marginBottom: 8,
   },
   inputWrapper: {
-    backgroundColor: '#12131a',
-    borderRadius: 12,
+    backgroundColor: colors.card,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
-    paddingHorizontal: 16,
-    height: 56,
+    borderColor: colors.border,
+    paddingHorizontal: 20,
+    height: 60,
     justifyContent: 'center',
+    shadowColor: colors.brand,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
   textAreaWrapper: {
-    height: 120,
-    paddingTop: 16,
+    height: 140,
+    paddingTop: 18,
     alignItems: 'flex-start',
   },
   input: {
-    color: '#F1F5F9',
+    color: colors.text,
     fontSize: 16,
+    fontWeight: '500',
     width: '100%',
   },
   textArea: {
@@ -320,53 +337,58 @@ const styles = StyleSheet.create({
   priceInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#12131a',
-    borderRadius: 12,
+    backgroundColor: colors.card,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
-    height: 64,
-    paddingHorizontal: 16,
+    borderColor: colors.border,
+    height: 72,
+    paddingHorizontal: 20,
+    shadowColor: colors.brand,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 3,
   },
   currencyBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    marginRight: 12,
+    backgroundColor: colors.brandLight,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    marginRight: 16,
   },
   currencyText: {
-    color: '#64748B',
-    fontWeight: '600',
+    color: colors.brand,
+    fontWeight: '800',
     fontSize: 16,
   },
   priceInput: {
     flex: 1,
-    color: '#F1F5F9',
-    fontSize: 24,
-    fontWeight: '700',
+    color: colors.text,
+    fontSize: 28,
+    fontWeight: '800',
     height: '100%',
   },
   infoCard: {
-    backgroundColor: 'rgba(43, 125, 233, 0.05)',
-    borderRadius: 16,
-    padding: 20,
+    backgroundColor: colors.brandBg,
+    borderRadius: 20,
+    padding: 24,
     marginBottom: 32,
     borderWidth: 1,
-    borderColor: 'rgba(43, 125, 233, 0.15)',
+    borderColor: colors.brandBorder,
   },
   infoHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
-    gap: 8,
+    marginBottom: 18,
+    gap: 10,
   },
   infoTitle: {
-    color: '#2B7DE9',
+    color: colors.brand,
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   bulletList: {
-    gap: 12,
+    gap: 14,
   },
   bulletRow: {
     flexDirection: 'row',
@@ -376,23 +398,29 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#2B7DE9',
+    backgroundColor: colors.brand,
     marginTop: 8,
-    marginRight: 12,
+    marginRight: 14,
   },
   bulletText: {
     flex: 1,
-    color: '#E3E1E9',
+    color: colors.textSecondary,
     fontSize: 14,
-    lineHeight: 20,
+    lineHeight: 22,
+    fontWeight: '500',
   },
   primaryButton: {
-    backgroundColor: '#2B7DE9',
-    paddingVertical: 18,
-    borderRadius: 16,
+    backgroundColor: colors.brand,
+    paddingVertical: 20,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 60,
+    minHeight: 64,
+    shadowColor: colors.brand,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 8,
   },
   buttonDisabled: {
     opacity: 0.5,
@@ -400,13 +428,13 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     color: '#ffffff',
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   hintText: {
-    color: '#EAB308',
+    color: colors.warning,
     fontSize: 13,
     textAlign: 'center',
-    marginTop: 12,
-    fontWeight: '500',
+    marginTop: 16,
+    fontWeight: '600',
   },
 });

@@ -1,14 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, StatusBar as RNStatusBar, Platform} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../../ThemeContext';
 
-const STATUS_COLORS = {
-  REQUESTED: '#64748B',  // Gray
-  QUOTED: '#EAB308',     // Amber
-  PAID: '#2B7DE9',       // Blue
-  SHIPPED: '#4F46E5',    // Indigo
-  DELIVERED: '#22C55E'   // Green
-};
+const getStatusColors = (colors) => ({
+  REQUESTED: colors.textMuted,
+  QUOTED: colors.warning,
+  PAID: colors.brand,
+  SHIPPED: '#4F46E5', // Indigo (Keep for brand)
+  DELIVERED: colors.success
+});
 
 const TIMELINE_STEPS = [
   { id: 'REQUESTED', label: 'Order Requested' },
@@ -19,6 +20,7 @@ const TIMELINE_STEPS = [
 ];
 
 export default function TrackingScreen({ navigation }) {
+  const { colors } = useTheme();
   // Mock order for buyer view
   const [order, setOrder] = useState({
     ref: 'SD-X9P4L1',
@@ -28,8 +30,10 @@ export default function TrackingScreen({ navigation }) {
     status: 'SHIPPED', // Try PAID, SHIPPED, DELIVERED
   });
 
+  const statusColors = useMemo(() => getStatusColors(colors), [colors]);
   const currentStepIndex = TIMELINE_STEPS.findIndex(s => s.id === order.status);
-  const statusColor = STATUS_COLORS[order.status] || '#64748B';
+  const statusColor = statusColors[order.status] || colors.textMuted;
+  const styles = useMemo(() => createStyles(colors, statusColors), [colors, statusColors]);
 
   const handleConfirmDelivery = () => {
     // Release funds to seller
@@ -38,11 +42,11 @@ export default function TrackingScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <RNStatusBar barStyle="light-content" backgroundColor="#0a0b10" />
+      <RNStatusBar barStyle={colors.statusBar} backgroundColor={colors.bg} />
       
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation?.goBack()}>
-          <Ionicons name="close" size={24} color="#F1F5F9" />
+          <Ionicons name="close" size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Track Order</Text>
         <View style={{ width: 40 }} />
@@ -80,9 +84,9 @@ export default function TrackingScreen({ navigation }) {
               const isActive = index === currentStepIndex && step.id !== 'DELIVERED';
               const isFuture = index > currentStepIndex;
 
-              let nodeColor = '#34343a';
-              if (isCompleted) nodeColor = '#22C55E';
-              if (isActive) nodeColor = STATUS_COLORS[step.id];
+              let nodeColor = colors.border;
+              if (isCompleted) nodeColor = colors.success;
+              if (isActive) nodeColor = statusColors[step.id];
 
               return (
                 <View key={step.id} style={styles.timelineStep}>
@@ -160,83 +164,95 @@ export default function TrackingScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors, statusColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0a0b10',
-        paddingTop: Platform.OS === 'android' ? (RNStatusBar.currentHeight || 0) + 4 : 0,
-    },
+    backgroundColor: colors.bg,
+    paddingTop: Platform.OS === 'android' ? (RNStatusBar.currentHeight || 0) + 4 : 0,
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 16,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   backBtn: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 22,
+    backgroundColor: colors.buttonGhost,
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#ffffff',
+    fontSize: 20,
+    fontWeight: '800',
+    color: colors.text,
+    letterSpacing: -0.5,
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 8,
+    paddingTop: 24,
     paddingBottom: 40,
   },
   orderCard: {
-    backgroundColor: '#12131a',
-    borderRadius: 16,
-    padding: 20,
+    backgroundColor: colors.cardGlass,
+    borderRadius: 28,
+    padding: 24,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
-    marginBottom: 32,
+    borderColor: colors.glassBorder,
+    marginBottom: 36,
+    shadowColor: colors.brand,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.05,
+    shadowRadius: 24,
+    elevation: 8,
   },
   orderHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   orderRef: {
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    color: '#64748B',
+    color: colors.textMuted,
     fontSize: 14,
     letterSpacing: 0.5,
+    fontWeight: '600',
   },
   statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
     borderWidth: 1,
   },
   statusText: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '800',
     textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   productName: {
-    color: '#F1F5F9',
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 4,
+    color: colors.text,
+    fontSize: 19,
+    fontWeight: '800',
+    marginBottom: 6,
+    letterSpacing: -0.3,
   },
   sellerName: {
-    color: '#64748B',
+    color: colors.textSecondary,
     fontSize: 14,
+    fontWeight: '500',
   },
   divider: {
     height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    marginVertical: 16,
+    backgroundColor: colors.border,
+    marginVertical: 20,
   },
   totalRow: {
     flexDirection: 'row',
@@ -244,157 +260,176 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   totalLabel: {
-    color: '#E3E1E9',
+    color: colors.textSecondary,
     fontSize: 15,
+    fontWeight: '600',
   },
   totalValue: {
-    color: '#4F46E5', // Distinct blue for paid total
-    fontSize: 20,
-    fontWeight: '800',
+    color: colors.brand,
+    fontSize: 22,
+    fontWeight: '900',
+    letterSpacing: -0.5,
   },
   sectionTitle: {
-    color: '#ffffff',
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 20,
+    color: colors.text,
+    fontSize: 20,
+    fontWeight: '800',
+    marginBottom: 24,
+    letterSpacing: -0.3,
   },
   timelineContainer: {
-    marginBottom: 40,
+    marginBottom: 44,
   },
   timelineWrapper: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 4,
   },
   timelineStep: {
     flexDirection: 'row',
   },
   timelineLeft: {
-    width: 30,
+    width: 36,
     alignItems: 'center',
   },
   timelineIconNode: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 2,
+    backgroundColor: colors.bg,
   },
   nodeCompleted: {
-    backgroundColor: '#22C55E',
-    borderColor: '#22C55E',
+    backgroundColor: colors.success,
+    borderColor: colors.success,
   },
   nodeFuture: {
-    borderColor: '#34343a',
+    borderColor: colors.border,
   },
   nodeInner: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.border,
   },
   timelineLine: {
     width: 2,
-    height: 60,
-    backgroundColor: '#34343a',
-    marginVertical: -8,
+    height: 70,
+    backgroundColor: colors.border,
+    marginVertical: -6,
     zIndex: 1,
   },
   lineCompleted: {
-    backgroundColor: '#22C55E',
+    backgroundColor: colors.success,
   },
   timelineContent: {
     flex: 1,
-    paddingLeft: 16,
-    paddingBottom: 32,
-    paddingTop: 2,
+    paddingLeft: 20,
+    paddingBottom: 40,
+    paddingTop: 4,
   },
   timelineTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 4,
+    fontSize: 17,
+    fontWeight: '800',
+    marginBottom: 6,
+    letterSpacing: -0.2,
   },
   textCompleted: {
-    color: '#F1F5F9',
+    color: colors.text,
   },
   textFuture: {
-    color: '#64748B',
+    color: colors.textMuted,
   },
   timelineDate: {
     fontSize: 12,
-    color: '#64748B',
+    color: colors.textMuted,
+    fontWeight: '600',
   },
   timelineSubtext: {
-    fontSize: 13,
-    color: '#E3E1E9',
-    lineHeight: 18,
+    fontSize: 14,
+    color: colors.textSecondary,
+    lineHeight: 22,
     marginTop: 8,
+    fontWeight: '500',
   },
   actionContainer: {
     marginTop: 8,
   },
   confirmBox: {
-    padding: 16,
-    backgroundColor: 'rgba(34, 197, 94, 0.05)',
-    borderRadius: 16,
+    padding: 24,
+    backgroundColor: colors.success + '08',
+    borderRadius: 24,
     borderWidth: 1,
-    borderColor: 'rgba(34, 197, 94, 0.2)',
-    marginBottom: 16,
+    borderColor: colors.success + '30',
+    marginBottom: 20,
   },
   confirmNotice: {
-    color: '#E3E1E9',
-    fontSize: 13,
-    lineHeight: 18,
-    marginBottom: 16,
+    color: colors.textSecondary,
+    fontSize: 14,
+    lineHeight: 22,
+    marginBottom: 20,
     textAlign: 'center',
+    fontWeight: '500',
   },
   confirmButton: {
     flexDirection: 'row',
-    backgroundColor: '#22C55E', // Green
-    paddingVertical: 18,
-    borderRadius: 12,
+    backgroundColor: colors.success,
+    paddingVertical: 20,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#22C55E',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowColor: colors.success,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 8,
   },
   confirmButtonText: {
     color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: -0.3,
   },
   successBox: {
     alignItems: 'center',
     padding: 32,
-    backgroundColor: '#12131a',
-    borderRadius: 16,
+    backgroundColor: colors.cardGlass,
+    borderRadius: 24,
     borderWidth: 1,
-    borderColor: 'rgba(34, 197, 94, 0.3)',
-    marginBottom: 16,
+    borderColor: colors.success + '40',
+    marginBottom: 20,
+    shadowColor: colors.success,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.1,
+    shadowRadius: 24,
+    elevation: 6,
   },
   successTitle: {
-    color: '#ffffff',
-    fontSize: 20,
-    fontWeight: '700',
+    color: colors.text,
+    fontSize: 22,
+    fontWeight: '800',
     marginBottom: 8,
+    letterSpacing: -0.3,
   },
   successDesc: {
-    color: '#E3E1E9',
-    fontSize: 14,
+    color: colors.textSecondary,
+    fontSize: 15,
     textAlign: 'center',
+    lineHeight: 22,
+    fontWeight: '500',
   },
   secondaryButton: {
-    paddingVertical: 18,
-    borderRadius: 16,
+    paddingVertical: 20,
+    borderRadius: 20,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: colors.border,
+    backgroundColor: colors.cardAlt,
   },
   secondaryButtonText: {
-    color: '#F1F5F9',
-    fontSize: 15,
-    fontWeight: '600',
+    color: colors.textSecondary,
+    fontSize: 16,
+    fontWeight: '700',
   },
 });

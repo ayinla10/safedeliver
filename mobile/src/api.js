@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const SERVER_HOST = '192.168.17.97'; // Replace with your current LAN IP from Metro
+const SERVER_HOST = '192.168.175.97'; // Current LAN IP from Metro
 const API_URL = `http://${SERVER_HOST}:5000/api/v1`;
 
 async function request(endpoint, options = {}) {

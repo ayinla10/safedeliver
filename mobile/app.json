@@ -25,7 +25,14 @@
       "package": "co.safedeliver.seller"
     },
     "plugins": [
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow SafeDeliver to access your photos for identity verification.",
+          "cameraPermission": "Allow SafeDeliver to access your camera for identity verification."
+        }
+      ]
     ]
   }
 }

@@ -75,7 +75,7 @@ export default function HomePage() {
             </section>
 
             {/* ── How SafeDeliver Works (4 Steps) ──────── */}
-            <section className="section">
+            <section className="section" id="how-it-works">
                 <div className="section-header">
                     <h2>How SafeDeliver Works</h2>
                     <p>A simple 4-step process to sell securely on social media</p>
@@ -112,7 +112,7 @@ export default function HomePage() {
             </section>
 
             {/* ── Built for Social Commerce ────────────── */}
-            <section className="section" style={{ background: 'var(--bg-alt)' }}>
+            <section className="section" id="features" style={{ background: 'var(--bg-alt)' }}>
                 <div className="section-header">
                     <h2>Built for Social Commerce</h2>
                     <p>Everything you need to sell safely on social media</p>

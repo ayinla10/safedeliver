@@ -57,8 +57,15 @@ export function AuthProvider({ children }) {
         setSeller(null);
     }
 
+    async function refreshSeller(newSellerData) {
+        if (newSellerData) {
+            setSeller(prev => ({ ...prev, ...newSellerData }));
+            await AsyncStorage.setItem('sd-seller', JSON.stringify({ ...seller, ...newSellerData }));
+        }
+    }
+
     return (
-        <AuthContext.Provider value={{ seller, setSeller, loading, login, register, verifyOtp, logout, needsVerify, verifyPhone, setNeedsVerify, setVerifyPhone }}>
+        <AuthContext.Provider value={{ seller, setSeller, loading, login, register, verifyOtp, logout, refreshSeller, needsVerify, verifyPhone, setNeedsVerify, setVerifyPhone }}>
             {children}
         </AuthContext.Provider>
     );

@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, TextInput, StatusBar as RNStatusBar, Platform} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../../ThemeContext';
 
 export default function PaymentScreen({ navigation }) {
+  const { colors } = useTheme();
   const [paymentMethod, setPaymentMethod] = useState('momo'); // 'momo' or 'card'
   const [phoneNumber, setPhoneNumber] = useState('');
 
@@ -13,16 +15,18 @@ export default function PaymentScreen({ navigation }) {
     navigation?.navigate('BuyerTracking');
   };
 
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <SafeAreaView style={styles.container}>
-      <RNStatusBar barStyle="light-content" backgroundColor="#0a0b10" />
+      <RNStatusBar barStyle={colors.statusBar} backgroundColor={colors.bg} />
       
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation?.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#F1F5F9" />
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Complete Payment</Text>
-        <View style={{ width: 40 }} />
+        <View style={{ width: 44 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -58,11 +62,11 @@ export default function PaymentScreen({ navigation }) {
           {paymentMethod === 'momo' && (
             <View style={styles.methodForm}>
               <View style={styles.inputWrapper}>
-                <Ionicons name="call-outline" size={20} color="#64748B" style={styles.inputIcon} />
+                <Ionicons name="call-outline" size={20} color={colors.textMuted} style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
                   placeholder="MoMo Number (e.g. 055...)"
-                  placeholderTextColor="#64748B"
+                  placeholderTextColor={colors.textMuted}
                   keyboardType="phone-pad"
                   value={phoneNumber}
                   onChangeText={setPhoneNumber}
@@ -85,7 +89,7 @@ export default function PaymentScreen({ navigation }) {
               <Text style={styles.methodTitle}>Credit/Debit Card</Text>
             </View>
             <View style={styles.methodIconsCenter}>
-              <Ionicons name="card" size={24} color="#64748B" />
+              <Ionicons name="card" size={24} color={colors.textMuted} />
             </View>
           </View>
         </TouchableOpacity>
@@ -114,184 +118,207 @@ export default function PaymentScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0a0b10',
-        paddingTop: Platform.OS === 'android' ? (RNStatusBar.currentHeight || 0) + 4 : 0,
-    },
+    backgroundColor: colors.bg,
+    paddingTop: Platform.OS === 'android' ? (RNStatusBar.currentHeight || 0) + 4 : 0,
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingTop: 16,
-    paddingBottom: 16,
+    paddingBottom: 24,
   },
   backBtn: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 22,
+    backgroundColor: colors.cardAlt,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#ffffff',
+    fontSize: 22,
+    fontWeight: '800',
+    color: colors.text,
+    letterSpacing: -0.5,
   },
   scrollContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     paddingTop: 8,
     paddingBottom: 40,
   },
   summaryCard: {
-    backgroundColor: 'rgba(43, 125, 233, 0.05)',
-    borderRadius: 16,
-    padding: 24,
+    backgroundColor: colors.cardGlass,
+    borderRadius: 32,
+    paddingVertical: 40,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(43, 125, 233, 0.2)',
-    marginBottom: 32,
+    borderColor: colors.glassBorder,
+    marginBottom: 48,
+    shadowColor: colors.brand,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.1,
+    shadowRadius: 24,
+    elevation: 8,
   },
   summaryLabel: {
-    color: '#64748B',
+    color: colors.textSecondary,
     fontSize: 15,
     marginBottom: 8,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   summaryValue: {
-    color: '#2B7DE9',
-    fontSize: 32,
-    fontWeight: '800',
+    color: colors.text,
+    fontSize: 44,
+    fontWeight: '900',
+    letterSpacing: -2,
   },
   sectionTitle: {
-    color: '#ffffff',
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 16,
+    color: colors.text,
+    fontSize: 20,
+    fontWeight: '800',
+    marginBottom: 20,
+    letterSpacing: -0.5,
   },
   methodCard: {
-    backgroundColor: '#12131a',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
-    marginBottom: 16,
+    backgroundColor: colors.bg,
+    borderRadius: 24,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    marginBottom: 20,
     overflow: 'hidden',
+    shadowColor: colors.brand,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
   },
   methodCardActive: {
-    borderColor: '#2B7DE9',
-    backgroundColor: 'rgba(43, 125, 233, 0.03)',
+    borderColor: colors.brand,
+    backgroundColor: colors.brandLight + '40',
   },
   methodHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
+    padding: 24,
   },
   methodLeft: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   radioOuter: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: '#64748B',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2.5,
+    borderColor: colors.border,
     marginRight: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
   radioOuterActive: {
-    borderColor: '#2B7DE9',
+    borderColor: colors.brand,
   },
   radioInner: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#2B7DE9',
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: colors.brand,
   },
   methodTitle: {
-    color: '#F1F5F9',
-    fontSize: 16,
-    fontWeight: '600',
+    color: colors.text,
+    fontSize: 17,
+    fontWeight: '800',
+    letterSpacing: -0.3,
   },
   methodIcons: {
     flexDirection: 'row',
-    gap: 6,
+    gap: 8,
   },
   methodIconsCenter: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  networkBadgeMt: { backgroundColor: '#FBBF24', color: '#000', fontSize: 10, fontWeight: '700', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
-  networkBadgeTl: { backgroundColor: '#EF4444', color: '#fff', fontSize: 10, fontWeight: '700', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
-  networkBadgeAt: { backgroundColor: '#000000', color: '#fff', fontSize: 10, fontWeight: '700', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, borderWidth: 1, borderColor: '#333' },
+  networkBadgeMt: { backgroundColor: '#FBBF24', color: colors.text, fontSize: 10, fontWeight: '900', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, overflow: 'hidden' },
+  networkBadgeTl: { backgroundColor: '#EF4444', color: '#fff', fontSize: 10, fontWeight: '900', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, overflow: 'hidden' },
+  networkBadgeAt: { backgroundColor: colors.text, color: colors.bg, fontSize: 10, fontWeight: '900', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, overflow: 'hidden' },
   methodForm: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingHorizontal: 24,
+    paddingBottom: 24,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.06)',
-    paddingTop: 20,
+    borderTopColor: colors.border,
+    paddingTop: 24,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0a0b10',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    height: 56,
+    backgroundColor: colors.cardAlt,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    height: 64,
   },
   inputIcon: {
-    paddingLeft: 16,
-    paddingRight: 12,
+    paddingLeft: 20,
   },
   input: {
     flex: 1,
-    color: '#F1F5F9',
+    color: colors.text,
     fontSize: 16,
+    fontWeight: '600',
     height: '100%',
+    paddingHorizontal: 20,
   },
   actionContainer: {
     marginTop: 40,
+    marginBottom: 40,
   },
   payButton: {
     flexDirection: 'row',
-    backgroundColor: '#2B7DE9',
-    paddingVertical: 18,
-    borderRadius: 16,
+    backgroundColor: colors.brand,
+    height: 72,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#2B7DE9',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowColor: colors.brand,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.3,
+    shadowRadius: 24,
+    elevation: 8,
   },
   buttonDisabled: {
     opacity: 0.5,
   },
   payButtonText: {
     color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: -0.3,
   },
   poweredBy: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: 24,
   },
   poweredText: {
-    color: '#64748B',
-    fontSize: 13,
+    color: colors.textMuted,
+    fontSize: 14,
+    fontWeight: '600',
   },
   paystackLogo: {
-    color: '#ffffff',
-    fontWeight: '700',
-    fontSize: 14,
+    color: colors.text,
+    fontWeight: '900',
+    fontSize: 16,
     letterSpacing: -0.5,
   },
 });

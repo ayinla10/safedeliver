@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, RefreshControl, StatusBar as RNStatusBar, Alert, ActivityIndicator, Platform, } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../ThemeContext';
 import { api } from '../api';
 
 export default function AdminDisputesScreen({ navigation }) {
+    const { colors } = useTheme();
     const [disputes, setDisputes] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -48,25 +50,27 @@ export default function AdminDisputesScreen({ navigation }) {
         );
     };
 
+    const styles = useMemo(() => createStyles(colors), [colors]);
+
     return (
         <SafeAreaView style={styles.container}>
-            <RNStatusBar barStyle="light-content" backgroundColor="#0a0b10" />
+            <RNStatusBar barStyle={colors.statusBar} backgroundColor={colors.bg} />
             
             <View style={styles.header}>
                 <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-                    <Ionicons name="arrow-back" size={24} color="#F1F5F9" />
+                    <Ionicons name="arrow-back" size={24} color={colors.text} />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Active Disputes</Text>
-                <View style={{ width: 40 }} />
+                <View style={{ width: 44 }} />
             </View>
 
             <ScrollView 
                 contentContainerStyle={styles.scrollContent}
-                refreshControl={<RefreshControl refreshing={loading} onRefresh={fetchDisputes} tintColor="#2B7DE9" />}
+                refreshControl={<RefreshControl refreshing={loading} onRefresh={fetchDisputes} tintColor={colors.brand} />}
             >
                 {disputes.length === 0 ? (
                     <View style={styles.emptyState}>
-                        <Ionicons name="shield-checkmark-outline" size={48} color="rgba(255,255,255,0.05)" />
+                        <Ionicons name="shield-checkmark-outline" size={64} color={colors.border} />
                         <Text style={styles.emptyText}>{loading ? 'Loading...' : 'No active disputes'}</Text>
                     </View>
                 ) : (
@@ -126,10 +130,10 @@ export default function AdminDisputesScreen({ navigation }) {
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#0a0b10',
+        backgroundColor: colors.bg,
         paddingTop: Platform.OS === 'android' ? (RNStatusBar.currentHeight || 0) + 4 : 0,
     },
     header: {
@@ -137,142 +141,162 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         paddingHorizontal: 20,
-        paddingBottom: 20,
+        paddingBottom: 24,
+        paddingTop: 16,
     },
     backBtn: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: 'rgba(255,255,255,0.05)',
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: colors.cardAlt,
         alignItems: 'center',
         justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: colors.border,
     },
     headerTitle: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: '#ffffff',
+        fontSize: 22,
+        fontWeight: '800',
+        color: colors.text,
+        letterSpacing: -0.5,
     },
     scrollContent: {
         paddingHorizontal: 20,
         paddingBottom: 40,
     },
     emptyState: {
-        paddingVertical: 100,
+        paddingVertical: 120,
         alignItems: 'center',
         justifyContent: 'center',
     },
     emptyText: {
-        color: '#64748B',
-        fontSize: 16,
-        marginTop: 16,
+        color: colors.textMuted,
+        fontSize: 17,
+        fontWeight: '600',
+        marginTop: 20,
     },
     disputeCard: {
-        backgroundColor: '#12131a',
-        borderRadius: 20,
-        padding: 20,
-        marginBottom: 20,
+        backgroundColor: colors.cardGlass,
+        borderRadius: 28,
+        padding: 24,
+        marginBottom: 24,
         borderWidth: 1,
-        borderColor: 'rgba(239, 68, 68, 0.2)',
+        borderColor: colors.danger + '30',
+        shadowColor: colors.danger,
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.05,
+        shadowRadius: 24,
+        elevation: 6,
     },
     cardHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'flex-start',
-        marginBottom: 16,
+        marginBottom: 20,
     },
     refContainer: {
         flex: 1,
     },
     orderRef: {
-        color: '#64748B',
-        fontSize: 12,
-        fontFamily: 'monospace',
-        marginBottom: 4,
+        color: colors.textMuted,
+        fontSize: 13,
+        fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+        marginBottom: 6,
+        fontWeight: '600',
     },
     amount: {
-        color: '#ffffff',
-        fontSize: 20,
-        fontWeight: '700',
+        color: colors.text,
+        fontSize: 22,
+        fontWeight: '900',
+        letterSpacing: -0.5,
     },
     disputeBadge: {
-        backgroundColor: '#EF444415',
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 4,
+        backgroundColor: colors.danger + '15',
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 8,
     },
     disputeBadgeText: {
-        color: '#EF4444',
-        fontSize: 10,
+        color: colors.danger,
+        fontSize: 11,
         fontWeight: '800',
+        letterSpacing: 0.5,
     },
     divider: {
         height: 1,
-        backgroundColor: 'rgba(255,255,255,0.06)',
-        marginBottom: 16,
+        backgroundColor: colors.border,
+        marginBottom: 20,
     },
     detailsRow: {
         flexDirection: 'row',
-        gap: 20,
-        marginBottom: 20,
+        gap: 24,
+        marginBottom: 24,
     },
     detailItem: {
         flex: 1,
     },
     detailLabel: {
-        color: '#64748B',
+        color: colors.textMuted,
         fontSize: 12,
-        marginBottom: 4,
+        fontWeight: '700',
+        textTransform: 'uppercase',
+        marginBottom: 6,
     },
     detailValue: {
-        color: '#F1F5F9',
-        fontSize: 14,
-        fontWeight: '600',
+        color: colors.text,
+        fontSize: 15,
+        fontWeight: '700',
     },
     reasonBox: {
-        backgroundColor: 'rgba(255,255,255,0.03)',
-        borderRadius: 12,
-        padding: 12,
-        marginBottom: 20,
+        backgroundColor: colors.cardAlt,
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 24,
+        borderWidth: 1,
+        borderColor: colors.border,
     },
     reasonLabel: {
-        color: '#64748B',
+        color: colors.textMuted,
         fontSize: 11,
-        fontWeight: '600',
+        fontWeight: '800',
         textTransform: 'uppercase',
-        marginBottom: 4,
+        marginBottom: 6,
+        letterSpacing: 0.5,
     },
     reasonText: {
-        color: '#E2E8F0',
-        fontSize: 13,
-        lineHeight: 18,
+        color: colors.textSecondary,
+        fontSize: 14,
+        lineHeight: 20,
+        fontWeight: '500',
     },
     actions: {
         flexDirection: 'row',
-        gap: 12,
+        gap: 16,
     },
     actionBtn: {
         flex: 1,
-        height: 48,
-        borderRadius: 12,
+        height: 52,
+        borderRadius: 16,
         alignItems: 'center',
         justifyContent: 'center',
+        borderWidth: 1.5,
     },
     refundBtn: {
-        backgroundColor: '#EF444415',
-        borderWidth: 1,
-        borderColor: '#EF444430',
+        backgroundColor: colors.danger + '10',
+        borderColor: colors.danger + '40',
     },
     refundText: {
-        color: '#EF4444',
-        fontWeight: '600',
+        color: colors.danger,
+        fontWeight: '800',
+        fontSize: 14,
     },
     releaseBtn: {
-        backgroundColor: '#22C55E15',
-        borderWidth: 1,
-        borderColor: '#22C55E30',
+        backgroundColor: colors.success + '10',
+        borderColor: colors.success + '40',
     },
     releaseText: {
-        color: '#22C55E',
-        fontWeight: '600',
+        color: colors.success,
+        fontWeight: '800',
+        fontSize: 14,
     }
 });

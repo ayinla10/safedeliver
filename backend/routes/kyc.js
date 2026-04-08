@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const { authenticateSeller } = require('../middleware/auth');
+const kycVerify = require('../services/kyc-verify');
 
 // ── GET Current KYC Status & Active Limits ──
 router.get('/', authenticateSeller, async (req, res) => {
@@ -65,12 +66,23 @@ router.post('/apply', authenticateSeller, async (req, res) => {
             return res.status(400).json({ error: 'Proof of Address is required for Tier 3.' });
         }
 
-        await db.query(`
+        const insertRes = await db.query(`
             INSERT INTO kyc_applications (seller_id, target_tier, gov_id_url, selfie_url, proof_of_address_url)
             VALUES ($1, $2, $3, $4, $5)
+            RETURNING id
         `, [req.seller.id, target_tier, gov_id_url || null, selfie_url || null, proof_of_address_url || null]);
 
-        res.json({ message: `Successfully submitted application for Tier ${target_tier}. Pending admin review.` });
+        const appId = insertRes.rows[0].id;
+
+        // Trigger automated verification in background (don't await to avoid timeout)
+        kycVerify.verifyApplication(appId).catch(err => {
+            console.error('Background KYC verification failed:', err);
+        });
+
+        res.json({ 
+            message: `Successfully submitted application for Tier ${target_tier}. Automated verification started.`,
+            application_id: appId
+        });
     } catch (err) {
         console.error('KYC Apply error:', err);
         res.status(500).json({ error: 'Failed to submit KYC application' });

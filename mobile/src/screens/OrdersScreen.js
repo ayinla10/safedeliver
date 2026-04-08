@@ -1,25 +1,28 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, StatusBar as RNStatusBar, Platform, RefreshControl} from 'react-native';
+import { useTheme } from '../ThemeContext';
 import { api } from '../api';
 
-const STATUS_COLORS = {
-  REQUESTED: '#64748B',  // Gray
-  QUOTED: '#EAB308',     // Amber
-  PAID: '#2B7DE9',       // Blue
-  SHIPPED: '#4F46E5',    // Indigo
-  DELIVERED: '#22C55E',  // Green
-  DISPUTED: '#EF4444'    // Red
-};
+const getStatusColors = (colors) => ({
+  REQUESTED: colors.textMuted,
+  QUOTED: colors.warning,
+  PAID: colors.brand,
+  SHIPPED: '#4F46E5', // Indigo
+  DELIVERED: colors.success,
+  DISPUTED: colors.danger
+});
 
 export default function OrdersScreen({ navigation }) {
+  const { colors } = useTheme();
   const [activeTab, setActiveTab] = useState('All');
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const tabs = ['All', 'Pending Quote', 'Active', 'Completed', 'Cancelled'];
 
-  useEffect(() => {
-    fetchOrders();
-  }, []);
+  useEffect(() => { fetchOrders(); }, []);
+
+  const statusColors = useMemo(() => getStatusColors(colors), [colors]);
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
   const fetchOrders = async () => {
     setLoading(true);
@@ -43,20 +46,14 @@ export default function OrdersScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <RNStatusBar barStyle="light-content" backgroundColor="#0a0b10" />
+      <RNStatusBar barStyle={colors.statusBar} backgroundColor={colors.bg} />
       
-      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Orders</Text>
       </View>
 
-      {/* Filter Chips */}
       <View style={styles.filterWrapper}>
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false} 
-          contentContainerStyle={styles.filterScroll}
-        >
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
           {tabs.map((tab) => {
             const isActive = activeTab === tab;
             return (
@@ -74,13 +71,10 @@ export default function OrdersScreen({ navigation }) {
         </ScrollView>
       </View>
 
-      {/* Orders List */}
       <ScrollView 
         contentContainerStyle={styles.listContent} 
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={fetchOrders} tintColor="#2B7DE9" />
-        }
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={fetchOrders} tintColor={colors.brand} />}
       >
         {filteredOrders.length === 0 ? (
           <View style={styles.emptyState}>
@@ -89,7 +83,7 @@ export default function OrdersScreen({ navigation }) {
           </View>
         ) : (
           filteredOrders.map((order) => {
-            const statusColor = STATUS_COLORS[order.status] || '#64748B';
+            const statusColor = statusColors[order.status] || colors.textMuted;
             return (
               <TouchableOpacity 
                 key={order.id} 
@@ -117,85 +111,89 @@ export default function OrdersScreen({ navigation }) {
             );
           })
         )}
-        
         <View style={{ height: 40 }} />
       </ScrollView>
-
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0a0b10',
-        paddingTop: Platform.OS === 'android' ? (RNStatusBar.currentHeight || 0) + 4 : 0,
-    },
+    backgroundColor: colors.bg,
+    paddingTop: Platform.OS === 'android' ? (RNStatusBar.currentHeight || 0) + 4 : 0,
+  },
   header: {
     paddingHorizontal: 20,
     paddingTop: 16,
-    paddingBottom: 16,
+    paddingBottom: 24,
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#ffffff',
-    letterSpacing: -0.5,
+    fontSize: 28,
+    fontWeight: '800',
+    color: colors.text,
+    letterSpacing: -1,
   },
   filterWrapper: {
-    marginBottom: 16,
+    marginBottom: 20,
   },
   filterScroll: {
     paddingHorizontal: 20,
-    gap: 8,
+    gap: 10,
   },
   chip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 999,
-    borderWidth: 1,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 14,
+    borderWidth: 1.5,
   },
   chipActive: {
-    backgroundColor: '#2B7DE9',
-    borderColor: '#2B7DE9',
+    backgroundColor: colors.brand,
+    borderColor: colors.brand,
   },
   chipInactive: {
-    backgroundColor: 'transparent',
-    borderColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: colors.cardAlt,
+    borderColor: colors.border,
   },
   chipText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   chipTextActive: {
     color: '#ffffff',
   },
   chipTextInactive: {
-    color: '#E3E1E9',
+    color: colors.textSecondary,
   },
   listContent: {
     paddingHorizontal: 20,
-    paddingBottom: 24,
-    gap: 12,
+    paddingBottom: 40,
+    gap: 16,
   },
   orderCard: {
-    backgroundColor: '#12131a',
-    borderRadius: 16,
-    padding: 16,
+    backgroundColor: colors.cardGlass,
+    borderRadius: 24,
+    padding: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
+    borderColor: colors.glassBorder,
+    shadowColor: colors.brand,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.05,
+    shadowRadius: 15,
+    elevation: 4,
   },
   cardTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   orderRef: {
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    color: '#64748B',
+    color: colors.textMuted,
     fontSize: 13,
     letterSpacing: 0.5,
+    fontWeight: '600',
   },
   statusBadge: {
     paddingHorizontal: 8,
@@ -205,51 +203,60 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: '800',
     textTransform: 'uppercase',
   },
   cardMid: {
-    marginBottom: 16,
+    marginBottom: 20,
   },
   productName: {
-    color: '#F1F5F9',
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
+    fontSize: 17,
+    fontWeight: '800',
+    color: colors.text,
+    marginBottom: 6,
+    letterSpacing: -0.3,
   },
   buyerName: {
-    color: '#64748B',
     fontSize: 14,
+    color: colors.textSecondary,
+    fontWeight: '500',
   },
   cardBottom: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.06)',
-    paddingTop: 12,
+    borderTopColor: colors.border,
+    paddingTop: 16,
   },
   orderDate: {
-    color: '#64748B',
     fontSize: 12,
+    color: colors.textMuted,
+    fontWeight: '600',
   },
   orderAmount: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: '900',
+    color: colors.brand,
+    letterSpacing: -0.5,
   },
   emptyState: {
-    paddingTop: 60,
+    paddingTop: 80,
     alignItems: 'center',
   },
   emptyTitle: {
-    color: '#ffffff',
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 19,
+    fontWeight: '800',
+    color: colors.text,
     marginBottom: 8,
+    letterSpacing: -0.3,
   },
   emptySub: {
-    color: '#64748B',
-    fontSize: 14,
+    fontSize: 15,
+    color: colors.textMuted,
+    textAlign: 'center',
+    paddingHorizontal: 40,
+    lineHeight: 22,
+    fontWeight: '500',
   },
 });

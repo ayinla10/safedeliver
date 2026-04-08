@@ -15,6 +15,10 @@ export default function CheckoutPage() {
     const [txData, setTxData] = useState(null);
 
     useEffect(() => {
+        // Absolute theme enforcement for high-trust checkout
+        const originalTheme = document.documentElement.getAttribute('data-theme');
+        document.documentElement.setAttribute('data-theme', 'light');
+        
         api.get(`/checkout-links/${linkCode}`)
             .then(data => { 
                 setProduct(data); 
@@ -27,6 +31,14 @@ export default function CheckoutPage() {
                 }
             })
             .catch(err => { setError(err.message); setLoading(false); });
+
+        return () => {
+            if (originalTheme) {
+                document.documentElement.setAttribute('data-theme', originalTheme);
+            } else {
+                document.documentElement.removeAttribute('data-theme');
+            }
+        };
     }, [linkCode]);
 
     async function handleSubmitDetails(e) {
@@ -72,9 +84,9 @@ export default function CheckoutPage() {
 
     if (loading && !product) {
         return (
-            <div className="page-wrapper">
-                <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)', textAlign: 'center' }}>
-                    <span style={{ fontSize: '1.1rem', fontWeight: 700 }}>🛡️ Safe<span style={{ color: 'var(--brand)' }}>Deliver</span></span>
+            <div className="page-wrapper light-mode-enforced">
+                <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--border)', textAlign: 'center' }}>
+                    <span style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.03em' }}>🛡️ Safe<span style={{ color: 'var(--brand)' }}>Deliver</span></span>
                 </div>
                 <div className="flex-center" style={{ minHeight: '60vh' }}><div className="spinner" /></div>
             </div>
@@ -83,23 +95,23 @@ export default function CheckoutPage() {
 
     if (error && !product) {
         return (
-            <div className="page-wrapper">
-                <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)', textAlign: 'center' }}>
-                    <span style={{ fontSize: '1.1rem', fontWeight: 700 }}>🛡️ Safe<span style={{ color: 'var(--brand)' }}>Deliver</span></span>
+            <div className="page-wrapper light-mode-enforced">
+                <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--border)', textAlign: 'center' }}>
+                    <span style={{ fontSize: '1.25rem', fontWeight: 800 }}>🛡️ Safe<span style={{ color: 'var(--brand)' }}>Deliver</span></span>
                 </div>
                 <div className="container-sm" style={{ padding: '4rem 1.5rem', textAlign: 'center' }}>
                     <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>😔</div>
-                    <h2>Checkout link not found</h2>
-                    <p className="text-sm mt-1">{error}</p>
+                    <h2 style={{ color: 'var(--text)' }}>Checkout link not found</h2>
+                    <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>{error}</p>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="page-wrapper">
-            <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)', textAlign: 'center' }}>
-                <span style={{ fontSize: '1.1rem', fontWeight: 700 }}>🛡️ Safe<span style={{ color: 'var(--brand)' }}>Deliver</span> — Secure Checkout</span>
+        <div className="page-wrapper light-mode-enforced">
+            <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--border)', textAlign: 'center', background: 'var(--card-bg)' }}>
+                <span style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.03em' }}>🛡️ Safe<span style={{ color: 'var(--brand)' }}>Deliver</span> <span style={{ color: 'var(--text-muted)', fontWeight: 500, marginLeft: 8 }}>Secure Checkout</span></span>
             </div>
             <div className="section">
                 <div className="container-sm">
@@ -108,12 +120,12 @@ export default function CheckoutPage() {
                             <div className="card" style={{ maxWidth: 450, margin: '0 auto' }}>
                                 <div style={{ 
                                     width: 80, height: 80, borderRadius: 40, 
-                                    backgroundColor: 'rgba(43,125,233,0.1)', 
+                                    backgroundColor: 'var(--bg-alt)', 
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                                     margin: '0 auto 1.5rem auto',
-                                    border: '1px solid rgba(43,125,233,0.2)'
+                                    border: '1px solid var(--border)'
                                 }}>
-                                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#2B7DE9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
                                         <path d="m9 12 2 2 4-4"/>
                                     </svg>
@@ -135,15 +147,15 @@ export default function CheckoutPage() {
 
                                     <button 
                                         onClick={() => setStep('details')}
-                                        className="btn btn-outline btn-lg"
-                                        style={{ border: '1px solid rgba(255,255,255,0.1)' }}
+                                        className="btn btn-secondary btn-lg"
+                                        style={{ width: '100%' }}
                                     >
                                         Continue as Guest in Browser
                                     </button>
                                 </div>
 
-                                <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                                    <p className="text-xs text-muted">Don't have the app yet? <span className="text-brand">Download on Stores</span></p>
+                                <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid var(--border)' }}>
+                                    <p className="text-xs text-muted">🛡️ Your money is held in escrow until delivery is confirmed.</p>
                                 </div>
                             </div>
                         </div>
@@ -157,9 +169,9 @@ export default function CheckoutPage() {
                                     <img src={product.image_url} alt={product.product_name}
                                         style={{ width: '100%', maxHeight: 300, objectFit: 'cover', borderRadius: 'var(--radius-sm)', marginBottom: '1rem' }} />
                                 )}
-                                <h2>{product.product_name}</h2>
-                                {product.description && <p className="text-sm mt-1">{product.description}</p>}
-                                <div className="text-gold mt-2" style={{ fontSize: '1.5rem', fontWeight: 800 }}>GHS {(product.price / 100).toFixed(2)}</div>
+                                <h2 style={{ color: 'var(--text)' }}>{product.product_name}</h2>
+                                {product.description && <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>{product.description}</p>}
+                                <div className="mt-2" style={{ fontSize: '2rem', fontWeight: 900, color: 'var(--brand)' }}>GHS {(product.price / 100).toFixed(2)}</div>
 
                                 <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.25rem', alignItems: 'center' }}>
                                     <p className="text-sm">Sold by: <strong>{product.seller_name}</strong></p>
@@ -168,7 +180,7 @@ export default function CheckoutPage() {
                                     )}
                                 </div>
 
-                                <div style={{ marginTop: '1rem', padding: '0.75rem', background: 'rgba(43,125,233,0.05)', borderRadius: '8px', border: '1px solid rgba(43,125,233,0.1)' }}>
+                                <div style={{ marginTop: '1rem', padding: '0.75rem', background: 'var(--bg-alt)', borderRadius: '8px', border: '1px solid var(--border)' }}>
                                     <p className="text-xs" style={{ color: 'var(--brand)', fontWeight: 600 }}>ℹ️ Delivery fee will be quoted by the seller.</p>
                                     <p className="text-xs text-muted mt-1">A 5% service fee (Max 50 GHS) applies to protect this transaction.</p>
                                 </div>

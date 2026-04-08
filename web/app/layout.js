@@ -25,9 +25,17 @@ function ThemeScript() {
   const script = `
     (function() {
       try {
+        var path = window.location.pathname;
+        if (path.includes('/pay/')) {
+          document.documentElement.setAttribute('data-theme', 'light');
+          return;
+        }
         var theme = localStorage.getItem('sd-theme');
-        if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        if (theme === 'dark') {
           document.documentElement.setAttribute('data-theme', 'dark');
+        } else {
+          // Default to Light Mode (Liquid Glass) for all pages
+          document.documentElement.setAttribute('data-theme', 'light');
         }
       } catch(e) {}
     })();

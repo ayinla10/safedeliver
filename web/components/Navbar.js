@@ -24,9 +24,12 @@ export default function Navbar() {
         document.documentElement.setAttribute('data-theme', next);
     }
 
+    const isCheckoutPage = pathname?.startsWith('/pay');
+
     const links = [
         { href: '/', label: 'Home' },
-        { href: '/contact', label: 'Contact' },
+        { href: '/#how-it-works', label: 'How it Works' },
+        { href: '/#features', label: 'Features' },
     ];
 
     return (
@@ -36,33 +39,37 @@ export default function Navbar() {
                     🛡️ Safe<span>Deliver</span>
                 </Link>
 
-                <button className="mobile-menu-btn" onClick={() => setMenuOpen(!menuOpen)}>
-                    {menuOpen ? '✕' : '☰'}
-                </button>
-
-                <ul className={`navbar-links ${menuOpen ? 'open' : ''}`}>
-                    {links.map(link => (
-                        <li key={link.href}>
-                            <Link
-                                href={link.href}
-                                className={pathname === link.href ? 'active' : ''}
-                                onClick={() => setMenuOpen(false)}
-                            >
-                                {link.label}
-                            </Link>
-                        </li>
-                    ))}
-                    <li>
-                        <Link href="/seller/login" className="btn btn-primary btn-sm" onClick={() => setMenuOpen(false)}>
-                            Seller Login
-                        </Link>
-                    </li>
-                    <li>
-                        <button className="theme-toggle" onClick={toggleTheme} title="Toggle dark mode">
-                            {theme === 'dark' ? '☀️' : '🌙'}
+                {!isCheckoutPage && (
+                    <>
+                        <button className="mobile-menu-btn" onClick={() => setMenuOpen(!menuOpen)}>
+                            {menuOpen ? '✕' : '☰'}
                         </button>
-                    </li>
-                </ul>
+
+                        <ul className={`navbar-links ${menuOpen ? 'open' : ''}`}>
+                            {links.map(link => (
+                                <li key={link.href}>
+                                    <Link
+                                        href={link.href}
+                                        className={pathname === link.href ? 'active' : ''}
+                                        onClick={() => setMenuOpen(false)}
+                                    >
+                                        {link.label}
+                                    </Link>
+                                </li>
+                            ))}
+                            <li>
+                                <Link href="/seller/login" className="btn btn-primary btn-sm" onClick={() => setMenuOpen(false)}>
+                                    Seller Login
+                                </Link>
+                            </li>
+                            <li>
+                                <button className="theme-toggle" onClick={toggleTheme} title="Toggle dark mode">
+                                    {theme === 'dark' ? '☀️' : '🌙'}
+                                </button>
+                            </li>
+                        </ul>
+                    </>
+                )}
             </div>
         </nav>
     );
