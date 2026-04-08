@@ -27,8 +27,10 @@ export default function OrdersScreen({ navigation }) {
   const fetchOrders = async () => {
     setLoading(true);
     try {
-      const data = await api.get('/transactions');
-      setOrders(data);
+      const response = await api.get('/transactions');
+      // Normalize data: backend now returns { transactions, total }
+      const ordersArray = Array.isArray(response) ? response : (response.transactions || []);
+      setOrders(ordersArray);
     } catch (err) {
       console.error('Fetch orders error:', err);
     } finally {
@@ -160,7 +162,7 @@ const createStyles = (colors) => StyleSheet.create({
     fontWeight: '700',
   },
   chipTextActive: {
-    color: '#ffffff',
+    color: '#FFFFFF',
   },
   chipTextInactive: {
     color: colors.textSecondary,

@@ -11,16 +11,7 @@ const audit = require('../services/audit');
 
 const FEE_PERCENT = parseFloat(process.env.PLATFORM_FEE_PERCENT || '5');
 
-// ── Seller: List all transactions for authenticated seller ──
-router.get('/', authenticateSeller, async (req, res, next) => {
-    try {
-        const result = await db.query(
-            `SELECT * FROM transactions WHERE seller_id = $1 ORDER BY created_at DESC`,
-            [req.seller.id]
-        );
-        res.json(result.rows);
-    } catch (err) { next(err); }
-});
+
 
 // ── Seller: Get performance stats ──
 router.get('/stats', authenticateSeller, async (req, res, next) => {

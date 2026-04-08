@@ -29,8 +29,9 @@ export default function DashboardScreen({ navigation }) {
     try {
       const statsData = await api.get('/transactions/stats');
       setStats(statsData);
-      const ordersData = await api.get('/transactions');
-      setRecentOrders(ordersData.slice(0, 5));
+      const response = await api.get('/transactions');
+      const ordersArray = Array.isArray(response) ? response : (response.transactions || []);
+      setRecentOrders(ordersArray.slice(0, 5));
     } catch (err) {
       console.error('Fetch dashboard error:', err.message);
     } finally {
