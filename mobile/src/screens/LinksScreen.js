@@ -10,7 +10,7 @@ export default function LinksScreen({ navigation }) {
   const [links, setLinks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedLink, setSelectedLink] = useState(null); // Used for Options Modal
-  const [previewImage, setPreviewImage] = useState(null); // Image preview modal
+  const [previewGallery, setPreviewGallery] = useState(null); // { images: [], index: 0 }
 
   useEffect(() => {
     fetchLinks();
@@ -121,49 +121,14 @@ export default function LinksScreen({ navigation }) {
           </View>
         }
         renderItem={({ item: link }) => (
-          <TouchableOpacity 
-            style={styles.linkCard} 
-            activeOpacity={0.9}
-            longPressDelay={350}
-            onLongPress={() => setSelectedLink(link)}
-            onPress={() => handleShare(link.link_code, link.product_name)}
-          >
-            <View style={styles.cardImageContainer}>
-              {link.image_url ? (
-                <Image source={{ uri: link.image_url }} style={styles.productImage} />
-              ) : (
-                <View style={styles.imagePlaceholder}>
-                  <Ionicons name="image-outline" size={32} color={colors.border} />
-                </View>
-              )}
-              
-              <View style={[styles.statusIndicator, { backgroundColor: link.is_active ? colors.success : colors.danger }]} />
-              
-              {link.images && link.images.length > 1 && (
-                <View style={styles.multiImageBadge}>
-                  <Ionicons name="images" size={10} color={colors.white} />
-                  <Text style={styles.multiImageText}>{link.images.length}</Text>
-                </View>
-              )}
-              
-              <TouchableOpacity 
-                style={styles.miniOptionsBtn}
-                onPress={() => setSelectedLink(link)}
-              >
-                <Ionicons name="ellipsis-vertical" size={16} color={colors.white} />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.cardContent}>
-              <Text style={styles.productTitle} numberOfLines={1}>{link.product_name}</Text>
-              <View style={styles.priceRow}>
-                <Text style={styles.productPrice}>GHS {(link.price / 100).toFixed(0)}</Text>
-                <View style={styles.codeTag}>
-                  <Text style={styles.linkCode}>{link.link_code}</Text>
-                </View>
-              </View>
-            </View>
-          </TouchableOpacity>
+          <ProductCard 
+            link={link} 
+            colors={colors} 
+            styles={styles}
+            onOpenOptions={() => setSelectedLink(link)}
+            onOpenPreview={(images, index) => setPreviewGallery({ images, index })}
+            onShare={() => handleShare(link.link_code, link.product_name)}
+          />
         )}
       />
 
@@ -210,28 +175,134 @@ export default function LinksScreen({ navigation }) {
 
       {/* Image Preview Modal */}
       <Modal
-        visible={!!previewImage}
+        visible={!!previewGallery}
         transparent
         animationType="fade"
-        onRequestClose={() => setPreviewImage(null)}
+        onRequestClose={() => setPreviewGallery(null)}
       >
         <View style={styles.imagePreviewOverlay}>
-          <TouchableOpacity style={styles.imagePreviewClose} onPress={() => setPreviewImage(null)}>
+          <TouchableOpacity style={styles.imagePreviewClose} onPress={() => setPreviewGallery(null)}>
             <Ionicons name="close" size={28} color={colors.text} />
           </TouchableOpacity>
-          {previewImage && (
-            <Image
-              source={{ uri: previewImage }}
-              style={styles.imagePreviewFull}
-              resizeMode="contain"
+          
+          {previewGallery && (
+            <FlatList
+              data={previewGallery.images}
+              horizontal
+              pagingEnabled
+              initialScrollIndex={previewGallery.index}
+              getItemLayout={(data, index) => ({
+                length: 400, // Use a generic width check or dynamic
+                offset: 400 * index,
+                index,
+              })}
+              keyExtractor={(uri, i) => i.toString()}
+              showsHorizontalScrollIndicator={false}
+              renderItem={({ item }) => (
+                <View style={styles.previewSlide}>
+                  <Image
+                    source={{ uri: item }}
+                    style={styles.imagePreviewFull}
+                    resizeMode="contain"
+                  />
+                </View>
+              )}
             />
           )}
+          
+          <View style={styles.previewFooter}>
+             <Text style={styles.previewCountText}>Swiping through gallery</Text>
+          </View>
         </View>
       </Modal>
 
     </SafeAreaView>
   );
 }
+
+// Reusable Product Card with Carousel
+const ProductCard = React.memo(({ link, colors, styles, onOpenOptions, onOpenPreview, onShare }) => {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const gallery = link.images && link.images.length > 0 ? link.images : [link.image_url];
+  const cardWidth = 175; // Approx width of linkCard at 48% (based on screen)
+  
+  const onScroll = (event) => {
+    const slideSize = event.nativeEvent.layoutMeasurement.width;
+    const offset = event.nativeEvent.contentOffset.x;
+    const index = Math.round(offset / slideSize);
+    setActiveIndex(index);
+  };
+
+  return (
+    <View style={styles.linkCard}>
+      <View style={styles.cardImageContainer}>
+        {gallery.length > 0 && gallery[0] ? (
+          <>
+            <FlatList
+              data={gallery}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              onMomentumScrollEnd={onScroll}
+              keyExtractor={(item, index) => index.toString()}
+              renderItem={({ item, index }) => (
+                <TouchableOpacity 
+                  activeOpacity={0.9} 
+                  onPress={() => onOpenPreview(gallery, index)}
+                  onLongPress={onOpenOptions}
+                >
+                  <Image source={{ uri: item }} style={styles.productImage} />
+                </TouchableOpacity>
+              )}
+              style={{ width: '100%', height: '100%' }}
+            />
+            {/* Dots */}
+            {gallery.length > 1 && (
+              <View style={styles.dotContainer}>
+                {gallery.map((_, i) => (
+                  <View 
+                    key={i} 
+                    style={[
+                      styles.dot, 
+                      { backgroundColor: i === activeIndex ? colors.brand : colors.border, opacity: i === activeIndex ? 1 : 0.5 }
+                    ]} 
+                  />
+                ))}
+              </View>
+            )}
+          </>
+        ) : (
+          <View style={styles.imagePlaceholder}>
+            <Ionicons name="image-outline" size={32} color={colors.border} />
+          </View>
+        )}
+        
+        <View style={[styles.statusIndicator, { backgroundColor: link.is_active ? colors.success : colors.danger }]} />
+        
+        <TouchableOpacity 
+          style={styles.miniOptionsBtn}
+          onPress={onOpenOptions}
+        >
+          <Ionicons name="ellipsis-vertical" size={16} color={colors.white} />
+        </TouchableOpacity>
+      </View>
+
+      <TouchableOpacity 
+        style={styles.cardContent} 
+        onPress={onShare}
+        onLongPress={onOpenOptions}
+      >
+        <Text style={styles.productTitle} numberOfLines={1}>{link.product_name}</Text>
+        <View style={styles.priceRow}>
+          <Text style={styles.productPrice}>GHS {(link.price / 100).toFixed(0)}</Text>
+          <View style={styles.codeTag}>
+            <Text style={styles.linkCode}>{link.link_code}</Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+    </View>
+  );
+});
 
 const createStyles = (colors) => StyleSheet.create({
   container: {
@@ -482,7 +553,37 @@ const createStyles = (colors) => StyleSheet.create({
     zIndex: 10,
   },
   imagePreviewFull: {
+    width: Platform.OS === 'web' ? 400 : 400, // Should use Dimensions
+    height: '100%',
+  },
+  previewSlide: {
+    width: 400, // Hardcoded for now, ideal to use screen width
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  previewFooter: {
+    position: 'absolute',
+    bottom: 40,
     width: '100%',
-    height: '80%',
+    alignItems: 'center',
+  },
+  previewCountText: {
+    color: colors.textSecondary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  dotContainer: {
+    position: 'absolute',
+    bottom: 8,
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
 });

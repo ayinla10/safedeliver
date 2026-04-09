@@ -6,6 +6,7 @@ import { api } from '@/lib/api';
 export default function LinksPage() {
     const [links, setLinks] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [previewImages, setPreviewImages] = useState(null); // { images: [], index: 0 }
 
     function load() {
         api.get('/checkout-links').then(data => { setLinks(data); setLoading(false); }).catch(() => setLoading(false));
@@ -44,71 +45,194 @@ export default function LinksPage() {
             ) : (
                 <div className="grid-2" style={{ gap: '1.25rem' }}>
                     {links.map(link => (
-                        <div key={link.id} className="card" style={{ 
-                            position: 'relative', 
-                            overflow: 'hidden',
-                            border: '1px solid rgba(0,0,0,0.05)',
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
-                            padding: '1rem',
-                            borderRadius: '16px'
-                        }}>
-                            {link.image_url && (
-                                <div style={{ 
-                                    margin: '-1rem -1rem 1rem -1rem', 
-                                    height: 160, 
-                                    overflow: 'hidden', 
-                                    background: 'var(--bg-alt)',
-                                    position: 'relative'
-                                }}>
-                                    <img src={link.image_url} alt={link.product_name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} crossOrigin="anonymous" />
-                                    
-                                    {/* Multi-image indicator */}
-                                    {link.images && link.images.length > 1 && (
-                                        <div style={{
-                                            position: 'absolute',
-                                            top: 12,
-                                            right: 12,
-                                            background: 'rgba(0,0,0,0.6)',
-                                            backdropFilter: 'blur(4px)',
-                                            color: 'white',
-                                            padding: '4px 8px',
-                                            borderRadius: '6px',
-                                            fontSize: '0.65rem',
-                                            fontWeight: 700,
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '4px'
-                                        }}>
-                                            <span>📷</span> {link.images.length}
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
-                                <div style={{ minWidth: 0 }}>
-                                    <h3 style={{ fontSize: '1rem', marginBottom: '0.125rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 700 }}>{link.product_name}</h3>
-                                    <span className="text-mono text-xs" style={{ opacity: 0.5, letterSpacing: '0.5px' }}>{link.link_code}</span>
-                                </div>
-                                <span className={`status-badge ${link.is_active ? 'RELEASED' : 'PENDING'}`} style={{ 
-                                    fontSize: '0.65rem', 
-                                    padding: '2px 8px',
-                                    borderRadius: '6px'
-                                }}>{link.is_active ? 'Active' : 'Paused'}</span>
-                            </div>
-                            <div style={{ display: 'flex', gap: '1rem', marginBottom: '0.75rem' }}>
-                                <div><span className="text-xs">Price</span><div style={{ fontWeight: 600 }}>GHS {(link.price / 100).toFixed(2)}</div></div>
-                                <div><span className="text-xs">Orders</span><div style={{ fontWeight: 600 }}>{link.order_count || 0}</div></div>
-                            </div>
-                            <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                <button className="btn btn-primary btn-sm" onClick={() => copyLink(link.link_code)}>Copy</button>
-                                <Link href={`/seller/dashboard/links/new?code=${link.link_code}`} className="btn btn-secondary btn-sm" style={{ border: '1px solid var(--border-color)', color: 'var(--text-color)', background: 'transparent' }}>Edit</Link>
-                                <button className="btn btn-ghost btn-sm" onClick={() => toggleLink(link.link_code, link.is_active)}>{link.is_active ? 'Pause' : 'Enable'}</button>
-                                <button className="btn btn-ghost btn-sm" style={{ color: 'var(--danger)' }} onClick={() => deleteLink(link.link_code)}>Delete</button>
-                            </div>
-                        </div>
+                        <LinkCard 
+                            key={link.id} 
+                            link={link} 
+                            onToggle={() => toggleLink(link.link_code, link.is_active)}
+                            onDelete={() => deleteLink(link.link_code)}
+                            onPreview={(images, index) => setPreviewImages({ images, index })}
+                        />
                     ))}
                 </div>
             )}
+
+            {/* Lightbox Modal */}
+            {previewImages && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'rgba(0,0,0,0.9)',
+                    backdropFilter: 'blur(10px)',
+                    zIndex: 1000,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '2rem'
+                }} onClick={() => setPreviewImages(null)}>
+                    <button style={{
+                        position: 'absolute',
+                        top: '20px',
+                        right: '20px',
+                        background: 'white',
+                        border: 'none',
+                        width: '44px',
+                        height: '44px',
+                        borderRadius: '50%',
+                        cursor: 'pointer',
+                        fontSize: '24px',
+                        fontWeight: 'bold'
+                    }}>&times;</button>
+                    
+                    <div style={{ position: 'relative', maxWidth: '90vw', maxHeight: '80vh' }}>
+                        <img 
+                            src={previewImages.images[previewImages.index]} 
+                            style={{ maxWidth: '100%', maxHeight: '80vh', borderRadius: '12px', objectFit: 'contain' }}
+                            onClick={(e) => e.stopPropagation()}
+                        />
+                        {/* Navigation dots in lightbox */}
+                        {previewImages.images.length > 1 && (
+                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginTop: '20px' }} onClick={(e) => e.stopPropagation()}>
+                                {previewImages.images.map((img, i) => (
+                                    <div 
+                                        key={i} 
+                                        onClick={() => setPreviewImages({ ...previewImages, index: i })}
+                                        style={{
+                                            width: '10px',
+                                            height: '10px',
+                                            borderRadius: '50%',
+                                            background: i === previewImages.index ? '#FF6B00' : 'rgba(255,255,255,0.3)',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s'
+                                        }}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+// Sub-component for individual link card with carousel
+function LinkCard({ link, onToggle, onDelete, onPreview }) {
+    const [activeIndex, setActiveIndex] = useState(0);
+    const gallery = link.images && link.images.length > 0 ? link.images : [link.image_url];
+    
+    const handleScroll = (e) => {
+        const scrollLeft = e.target.scrollLeft;
+        const width = e.target.offsetWidth;
+        const index = Math.round(scrollLeft / width);
+        setActiveIndex(index);
+    };
+
+    function copyLink(code) {
+        const url = `${window.location.origin}/pay/${code}`;
+        navigator.clipboard.writeText(url);
+        alert('Link copied to clipboard!');
+    }
+
+    return (
+        <div className="card" style={{ 
+            position: 'relative', 
+            overflow: 'hidden',
+            border: '1px solid rgba(0,0,0,0.05)',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
+            padding: '1.25rem',
+            borderRadius: '16px',
+            display: 'flex',
+            flexDirection: 'column'
+        }}>
+            {/* Gallery Section */}
+            <div style={{ 
+                margin: '-1.25rem -1.25rem 1rem -1.25rem', 
+                height: 180, 
+                position: 'relative',
+                background: 'var(--bg-alt)',
+                overflow: 'hidden'
+            }}>
+                <div 
+                    onScroll={handleScroll}
+                    style={{
+                        display: 'flex',
+                        overflowX: 'auto',
+                        scrollSnapType: 'x mandatory',
+                        msOverflowStyle: 'none',
+                        scrollbarWidth: 'none',
+                        height: '100%'
+                    }}
+                    className="no-scrollbar"
+                >
+                    {gallery.map((img, i) => (
+                        <div key={i} style={{ minWidth: '100%', scrollSnapAlign: 'start', position: 'relative', cursor: 'pointer' }} onClick={() => onPreview(gallery, i)}>
+                            <img 
+                                src={img} 
+                                alt={`${link.product_name} - ${i}`} 
+                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                crossOrigin="anonymous"
+                            />
+                        </div>
+                    ))}
+                </div>
+
+                {/* Dots indicator */}
+                {gallery.length > 1 && (
+                    <div style={{
+                        position: 'absolute',
+                        bottom: '12px',
+                        left: '0',
+                        right: '0',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        pointerEvents: 'none'
+                    }}>
+                        {gallery.map((_, i) => (
+                            <div key={i} style={{
+                                width: '6px',
+                                height: '6px',
+                                borderRadius: '50%',
+                                background: 'white',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                                opacity: i === activeIndex ? 1 : 0.4,
+                                transform: i === activeIndex ? 'scale(1.2)' : 'scale(1)',
+                                transition: 'all 0.2s'
+                            }} />
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+                <div style={{ minWidth: 0 }}>
+                    <h3 style={{ fontSize: '1.1rem', marginBottom: '0.125rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 800 }}>{link.product_name}</h3>
+                    <code style={{ fontSize: '0.65rem', opacity: 0.5, letterSpacing: '0.5px' }}>{link.link_code}</code>
+                </div>
+                <span className={`status-badge ${link.is_active ? 'RELEASED' : 'PENDING'}`} style={{ 
+                    fontSize: '0.65rem', 
+                    padding: '2px 8px',
+                    borderRadius: '6px'
+                }}>{link.is_active ? 'Active' : 'Paused'}</span>
+            </div>
+
+            <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '1.25rem' }}>
+                <div><span className="text-xs" style={{ opacity: 0.6 }}>Price</span><div style={{ fontWeight: 700, color: 'var(--brand)' }}>GHS {(link.price / 100).toFixed(2)}</div></div>
+                <div><span className="text-xs" style={{ opacity: 0.6 }}>Orders</span><div style={{ fontWeight: 700 }}>{link.order_count || 0}</div></div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: 'auto' }}>
+                <button className="btn btn-primary btn-sm" style={{ flex: 1 }} onClick={() => copyLink(link.link_code)}>Copy</button>
+                <Link href={`/seller/dashboard/links/new?code=${link.link_code}`} className="btn btn-sm" style={{ flex: 1, textAlign: 'center', border: '1px solid var(--border-color)', background: 'transparent' }}>Edit</Link>
+                <button onClick={onToggle} className="btn btn-sm btn-ghost" style={{ padding: '0 10px' }}>
+                    {link.is_active ? 'Pause' : 'Enable'}
+                </button>
+                <button onClick={onDelete} className="btn btn-sm btn-ghost" style={{ color: 'var(--danger)', padding: '0 10px' }}>&times;</button>
+            </div>
         </div>
     );
 }
