@@ -10,7 +10,7 @@ function InnerNewLinkPage() {
     const [form, setForm] = useState({ product_name: '', description: '', price: '' });
     const [error, setError] = useState('');
     const [creating, setCreating] = useState(false);
-    const [imageFile, setImageFile] = useState(null);
+    const [imageFiles, setImageFiles] = useState([]); // Array of files
     const [uploadingImage, setUploadingImage] = useState(false);
     const [loadingEdit, setLoadingEdit] = useState(!!editCode);
 
@@ -34,24 +34,38 @@ function InnerNewLinkPage() {
 
     async function create(e) {
         e.preventDefault();
+        
+        // Multi-image validation (Required for new links)
+        if (!editCode && imageFiles.length === 0) {
+            setError('Please select at least one product image.');
+            return;
+        }
+
         setCreating(true); setError('');
         try {
-            let imageUrl = null;
-            if (imageFile) {
+            let imageUrls = [];
+            
+            if (imageFiles.length > 0) {
                 setUploadingImage(true);
                 const token = localStorage.getItem('sd-token');
-                const formData = new FormData();
-                formData.append('file', imageFile);
                 
-                const uploadRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1'}/upload`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${token}` },
-                    body: formData
+                // Upload all images concurrently
+                const uploadPromises = Array.from(imageFiles).map(async (file) => {
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    
+                    const uploadRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1'}/upload`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}` },
+                        body: formData
+                    });
+                    const uploadData = await uploadRes.json();
+                    if (!uploadRes.ok) throw new Error(uploadData.error || 'Image upload failed');
+                    return uploadData.url;
                 });
-                const uploadData = await uploadRes.json();
+
+                imageUrls = await Promise.all(uploadPromises);
                 setUploadingImage(false);
-                if (!uploadRes.ok) throw new Error(uploadData.error || 'Image upload failed');
-                imageUrl = uploadData.url;
             }
 
             const data = {
@@ -59,7 +73,11 @@ function InnerNewLinkPage() {
                 description: form.description,
                 price: Math.round(parseFloat(form.price) * 100)
             };
-            if (imageUrl) data.image_url = imageUrl;
+            
+            if (imageUrls.length > 0) {
+                data.image_url = imageUrls[0]; // Set primary
+                data.images = imageUrls;      // Set gallery
+            }
             
             if (editCode) {
                 await api.patch(`/checkout-links/${editCode}`, data);
@@ -75,25 +93,45 @@ function InnerNewLinkPage() {
     return (
         <div className="animate-in" style={{ maxWidth: 520 }}>
             <h1 style={{ fontSize: '1.5rem', marginBottom: '1.5rem' }}>{editCode ? 'Edit Checkout Link' : 'Create Checkout Link'}</h1>
-            {error && <div className="alert alert-danger">{error}</div>}
+            {error && <div className="alert alert-danger" style={{ background: '#FFF1F0', border: '1px solid #FFA39E', color: '#CF1322', padding: '12px', borderRadius: '8px', marginBottom: '1.5rem' }}>{error}</div>}
             <div className="card">
                 <form onSubmit={create}>
                     <div className="form-group">
-                        <label>Product Name</label>
+                        <label style={{ fontWeight: 600, fontSize: '0.875rem' }}>Product Name</label>
                         <input className="form-input" placeholder="e.g. iPhone 15 Pro Max" value={form.product_name} onChange={e => setForm({ ...form, product_name: e.target.value })} required />
                     </div>
                     <div className="form-group">
-                        <label>Description (optional)</label>
+                        <label style={{ fontWeight: 600, fontSize: '0.875rem' }}>Description (optional)</label>
                         <textarea className="form-textarea" placeholder="Product details, color, condition..." value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
                     </div>
                     <div className="form-group">
-                        <label>Price (GHS)</label>
+                        <label style={{ fontWeight: 600, fontSize: '0.875rem' }}>Price (GHS)</label>
                         <input className="form-input" type="number" step="0.01" min="1" placeholder="100.00" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} required />
                     </div>
                     
                     <div className="form-group">
-                        <label>Product Image (optional)</label>
-                        <input className="form-input" type="file" accept="image/*" onChange={e => setImageFile(e.target.files[0])} />
+                        <label style={{ fontWeight: 600, fontSize: '0.875rem' }}>Product Images {!editCode && <span style={{ color: 'var(--danger)' }}>*</span>}</label>
+                        <p className="text-xs" style={{ marginBottom: '0.5rem', opacity: 0.6 }}>You can select up to 6 images.</p>
+                        <input 
+                            className="form-input" 
+                            type="file" 
+                            accept="image/*" 
+                            multiple 
+                            onChange={e => {
+                                const files = e.target.files;
+                                if (files.length > 6) {
+                                    alert('Maximum 6 images allowed.');
+                                    e.target.value = '';
+                                    return;
+                                }
+                                setImageFiles(files);
+                            }} 
+                        />
+                        {imageFiles.length > 0 && (
+                            <div style={{ marginTop: '0.75rem', fontSize: '0.8rem', color: 'var(--brand)', fontWeight: 600 }}>
+                                ✅ {imageFiles.length} images selected
+                            </div>
+                        )}
                     </div>
 
                     <div style={{ marginTop: '1rem', marginBottom: '1.5rem', padding: '1rem', background: 'rgba(43,125,233,0.05)', borderRadius: '8px', border: '1px solid rgba(43,125,233,0.1)' }}>

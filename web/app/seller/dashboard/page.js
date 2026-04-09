@@ -31,15 +31,47 @@ export default function SellerDashboard() {
     return (
         <div className="animate-in" style={{ paddingBottom: '5rem' }}>
             {/* Greeting */}
-            <div style={{ marginBottom: '1.5rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div style={{ 
+                marginBottom: '1.5rem', 
+                background: 'linear-gradient(135deg, #FF6B00 0%, #FF8A00 100%)',
+                padding: '1.5rem',
+                borderRadius: '16px',
+                position: 'relative',
+                overflow: 'hidden',
+                color: 'white',
+                boxShadow: '0 10px 20px rgba(255, 107, 0, 0.2)'
+            }}>
+                {/* Glass decoration */}
+                <div style={{
+                    position: 'absolute',
+                    top: '-20%',
+                    right: '-10%',
+                    width: '150px',
+                    height: '150px',
+                    background: 'rgba(255, 255, 255, 0.15)',
+                    borderRadius: '50%',
+                    filter: 'blur(30px)'
+                }} />
+
+                <div style={{ position: 'relative', zIndex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
-                        <h1 style={{ fontSize: 'clamp(1.4rem, 5vw, 1.75rem)', margin: 0 }}>
-                            Hello, {seller?.full_name?.split(' ')[0] || 'Seller'}
+                        <h1 style={{ fontSize: 'clamp(1.5rem, 5vw, 2rem)', margin: 0, fontWeight: 800, letterSpacing: '-0.5px' }}>
+                            Hello, {seller?.full_name?.split(' ')[0] || 'Seller'}!
                         </h1>
-                        <p className="text-sm" style={{ marginTop: '0.25rem' }}>Here&apos;s your overview</p>
+                        <p style={{ marginTop: '0.25rem', opacity: 0.9, fontWeight: 500 }}>Welcome back to your store overview</p>
                     </div>
-                    <Link href="/seller/dashboard/links/new" className="btn btn-primary btn-sm">+ New Link</Link>
+                    <Link href="/seller/dashboard/links/new" style={{ 
+                        background: 'rgba(255, 255, 255, 0.2)',
+                        backdropFilter: 'blur(10px)',
+                        color: 'white',
+                        border: '1px solid rgba(255, 255, 255, 0.3)',
+                        padding: '0.6rem 1.2rem',
+                        borderRadius: '12px',
+                        textDecoration: 'none',
+                        fontWeight: 700,
+                        fontSize: '0.9rem',
+                        transition: 'all 0.2s'
+                    }}>+ New Link</Link>
                 </div>
             </div>
 

@@ -42,20 +42,58 @@ export default function LinksPage() {
                     <Link href="/seller/dashboard/links/new" className="btn btn-primary btn-sm" style={{ marginTop: '1rem' }}>Create Your First Link</Link>
                 </div>
             ) : (
-                <div className="grid-2">
+                <div className="grid-2" style={{ gap: '1.25rem' }}>
                     {links.map(link => (
-                        <div key={link.id} className="card" style={{ position: 'relative', overflow: 'hidden' }}>
+                        <div key={link.id} className="card" style={{ 
+                            position: 'relative', 
+                            overflow: 'hidden',
+                            border: '1px solid rgba(0,0,0,0.05)',
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
+                            padding: '1rem',
+                            borderRadius: '16px'
+                        }}>
                             {link.image_url && (
-                                <div style={{ margin: '-1.25rem -1.25rem 1rem', height: 140, overflow: 'hidden', background: 'var(--bg-color)' }}>
+                                <div style={{ 
+                                    margin: '-1rem -1rem 1rem -1rem', 
+                                    height: 160, 
+                                    overflow: 'hidden', 
+                                    background: 'var(--bg-alt)',
+                                    position: 'relative'
+                                }}>
                                     <img src={link.image_url} alt={link.product_name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} crossOrigin="anonymous" />
+                                    
+                                    {/* Multi-image indicator */}
+                                    {link.images && link.images.length > 1 && (
+                                        <div style={{
+                                            position: 'absolute',
+                                            top: 12,
+                                            right: 12,
+                                            background: 'rgba(0,0,0,0.6)',
+                                            backdropFilter: 'blur(4px)',
+                                            color: 'white',
+                                            padding: '4px 8px',
+                                            borderRadius: '6px',
+                                            fontSize: '0.65rem',
+                                            fontWeight: 700,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '4px'
+                                        }}>
+                                            <span>📷</span> {link.images.length}
+                                        </div>
+                                    )}
                                 </div>
                             )}
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
-                                <div>
-                                    <h3 style={{ fontSize: '1rem', marginBottom: '0.25rem' }}>{link.product_name}</h3>
-                                    <span className="text-mono text-xs">{link.link_code}</span>
+                                <div style={{ minWidth: 0 }}>
+                                    <h3 style={{ fontSize: '1rem', marginBottom: '0.125rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: 700 }}>{link.product_name}</h3>
+                                    <span className="text-mono text-xs" style={{ opacity: 0.5, letterSpacing: '0.5px' }}>{link.link_code}</span>
                                 </div>
-                                <span className={`status-badge ${link.is_active ? 'RELEASED' : 'PENDING'}`}>{link.is_active ? 'Active' : 'Inactive'}</span>
+                                <span className={`status-badge ${link.is_active ? 'RELEASED' : 'PENDING'}`} style={{ 
+                                    fontSize: '0.65rem', 
+                                    padding: '2px 8px',
+                                    borderRadius: '6px'
+                                }}>{link.is_active ? 'Active' : 'Paused'}</span>
                             </div>
                             <div style={{ display: 'flex', gap: '1rem', marginBottom: '0.75rem' }}>
                                 <div><span className="text-xs">Price</span><div style={{ fontWeight: 600 }}>GHS {(link.price / 100).toFixed(2)}</div></div>

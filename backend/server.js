@@ -3,11 +3,19 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const { z } = require('zod');
+const path = require('path');
 const db = require('./db');
 const { generalLimiter } = require('./middleware/rateLimit');
 const { startAutoReleaseCron } = require('./services/cron');
 
 const app = express();
+const fs = require('fs');
+
+// Ensure uploads directory exists
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+}
 
 // Security middleware
 app.use(helmet({
@@ -43,7 +51,6 @@ app.get('/api/v1/health', (req, res) => {
 
 // File upload via Supabase Storage
 const multer = require('multer');
-const path = require('path');
 const { createClient } = require('@supabase/supabase-js');
 
 // Extract Supabase project URL from DATABASE_URL or use env var
