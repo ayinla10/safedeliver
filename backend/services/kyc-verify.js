@@ -1,41 +1,12 @@
-const tesseract = require('tesseract.js');
-const tf = require('@tensorflow/tfjs');
-const canvas = require('canvas');
+const FormData = require('form-data');
 const axios = require('axios');
 const db = require('../db');
-const path = require('path');
-const fs = require('fs');
 
-let faceapi;
-let modelsLoaded = false;
-
-// Patch face-api environment for Node.js
-const { Canvas, Image, ImageData } = canvas;
-
-async function loadModels() {
-    if (modelsLoaded) return;
-    
-    // Lazy load face-api to avoid startup crashes
-    if (!faceapi) {
-        faceapi = require('@vladmandic/face-api/dist/face-api.node.js');
-        faceapi.env.monkeyPatch({ Canvas, Image, ImageData });
-    }
-
-    const modelPath = path.join(__dirname, '../models');
-    
-    // Load models from local files
-    await faceapi.nets.ssdMobilenetv1.loadFromDisk(modelPath);
-    await faceapi.nets.faceLandmark68Net.loadFromDisk(modelPath);
-    await faceapi.nets.faceRecognitionNet.loadFromDisk(modelPath);
-    
-    modelsLoaded = true;
-    console.log('🤖 KYC Machine Learning models loaded successfully');
-}
+// Python AI Service configuration
+const KYC_AI_URL = process.env.KYC_AI_URL || 'http://localhost:8000/verify-kyc';
 
 async function verifyApplication(applicationId) {
     try {
-        await loadModels();
-
         // 1. Fetch application details
         const appRes = await db.query('SELECT * FROM kyc_applications WHERE id = $1', [applicationId]);
         if (appRes.rows.length === 0) return;
@@ -43,57 +14,52 @@ async function verifyApplication(applicationId) {
 
         console.log(`🔍 Starting automated verification for KYC #${applicationId}`);
 
-        // 2. Download images
+        // 2. Check if we have images to verify (Tier 2 only)
+        if (!app.gov_id_url || !app.selfie_url) {
+            console.log(`ℹ️ Skipping biometric AI verification for KYC #${applicationId} (Missing images/Tier 3 context).`);
+            return;
+        }
+
+        // 3. Download images (with 10s timeout)
         const [idBuffer, selfieBuffer] = await Promise.all([
-            axios.get(app.gov_id_url, { responseType: 'arraybuffer' }).then(r => Buffer.from(r.data)),
-            axios.get(app.selfie_url, { responseType: 'arraybuffer' }).then(r => Buffer.from(r.data))
+            axios.get(app.gov_id_url, { responseType: 'arraybuffer', timeout: 10000 }).then(r => Buffer.from(r.data)),
+            axios.get(app.selfie_url, { responseType: 'arraybuffer', timeout: 10000 }).then(r => Buffer.from(r.data))
         ]);
 
-        // 3. OCR on ID Document
-        console.log('📝 Performing OCR on ID document...');
-        const ocrResult = await tesseract.recognize(idBuffer, 'eng');
-        const ocrText = ocrResult.data.text;
+        // 4. Call Python Face Verification AI
+        console.log('👤 Sending images to AI verification service...');
         
-        // 4. Face Matching
-        console.log('👤 Performing face detection and matching...');
-        const idImg = await canvas.loadImage(idBuffer);
-        const selfieImg = await canvas.loadImage(selfieBuffer);
+        const formData = new FormData();
+        formData.append('id_image', idBuffer, { filename: 'id.jpg', contentType: 'image/jpeg' });
+        formData.append('selfie_image', selfieBuffer, { filename: 'selfie.jpg', contentType: 'image/jpeg' });
 
-        const idDetection = await faceapi.detectSingleFace(idImg).withFaceLandmarks().withFaceDescriptor();
-        const selfieDetection = await faceapi.detectSingleFace(selfieImg).withFaceLandmarks().withFaceDescriptor();
+        const aiResponse = await axios.post(KYC_AI_URL, formData, {
+            headers: {
+                ...formData.getHeaders(),
+            },
+            timeout: 60000 // 60s timeout for ML processing
+        });
 
-        let matchScore = 0;
-        let isAutoVerified = false;
-
-        if (idDetection && selfieDetection) {
-            const distance = faceapi.euclideanDistance(idDetection.descriptor, selfieDetection.descriptor);
-            // distance < 0.6 is a good match. 0.0 is perfect, 1.0 is totally different.
-            matchScore = Math.max(0, (1 - distance) * 100).toFixed(2);
-            if (distance < 0.5) isAutoVerified = true;
-            console.log(`✅ Face match score: ${matchScore}% (distance: ${distance.toFixed(3)})`);
-        } else {
-            console.log('⚠️ Face detection failed on one or both images');
-        }
+        const { verified, match_score, message } = aiResponse.data;
+        console.log(`✅ AI Response: ${message} (Score: ${match_score}%)`);
 
         // 5. Update Database
         await db.query(`
             UPDATE kyc_applications 
             SET 
                 auto_verify_score = $1,
-                ocr_data = $2,
-                is_auto_verified = $3,
-                verification_error = $4,
+                is_auto_verified = $2,
+                verification_error = $3,
                 updated_at = NOW()
-            WHERE id = $5
+            WHERE id = $4
         `, [
-            matchScore, 
-            JSON.stringify({ raw_text: ocrText.substring(0, 1000) }), 
-            isAutoVerified,
-            (!idDetection || !selfieDetection) ? 'Face detection failed' : null,
+            match_score, 
+            verified,
+            (!verified && match_score === 0) ? message : null,
             applicationId
         ]);
 
-        console.log(`✨ Automated verification complete for KYC #${applicationId}`);
+        console.log(`✨ Automated verification complete for KYC #${applicationId}. Results saved for Admin review.`);
 
     } catch (err) {
         console.error(`❌ Verification pipeline error for KYC #${applicationId}:`, err);

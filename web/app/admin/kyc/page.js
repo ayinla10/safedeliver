@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { adminApi } from '@/lib/adminApi';
+import { ShieldCheck, ArrowRight, AlertCircle, Search, CheckCircle2, XCircle, Eye } from 'lucide-react';
 
 export default function AdminKYCReview() {
     const [apps, setApps] = useState([]);
@@ -47,20 +48,23 @@ export default function AdminKYCReview() {
     if (loading) return <div className="flex-center" style={{ padding: '4rem' }}><div className="spinner" /></div>;
 
     const statusConfig = {
-        PENDING: { bg: 'rgba(234,179,8,0.1)', color: '#b45309', border: 'rgba(234,179,8,0.3)' },
-        APPROVED: { bg: 'rgba(34,197,94,0.1)', color: '#15803d', border: 'rgba(34,197,94,0.3)' },
-        REJECTED: { bg: 'rgba(239,68,68,0.1)', color: '#b91c1c', border: 'rgba(239,68,68,0.3)' },
+        PENDING: { bg: 'rgba(234,179,8,0.1)', color: '#b45309', border: 'rgba(234,179,8,0.3)', icon: <AlertCircle size={14} /> },
+        APPROVED: { bg: 'rgba(34,197,94,0.1)', color: '#15803d', border: 'rgba(34,197,94,0.3)', icon: <CheckCircle2 size={14} /> },
+        REJECTED: { bg: 'rgba(239,68,68,0.1)', color: '#b91c1c', border: 'rgba(239,68,68,0.3)', icon: <XCircle size={14} /> },
     };
 
     return (
         <div className="animate-in">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                <h1 style={{ fontSize: '1.5rem', margin: 0 }}>KYC Applications</h1>
+                <h1 style={{ fontSize: '1.5rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                    <ShieldCheck size={28} color="var(--brand)" /> KYC Applications
+                </h1>
                 <span className="text-sm text-muted">{apps.length} {filter.toLowerCase()} application{apps.length !== 1 ? 's' : ''}</span>
             </div>
 
             {msg && (
-                <div className={`alert ${msg.type === 'success' ? 'alert-success' : 'alert-danger'}`} style={{ marginBottom: '1.5rem' }}>
+                <div className={`alert ${msg.type === 'success' ? 'alert-success' : 'alert-danger'}`} style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    {msg.type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
                     {msg.text}
                 </div>
             )}
@@ -71,17 +75,21 @@ export default function AdminKYCReview() {
                     <button key={s} onClick={() => setFilter(s)} style={{
                         padding: '0.5rem 1.25rem', borderRadius: '8px', border: '1px solid',
                         fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer', transition: '0.2s',
+                        display: 'flex', alignItems: 'center', gap: '0.4rem',
                         background: filter === s ? statusConfig[s].bg : 'transparent',
                         color: filter === s ? statusConfig[s].color : 'var(--muted)',
                         borderColor: filter === s ? statusConfig[s].border : 'var(--border)',
                     }}>
-                        {s.charAt(0) + s.slice(1).toLowerCase()}
+                        {statusConfig[s].icon} {s.charAt(0) + s.slice(1).toLowerCase()}
                     </button>
                 ))}
             </div>
 
             {apps.length === 0 && (
                 <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem', opacity: 0.3 }}>
+                        <Search size={48} />
+                    </div>
                     <div style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--muted)', marginBottom: '0.5rem' }}>No Results</div>
                     <p className="text-sm text-muted">There are no {filter.toLowerCase()} applications at this time.</p>
                 </div>
@@ -103,12 +111,13 @@ export default function AdminKYCReview() {
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.25rem' }}>
                                 <span style={{
                                     padding: '0.2rem 0.6rem', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 700,
+                                    display: 'flex', alignItems: 'center', gap: '0.3rem',
                                     background: statusConfig[app.status]?.bg,
                                     color: statusConfig[app.status]?.color,
                                     border: `1px solid ${statusConfig[app.status]?.border}`
-                                }}>{app.status}</span>
-                                <span className="text-xs text-muted">
-                                    Tier {app.current_tier} &rarr; Tier {app.target_tier}
+                                }}>{statusConfig[app.status]?.icon} {app.status}</span>
+                                <span className="text-xs text-muted" style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                    Tier {app.current_tier} <ArrowRight size={12} /> Tier {app.target_tier}
                                 </span>
                             </div>
                         </div>

@@ -25,14 +25,20 @@ app.use(helmet({
 app.use(cors({
     origin: (origin, callback) => {
         const allowed = [
-            'http://localhost:3000',
             'https://safedeliver.vercel.app',
             process.env.FRONTEND_URL,
         ].filter(Boolean);
+        
+        // Always allow localhost in development
+        if (process.env.NODE_ENV === 'development') {
+            allowed.push('http://localhost:3000');
+        }
+
         // Allow requests with no origin (mobile apps, curl, etc.)
         if (!origin || allowed.some(o => origin.startsWith(o))) {
             callback(null, true);
         } else {
+            console.warn(`🚨 CORS Blocked: Access attempted from unauthorized origin: ${origin}`);
             callback(new Error(`CORS blocked: ${origin}`));
         }
     },

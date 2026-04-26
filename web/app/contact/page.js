@@ -4,6 +4,7 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { useState } from 'react';
 import { api } from '@/lib/api';
+import { Mail, Phone, MapPin, Clock, Send, CheckCircle2, AlertCircle } from 'lucide-react';
 
 export default function ContactPage() {
     const [form, setForm] = useState({
@@ -42,32 +43,40 @@ export default function ContactPage() {
                         {/* Contact Details */}
                         <div>
                             <div className="card" style={{ marginBottom: '1.5rem' }}>
-                                <h3 style={{ marginBottom: '1rem' }}>Get in Touch</h3>
-                                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginBottom: '1rem' }}>
-                                    <span style={{ fontSize: '1.25rem' }}>📧</span>
+                                <h3 style={{ marginBottom: '1.5rem' }}>Get in Touch</h3>
+                                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1.5rem' }}>
+                                    <div style={{ width: 42, height: 42, borderRadius: '12px', background: 'rgba(59,130,246,0.1)', color: 'var(--brand)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <Mail size={20} />
+                                    </div>
                                     <div>
-                                        <div className="text-sm" style={{ fontSize: '0.8125rem' }}>Email</div>
+                                        <div className="text-sm" style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Email</div>
                                         <a href="mailto:hello@safedeliver.co" style={{ fontWeight: 600 }}>hello@safedeliver.co</a>
                                     </div>
                                 </div>
-                                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginBottom: '1rem' }}>
-                                    <span style={{ fontSize: '1.25rem' }}>📱</span>
+                                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1.5rem' }}>
+                                    <div style={{ width: 42, height: 42, borderRadius: '12px', background: 'rgba(34,197,94,0.1)', color: 'var(--success)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <Phone size={20} />
+                                    </div>
                                     <div>
-                                        <div className="text-sm" style={{ fontSize: '0.8125rem' }}>Phone / WhatsApp</div>
+                                        <div className="text-sm" style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Phone / WhatsApp</div>
                                         <span style={{ fontWeight: 600 }}>+233 XX XXX XXXX</span>
                                     </div>
                                 </div>
-                                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginBottom: '1rem' }}>
-                                    <span style={{ fontSize: '1.25rem' }}>📍</span>
+                                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1.5rem' }}>
+                                    <div style={{ width: 42, height: 42, borderRadius: '12px', background: 'rgba(239,68,68,0.1)', color: 'var(--danger)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <MapPin size={20} />
+                                    </div>
                                     <div>
-                                        <div className="text-sm" style={{ fontSize: '0.8125rem' }}>Office</div>
+                                        <div className="text-sm" style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Office</div>
                                         <span style={{ fontWeight: 600 }}>Accra, Ghana</span>
                                     </div>
                                 </div>
-                                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-                                    <span style={{ fontSize: '1.25rem' }}>🕐</span>
+                                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                                    <div style={{ width: 42, height: 42, borderRadius: '12px', background: 'rgba(107,114,128,0.1)', color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <Clock size={20} />
+                                    </div>
                                     <div>
-                                        <div className="text-sm" style={{ fontSize: '0.8125rem' }}>Operating Hours</div>
+                                        <div className="text-sm" style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Operating Hours</div>
                                         <span style={{ fontWeight: 600 }}>Mon–Fri, 8:00 AM – 6:00 PM GMT</span>
                                     </div>
                                 </div>
@@ -76,10 +85,11 @@ export default function ContactPage() {
 
                         {/* Contact Form */}
                         <div className="card">
-                            <h3 style={{ marginBottom: '1rem' }}>Send Us a Message</h3>
+                            <h3 style={{ marginBottom: '1.5rem' }}>Send Us a Message</h3>
 
                             {status && (
-                                <div className={`alert ${status.type === 'success' ? 'alert-success' : 'alert-danger'}`}>
+                                <div className={`alert ${status.type === 'success' ? 'alert-success' : 'alert-danger'}`} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
+                                    {status.type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
                                     {status.msg}
                                 </div>
                             )}

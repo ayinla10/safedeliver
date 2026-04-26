@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import {View, Text, StyleSheet, SafeAreaView, FlatList, TouchableOpacity, Image, StatusBar as RNStatusBar, RefreshControl, Share, Alert, Platform, Modal} from 'react-native';
+import {View, Text, StyleSheet, SafeAreaView, FlatList, TouchableOpacity, Image, StatusBar as RNStatusBar, RefreshControl, Share, Alert, Platform, Modal, Dimensions} from 'react-native';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const CARD_WIDTH = (SCREEN_WIDTH - 48) / 2; // (Screen - Padding/Gaps) / 2 columns
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../api';
 import { useTheme } from '../ThemeContext';
@@ -190,19 +193,19 @@ export default function LinksScreen({ navigation }) {
               data={previewGallery.images}
               horizontal
               pagingEnabled
-              initialScrollIndex={previewGallery.index}
+              initialScrollIndex={previewGallery.index < previewGallery.images.length ? previewGallery.index : 0}
               getItemLayout={(data, index) => ({
-                length: 400, // Use a generic width check or dynamic
-                offset: 400 * index,
+                length: SCREEN_WIDTH,
+                offset: SCREEN_WIDTH * index,
                 index,
               })}
               keyExtractor={(uri, i) => i.toString()}
               showsHorizontalScrollIndicator={false}
               renderItem={({ item }) => (
-                <View style={styles.previewSlide}>
+                <View style={[styles.previewSlide, { width: SCREEN_WIDTH }]}>
                   <Image
                     source={{ uri: item }}
-                    style={styles.imagePreviewFull}
+                    style={[styles.imagePreviewFull, { width: SCREEN_WIDTH }]}
                     resizeMode="contain"
                   />
                 </View>
@@ -224,10 +227,10 @@ export default function LinksScreen({ navigation }) {
 const ProductCard = React.memo(({ link, colors, styles, onOpenOptions, onOpenPreview, onShare }) => {
   const [activeIndex, setActiveIndex] = useState(0);
   const gallery = link.images && link.images.length > 0 ? link.images : [link.image_url];
-  const cardWidth = 175; // Approx width of linkCard at 48% (based on screen)
   
   const onScroll = (event) => {
     const slideSize = event.nativeEvent.layoutMeasurement.width;
+    if (slideSize === 0) return;
     const offset = event.nativeEvent.contentOffset.x;
     const index = Math.round(offset / slideSize);
     setActiveIndex(index);
@@ -250,6 +253,7 @@ const ProductCard = React.memo(({ link, colors, styles, onOpenOptions, onOpenPre
                   activeOpacity={0.9} 
                   onPress={() => onOpenPreview(gallery, index)}
                   onLongPress={onOpenOptions}
+                  style={{ width: CARD_WIDTH, height: 160 }}
                 >
                   <Image source={{ uri: item }} style={styles.productImage} />
                 </TouchableOpacity>
@@ -337,11 +341,19 @@ const createStyles = (colors) => StyleSheet.create({
     backgroundColor: colors.brand,
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 6,
-    shadowColor: colors.brand,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.brand,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.3,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 6,
+        borderWidth: 1.5,
+        borderColor: colors.android?.brandBorder || colors.brand,
+      }
+    })
   },
   scrollContent: {
     paddingHorizontal: 16,
@@ -356,7 +368,7 @@ const createStyles = (colors) => StyleSheet.create({
     paddingVertical: 100,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.cardGlass,
+    backgroundColor: Platform.OS === 'android' ? (colors.android?.cardGlass || colors.cardGlass) : colors.cardGlass,
     borderRadius: 32,
     borderWidth: 1,
     borderColor: colors.border,
@@ -387,12 +399,18 @@ const createStyles = (colors) => StyleSheet.create({
     borderRadius: 24,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: colors.brand,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    elevation: 3,
+    borderColor: Platform.OS === 'android' ? (colors.android?.brandBorder || colors.border) : colors.border,
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.brand,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.04,
+        shadowRadius: 10,
+      },
+      android: {
+        elevation: 3,
+      }
+    })
   },
   cardImageContainer: {
     height: 160,
@@ -553,11 +571,9 @@ const createStyles = (colors) => StyleSheet.create({
     zIndex: 10,
   },
   imagePreviewFull: {
-    width: Platform.OS === 'web' ? 400 : 400, // Should use Dimensions
     height: '100%',
   },
   previewSlide: {
-    width: 400, // Hardcoded for now, ideal to use screen width
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',

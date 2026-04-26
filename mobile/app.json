@@ -15,14 +15,21 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "co.safedeliver.seller"
+      "bundleIdentifier": "co.safedeliver.seller",
+      "infoPlist": {
+        "NSCameraUsageDescription": "SafeDeliver needs camera access for KYC identity verification to increase your transaction limits.",
+        "NSPhotoLibraryUsageDescription": "SafeDeliver needs access to your photo library to allow you to upload your government ID for KYC verification."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#1A6B5A"
       },
-      "package": "co.safedeliver.seller"
+      "package": "co.safedeliver.seller",
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "plugins": [
       "expo-asset",
@@ -33,6 +40,11 @@
           "cameraPermission": "Allow SafeDeliver to access your camera for identity verification."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "bebb5b3e-e4fe-4731-9c23-7cef2bcddf45"
+      }
+    }
   }
 }

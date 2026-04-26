@@ -2,6 +2,11 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
+import { 
+    LayoutDashboard, Scale, ArrowRightLeft, Database, Bell, 
+    Users, ShieldCheck, ClipboardList, Settings, Sun, Moon, 
+    LogOut, ChevronLeft, Menu 
+} from 'lucide-react';
 
 export default function AdminLayout({ children }) {
     const pathname = usePathname();
@@ -64,7 +69,9 @@ export default function AdminLayout({ children }) {
                 <div className="section flex-center" style={{ minHeight: '100vh' }}>
                     <div className="form-card animate-in" style={{ maxWidth: '420px' }}>
                         <div className="text-center" style={{ marginBottom: '2rem' }}>
-                            <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🛡</div>
+                            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
+                                <ShieldCheck size={48} color="var(--brand)" />
+                            </div>
                             <h2>Admin Panel</h2>
                             <p className="text-sm">SafeDeliver Administration</p>
                         </div>
@@ -85,7 +92,9 @@ export default function AdminLayout({ children }) {
                             </button>
                         </form>
                         <div className="text-center mt-2">
-                            <Link href="/" className="text-sm">← Back to SafeDeliver</Link>
+                            <Link href="/" className="text-sm" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem' }}>
+                                <ChevronLeft size={16} /> Back to SafeDeliver
+                            </Link>
                         </div>
                     </div>
                 </div>
@@ -94,22 +103,22 @@ export default function AdminLayout({ children }) {
     }
 
     const nav = [
-        { href: '/admin', icon: '◈', label: 'Overview' },
-        { href: '/admin/disputes', icon: '⚖', label: 'Disputes' },
-        { href: '/admin/transactions', icon: '◫', label: 'Transactions' },
-        { href: '/admin/ledger', icon: '◳', label: 'Sim Ledger' },
-        { href: '/admin/notifications', icon: '◎', label: 'Notifications' },
-        { href: '/admin/sellers', icon: '◉', label: 'Sellers' },
-        { href: '/admin/kyc', icon: '◈', label: 'KYC Review' },
-        { href: '/admin/audit', icon: '◑', label: 'Audit Logs' },
-        { href: '/admin/settings', icon: '⊙', label: 'Settings' },
+        { href: '/admin', icon: <LayoutDashboard size={18} />, label: 'Overview' },
+        { href: '/admin/disputes', icon: <Scale size={18} />, label: 'Disputes' },
+        { href: '/admin/transactions', icon: <ArrowRightLeft size={18} />, label: 'Transactions' },
+        { href: '/admin/ledger', icon: <Database size={18} />, label: 'Sim Ledger' },
+        { href: '/admin/notifications', icon: <Bell size={18} />, label: 'Notifications' },
+        { href: '/admin/sellers', icon: <Users size={18} />, label: 'Sellers' },
+        { href: '/admin/kyc', icon: <ShieldCheck size={18} />, label: 'KYC Review' },
+        { href: '/admin/audit', icon: <ClipboardList size={18} />, label: 'Audit Logs' },
+        { href: '/admin/settings', icon: <Settings size={18} />, label: 'Settings' },
     ];
 
     const sidebarContent = (
         <>
             <div className="sidebar-brand" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Link href="/" style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--brand)' }}>
-                    Admin Panel
+                <Link href="/" style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--brand)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <ShieldCheck size={20} /> Admin Panel
                 </Link>
             </div>
             <div style={{ padding: '0.5rem 1.25rem 0.75rem', borderBottom: '1px solid var(--border)', fontSize: '0.8rem', color: 'var(--danger)', fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase' }}>
@@ -118,18 +127,20 @@ export default function AdminLayout({ children }) {
             <ul className="sidebar-nav">
                 {nav.map(item => (
                     <li key={item.href}>
-                        <Link href={item.href} className={pathname === item.href ? 'active' : ''}>
-                            <span className="nav-icon">{item.icon}</span>
+                        <Link href={item.href} className={pathname === item.href ? 'active' : ''} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <span className="nav-icon" style={{ display: 'flex' }}>{item.icon}</span>
                             {item.label}
                         </Link>
                     </li>
                 ))}
             </ul>
             <div style={{ padding: '1rem 0.75rem', borderTop: '1px solid var(--border)' }}>
-                <button className="btn btn-ghost btn-sm btn-block" onClick={toggleTheme} style={{ marginBottom: '0.5rem' }}>
-                    {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+                <button className="btn btn-ghost btn-sm btn-block" onClick={toggleTheme} style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                    {theme === 'dark' ? <><Sun size={16} /> Light Mode</> : <><Moon size={16} /> Dark Mode</>}
                 </button>
-                <button className="btn btn-ghost btn-sm btn-block" onClick={logout} style={{ color: 'var(--danger)' }}>Logout</button>
+                <button className="btn btn-ghost btn-sm btn-block" onClick={logout} style={{ color: 'var(--danger)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                    <LogOut size={16} /> Logout
+                </button>
             </div>
         </>
     );
@@ -152,11 +163,11 @@ export default function AdminLayout({ children }) {
                         onClick={() => setSidebarOpen(true)}
                         aria-label="Open menu"
                     >
-                        <span /><span /><span />
+                        <Menu size={24} />
                     </button>
                     <span style={{ fontWeight: 700, color: 'var(--brand)', fontSize: '1.1rem' }}>Admin Panel</span>
-                    <button onClick={toggleTheme} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem', color: 'var(--text-secondary)', padding: '0.5rem' }}>
-                        {theme === 'dark' ? '☀' : '☾'}
+                    <button onClick={toggleTheme} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', padding: '0.5rem' }}>
+                        {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
                     </button>
                 </header>
                 <main className="dashboard-main">{children}</main>

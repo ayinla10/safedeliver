@@ -25,7 +25,8 @@ router.get('/', authenticateSeller, async (req, res) => {
         res.json({
             current_tier: kycTier,
             limits,
-            application: latestApp
+            application: latestApp,
+            attempts_count: apps.rows.length
         });
     } catch (err) {
         console.error('KYC GET error:', err);
@@ -40,7 +41,7 @@ router.post('/apply', authenticateSeller, async (req, res) => {
         
         const sellerRes = await db.query('SELECT kyc_tier FROM sellers WHERE id = $1', [req.seller.id]);
         const currentTier = sellerRes.rows[0].kyc_tier;
-
+ 
         // Strict unskippable verification checks
         if (target_tier !== currentTier + 1) {
             return res.status(400).json({ error: `You must apply for Tier ${currentTier + 1} next. Cannot skip. `});
@@ -74,15 +75,10 @@ router.post('/apply', authenticateSeller, async (req, res) => {
 
         const appId = insertRes.rows[0].id;
 
-        // Trigger automated verification in background (don't await to avoid timeout)
-        kycVerify.verifyApplication(appId).catch(err => {
-            console.error('Background KYC verification failed:', err);
-        });
-
-        res.json({ 
-            message: `Successfully submitted application for Tier ${target_tier}. Automated verification started.`,
-            application_id: appId
-        });
+        // Manual background verification is no longer needed as per user request
+        // All applications will be reviewed manually by admins
+        
+        res.status(201).json({ message: 'KYC application submitted', applicationId: appId });
     } catch (err) {
         console.error('KYC Apply error:', err);
         res.status(500).json({ error: 'Failed to submit KYC application' });

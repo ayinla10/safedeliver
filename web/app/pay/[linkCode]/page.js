@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import LocationPicker from '@/components/LocationPicker';
 import { api } from '@/lib/api';
@@ -13,6 +13,8 @@ export default function CheckoutPage() {
     const [step, setStep] = useState('choice'); // choice | details | success
     const [form, setForm] = useState({ buyer_name: '', buyer_phone: '', buyer_email: '', buyer_address: '', buyer_lat: null, buyer_lng: null, buyer_location_text: '' });
     const [txData, setTxData] = useState(null);
+    const [activeIndex, setActiveIndex] = useState(0);
+    const scrollRef = useRef(null);
 
     useEffect(() => {
         // Absolute theme enforcement for high-trust checkout
@@ -110,7 +112,17 @@ export default function CheckoutPage() {
 
     return (
         <div className="page-wrapper light-mode-enforced">
-            <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--border)', textAlign: 'center', background: 'var(--card-bg)' }}>
+            <div style={{ 
+                padding: '1rem 1.5rem', 
+                borderBottom: '1px solid var(--border)', 
+                textAlign: 'center', 
+                background: 'var(--card-bg)',
+                backdropFilter: 'blur(20px)',
+                WebkitBackdropFilter: 'blur(20px)',
+                position: 'sticky',
+                top: 0,
+                zIndex: 100
+            }}>
                 <span style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.03em' }}>🛡️ Safe<span style={{ color: 'var(--brand)' }}>Deliver</span> <span style={{ color: 'var(--text-muted)', fontWeight: 500, marginLeft: 8 }}>Secure Checkout</span></span>
             </div>
             <div className="section">
@@ -164,14 +176,131 @@ export default function CheckoutPage() {
                     {step === 'details' && product && (
                         <div className="animate-in">
                             {/* Product Info */}
-                            <div className="card" style={{ marginBottom: '2rem', textAlign: 'center' }}>
-                                {product.image_url && (
-                                    <img src={product.image_url} alt={product.product_name}
-                                        style={{ width: '100%', maxHeight: 300, objectFit: 'cover', borderRadius: 'var(--radius-sm)', marginBottom: '1rem' }} />
-                                )}
-                                <h2 style={{ color: 'var(--text)' }}>{product.product_name}</h2>
-                                {product.description && <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>{product.description}</p>}
-                                <div className="mt-2" style={{ fontSize: '2rem', fontWeight: 900, color: 'var(--brand)' }}>GHS {(product.price / 100).toFixed(2)}</div>
+                            <div className="card" style={{ marginBottom: '2rem', textAlign: 'center', padding: 0, overflow: 'hidden' }}>
+                                {/* Image Carousel */}
+                                <div style={{ position: 'relative', height: 300, background: 'var(--bg-alt)' }}>
+                                    <div 
+                                        ref={scrollRef}
+                                        style={{
+                                            display: 'flex',
+                                            overflowX: 'auto',
+                                            scrollSnapType: 'x mandatory',
+                                            height: '100%',
+                                            scrollbarWidth: 'none',
+                                            msOverflowStyle: 'none'
+                                        }}
+                                        className="no-scrollbar"
+                                        onScroll={(e) => {
+                                            const index = Math.round(e.target.scrollLeft / e.target.offsetWidth);
+                                            setActiveIndex(index);
+                                        }}
+                                    >
+                                        {(product.images && product.images.length > 0 ? product.images : [product.image_url]).map((img, i) => (
+                                            <img 
+                                                key={i} 
+                                                src={img} 
+                                                alt={`${product.product_name} ${i}`}
+                                                style={{ minWidth: '100%', height: '100%', objectFit: 'cover', scrollSnapAlign: 'start' }} 
+                                            />
+                                        ))}
+                                    </div>
+
+                                    {/* Desktop Arrows */}
+                                    { (product.images?.length > 1 || (!product.images && product.image_url)) && (product.images?.length > 1) && (
+                                        <>
+                                            {activeIndex > 0 && (
+                                                <button 
+                                                    onClick={() => {
+                                                        const el = scrollRef.current;
+                                                        el.scrollTo({ left: el.scrollLeft - el.offsetWidth, behavior: 'smooth' });
+                                                    }}
+                                                    style={{
+                                                        position: 'absolute',
+                                                        left: 10,
+                                                        top: '50%',
+                                                        transform: 'translateY(-50%)',
+                                                        width: 36,
+                                                        height: 36,
+                                                        borderRadius: '50%',
+                                                        background: 'rgba(255,255,255,0.7)',
+                                                        backdropFilter: 'blur(8px)',
+                                                        border: '1px solid rgba(0,0,0,0.05)',
+                                                        cursor: 'pointer',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        fontSize: 18,
+                                                        fontWeight: 'bold',
+                                                        zIndex: 2
+                                                    }}
+                                                >
+                                                    ‹
+                                                </button>
+                                            )}
+                                            {activeIndex < (product.images?.length - 1) && (
+                                                <button 
+                                                    onClick={() => {
+                                                        const el = scrollRef.current;
+                                                        el.scrollTo({ left: el.scrollLeft + el.offsetWidth, behavior: 'smooth' });
+                                                    }}
+                                                    style={{
+                                                        position: 'absolute',
+                                                        right: 10,
+                                                        top: '50%',
+                                                        transform: 'translateY(-50%)',
+                                                        width: 36,
+                                                        height: 36,
+                                                        borderRadius: '50%',
+                                                        background: 'rgba(255,255,255,0.7)',
+                                                        backdropFilter: 'blur(8px)',
+                                                        border: '1px solid rgba(0,0,0,0.05)',
+                                                        cursor: 'pointer',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        fontSize: 18,
+                                                        fontWeight: 'bold',
+                                                        zIndex: 2
+                                                    }}
+                                                >
+                                                    ›
+                                                </button>
+                                            )}
+                                        </>
+                                    )}
+                                    
+                                    {/* Carousel Dots */}
+                                    {(product.images?.length > 1 || (!product.images && product.image_url)) && (product.images?.length > 1) && (
+                                        <div style={{
+                                            position: 'absolute',
+                                            bottom: 12,
+                                            left: 0,
+                                            right: 0,
+                                            display: 'flex',
+                                            justifyContent: 'center',
+                                            gap: 6
+                                        }}>
+                                            {product.images.map((_, i) => (
+                                                <div key={i} style={{
+                                                    width: 6,
+                                                    height: 6,
+                                                    borderRadius: '50%',
+                                                    background: 'white',
+                                                    boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                                                    opacity: i === activeIndex ? 1 : 0.4,
+                                                    transform: i === activeIndex ? 'scale(1.2)' : 'scale(1)',
+                                                    transition: 'all 0.2s'
+                                                }} />
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                                
+                                <div style={{ padding: '1.5rem' }}>
+                                    <h2 style={{ color: 'var(--text)' }}>{product.product_name}</h2>
+                                    {product.description && <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>{product.description}</p>}
+                                    <div className="mt-2" style={{ fontSize: '2rem', fontWeight: 900, color: 'var(--brand)' }}>GHS {(product.price / 100).toFixed(2)}</div>
+                                </div>
 
                                 <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.25rem', alignItems: 'center' }}>
                                     <p className="text-sm">Sold by: <strong>{product.seller_name}</strong></p>

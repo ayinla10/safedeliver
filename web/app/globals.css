@@ -111,6 +111,7 @@
 .glass-card {
   background: rgba(255, 255, 255, 0.6);
   backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--border);
   box-shadow: var(--card-shadow);
   border-radius: var(--radius-lg);
@@ -202,6 +203,14 @@ h3 {
 
 .text-brand {
   color: var(--brand);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 .mt-1 {

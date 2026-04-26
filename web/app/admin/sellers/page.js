@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { adminApi } from '@/lib/adminApi';
+import { Users, ChevronLeft, CheckCircle2, AlertCircle, ShieldAlert, ArrowRight, Eye, MoreHorizontal } from 'lucide-react';
 
 export default function AdminSellers() {
     const [sellers, setSellers] = useState([]);
@@ -50,12 +51,13 @@ export default function AdminSellers() {
     if (selected) {
         return (
             <div className="animate-in" style={{ maxWidth: 800 }}>
-                <button className="btn btn-ghost btn-sm" onClick={() => setSelected(null)} style={{ marginBottom: '1.5rem' }}>
-                    &larr; Back to Sellers
+                <button className="btn btn-ghost btn-sm" onClick={() => setSelected(null)} style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                    <ChevronLeft size={16} /> Back to Sellers
                 </button>
 
                 {msg && (
-                    <div className={`alert ${msg.type === 'success' ? 'alert-success' : 'alert-danger'}`} style={{ marginBottom: '1.5rem' }}>
+                    <div className={`alert ${msg.type === 'success' ? 'alert-success' : 'alert-danger'}`} style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        {msg.type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
                         {msg.text}
                     </div>
                 )}
@@ -147,9 +149,8 @@ export default function AdminSellers() {
                                         <a href={app.proof_of_address_url} target="_blank" rel="noreferrer">
                                             <img src={app.proof_of_address_url} alt="Address Proof" style={{ width: '100%', maxHeight: 180, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border)' }} />
                                         </a>
-                                    </div>
-                                )}
                             </div>
+
                             {app.rejection_reason && (
                                 <div className="alert alert-danger" style={{ marginTop: '0.75rem', padding: '0.5rem 0.75rem' }}>
                                     <strong>Rejected:</strong> {app.rejection_reason}
@@ -187,7 +188,9 @@ export default function AdminSellers() {
     // Sellers List
     return (
         <div className="animate-in">
-            <h1 style={{ fontSize: '1.5rem', marginBottom: '1.5rem' }}>Sellers ({sellers.length})</h1>
+            <h1 style={{ fontSize: '1.5rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                <Users size={28} color="var(--brand)" /> Sellers ({sellers.length})
+            </h1>
             <div className="card" style={{ padding: 0 }}>
                 <div style={{ overflowX: 'auto' }}>
                     <table className="data-table">
@@ -227,15 +230,17 @@ export default function AdminSellers() {
                                     <td>
                                         <span style={{
                                             fontSize: '0.75rem', fontWeight: 600,
+                                            display: 'flex', alignItems: 'center', gap: '0.3rem',
                                             color: s.kyc_status === 'APPROVED' ? 'var(--success)' : s.kyc_status === 'SUSPENDED' ? 'var(--danger)' : 'var(--warning)'
                                         }}>
+                                            {s.kyc_status === 'APPROVED' ? <CheckCircle2 size={14} /> : s.kyc_status === 'SUSPENDED' ? <ShieldAlert size={14} /> : <AlertCircle size={14} />}
                                             {s.kyc_status || 'PENDING'}
                                         </span>
                                     </td>
                                     <td className="text-sm">{new Date(s.created_at).toLocaleDateString()}</td>
                                     <td>
-                                        <button className="btn btn-ghost btn-sm" onClick={() => openDetail(s)}>
-                                            View
+                                        <button className="btn btn-ghost btn-sm" onClick={() => openDetail(s)} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                            <Eye size={14} /> View
                                         </button>
                                     </td>
                                 </tr>

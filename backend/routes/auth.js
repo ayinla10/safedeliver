@@ -37,7 +37,9 @@ router.post('/register', authLimiter, async (req, res) => {
             `INSERT INTO sellers (id, full_name, email, phone, password_hash, otp_code, otp_expires_at) VALUES ($1,$2,$3,$4,$5,$6, NOW() + INTERVAL '10 minutes')`,
             [id, data.full_name, data.email, data.phone, hash, otp]
         );
-        console.log(`\n📱 OTP for ${data.phone}: ${otp}\n`);
+        if (process.env.NODE_ENV === 'development') {
+            console.log(`\n📱 OTP for ${data.phone}: ${otp}\n`);
+        }
         await notify.sms(data.phone, `Your SafeDeliver OTP is: ${otp}. Expires in 10 minutes.`);
         await audit.log('SELLER', id, 'REGISTER', 'SELLER', id, req.ip);
         res.status(201).json({ message: 'Account created. Please verify your phone.', phone: data.phone });
@@ -83,7 +85,9 @@ router.post('/resend-otp', authLimiter, async (req, res) => {
             `UPDATE sellers SET otp_code = $1, otp_expires_at = NOW() + INTERVAL '10 minutes' WHERE id = $2`,
             [otp, seller.id]
         );
-        console.log(`\n📱 RESEND OTP for ${phone}: ${otp}\n`);
+        if (process.env.NODE_ENV === 'development') {
+            console.log(`\n📱 RESEND OTP for ${phone}: ${otp}\n`);
+        }
         await notify.sms(phone, `Your SafeDeliver OTP is: ${otp}. Expires in 10 minutes.`);
         res.json({ message: 'New OTP sent', phone });
     } catch (err) {
@@ -111,7 +115,9 @@ router.post('/login', authLimiter, async (req, res) => {
                 `UPDATE sellers SET otp_code = $1, otp_expires_at = NOW() + INTERVAL '10 minutes' WHERE id = $2`,
                 [otp, seller.id]
             );
-            console.log(`\n📱 AUTO-RESEND OTP for ${seller.phone}: ${otp}\n`);
+            if (process.env.NODE_ENV === 'development') {
+                console.log(`\n📱 AUTO-RESEND OTP for ${seller.phone}: ${otp}\n`);
+            }
             await notify.sms(seller.phone, `Your SafeDeliver OTP is: ${otp}. Expires in 10 minutes.`);
             return res.status(403).json({ error: 'Account not verified. A new OTP has been sent to your phone.', phone: seller.phone, needsVerify: true });
         }

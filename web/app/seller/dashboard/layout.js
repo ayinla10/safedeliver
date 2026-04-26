@@ -2,6 +2,10 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { 
+    LayoutDashboard, Link2, ShoppingBag, ShieldCheck, 
+    User, Home, Sun, Moon, LogOut, Menu 
+} from 'lucide-react';
 
 export default function DashboardLayout({ children }) {
     const pathname = usePathname();
@@ -37,45 +41,45 @@ export default function DashboardLayout({ children }) {
     }
 
     const nav = [
-        { href: '/seller/dashboard', icon: '◈', label: 'Dashboard' },
-        { href: '/seller/dashboard/links', icon: '⊞', label: 'Checkout Links' },
-        { href: '/seller/dashboard/orders', icon: '◫', label: 'Orders' },
-        { href: '/seller/dashboard/kyc', icon: '◉', label: 'KYC Verification' },
-        { href: '/seller/dashboard/profile', icon: '◎', label: 'Profile' },
+        { href: '/seller/dashboard', icon: <LayoutDashboard size={18} />, label: 'Dashboard' },
+        { href: '/seller/dashboard/links', icon: <Link2 size={18} />, label: 'Checkout Links' },
+        { href: '/seller/dashboard/orders', icon: <ShoppingBag size={18} />, label: 'Orders' },
+        { href: '/seller/dashboard/kyc', icon: <ShieldCheck size={18} />, label: 'KYC Verification' },
+        { href: '/seller/dashboard/profile', icon: <User size={18} />, label: 'Profile' },
     ];
 
     const bottomNav = [
-        { href: '/seller/dashboard', icon: '⌂', label: 'Home' },
-        { href: '/seller/dashboard/links', icon: '⊞', label: 'Links' },
-        { href: '/seller/dashboard/orders', icon: '◫', label: 'Orders' },
-        { href: '/seller/dashboard/kyc', icon: '◉', label: 'KYC' },
-        { href: '/seller/dashboard/profile', icon: '◎', label: 'Profile' },
+        { href: '/seller/dashboard', icon: <Home size={20} />, label: 'Home' },
+        { href: '/seller/dashboard/links', icon: <Link2 size={20} />, label: 'Links' },
+        { href: '/seller/dashboard/orders', icon: <ShoppingBag size={20} />, label: 'Orders' },
+        { href: '/seller/dashboard/kyc', icon: <ShieldCheck size={20} />, label: 'KYC' },
+        { href: '/seller/dashboard/profile', icon: <User size={20} />, label: 'Profile' },
     ];
 
     const sidebarContent = (
         <>
             <div className="sidebar-brand" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Link href="/seller/dashboard" style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--brand)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    Safe<span style={{ color: 'var(--text)' }}>Deliver</span>
+                <Link href="/seller/dashboard" style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--brand)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <ShieldCheck size={20} /> Safe<span style={{ color: 'var(--text)' }}>Deliver</span>
                 </Link>
             </div>
             {seller && <div style={{ padding: '0.75rem 1.25rem', borderBottom: '1px solid var(--border)', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 500 }}>{seller.full_name}</div>}
             <ul className="sidebar-nav">
                 {nav.map(item => (
                     <li key={item.href}>
-                        <Link href={item.href} className={pathname === item.href ? 'active' : ''}>
-                            <span className="nav-icon">{item.icon}</span>
+                        <Link href={item.href} className={pathname === item.href ? 'active' : ''} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <span className="nav-icon" style={{ display: 'flex' }}>{item.icon}</span>
                             {item.label}
                         </Link>
                     </li>
                 ))}
             </ul>
             <div style={{ padding: '1rem 0.75rem', marginTop: 'auto', borderTop: '1px solid var(--border)' }}>
-                <button className="btn btn-ghost btn-sm btn-block" onClick={toggleTheme} style={{ marginBottom: '0.5rem' }}>
-                    {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+                <button className="btn btn-ghost btn-sm btn-block" onClick={toggleTheme} style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                    {theme === 'dark' ? <><Sun size={16} /> Light Mode</> : <><Moon size={16} /> Dark Mode</>}
                 </button>
-                <button className="btn btn-ghost btn-sm btn-block" onClick={logout} style={{ color: 'var(--danger)' }}>
-                    Logout
+                <button className="btn btn-ghost btn-sm btn-block" onClick={logout} style={{ color: 'var(--danger)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                    <LogOut size={16} /> Logout
                 </button>
             </div>
         </>
@@ -96,13 +100,13 @@ export default function DashboardLayout({ children }) {
                 {/* Mobile top bar */}
                 <header className="mobile-topbar">
                     <button className="hamburger-btn" onClick={() => setSidebarOpen(true)} aria-label="Open menu">
-                        <span /><span /><span />
+                        <Menu size={24} />
                     </button>
-                    <Link href="/seller/dashboard" style={{ fontWeight: 700, color: 'var(--brand)', fontSize: '1.1rem' }}>
-                        Safe<span style={{ color: 'var(--text)' }}>Deliver</span>
+                    <Link href="/seller/dashboard" style={{ fontWeight: 700, color: 'var(--brand)', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <ShieldCheck size={18} /> Safe<span style={{ color: 'var(--text)' }}>Deliver</span>
                     </Link>
-                    <button onClick={toggleTheme} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem', color: 'var(--text-secondary)', padding: '0.5rem' }}>
-                        {theme === 'dark' ? '☀' : '☾'}
+                    <button onClick={toggleTheme} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', padding: '0.5rem' }}>
+                        {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
                     </button>
                 </header>
 

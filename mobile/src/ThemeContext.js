@@ -34,6 +34,11 @@ const darkColors = {
   tabInactive: '#64748B',
   white: '#ffffff',
   progressTrack: '#1a1b21',
+  android: {
+    brandBorder: 'rgba(255, 107, 53, 0.4)', // Stronger border to fake glow
+    cardGlass: 'rgba(18, 19, 26, 0.95)',    // Less transparent for better readability
+    brandLight: 'rgba(255, 107, 53, 0.15)',
+  }
 };
 
 const lightColors = {
@@ -68,6 +73,11 @@ const lightColors = {
   tabInactive: '#94A3B8',
   white: '#ffffff',
   progressTrack: '#E2E8F0',
+  android: {
+    brandBorder: 'rgba(255, 107, 53, 0.25)', // Stronger border to fake glow
+    cardGlass: 'rgba(255, 255, 255, 0.85)',   // Less transparent for better readability
+    brandLight: 'rgba(255, 107, 53, 0.12)',
+  }
 };
 
 export function ThemeProvider({ children }) {

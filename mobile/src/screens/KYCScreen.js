@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import {View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, StatusBar as RNStatusBar, Platform, Image, Alert, ActivityIndicator, Modal} from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, StatusBar as RNStatusBar, Platform, Image, Alert, ActivityIndicator, Modal, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../ThemeContext';
@@ -8,11 +8,49 @@ import { optimizeImage } from '../utils/image';
 
 export default function KYCScreen() {
   const { colors } = useTheme();
-  const [kycState, setKycState] = useState('Tier 1');
+  const [currentTier, setCurrentTier] = useState(1);
+  const [kycStatus, setKycStatus] = useState('NONE'); // PENDING, APPROVED, REJECTED, NONE
   const [idImage, setIdImage] = useState(null);
   const [selfieImage, setSelfieImage] = useState(null);
+  const [addressProofImage, setAddressProofImage] = useState(null);
   const [uploading, setUploading] = useState(false);
-  const [shouldLaunchCamera, setShouldLaunchCamera] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [attemptsCount, setAttemptsCount] = useState(0);
+  const [application, setApplication] = useState(null);
+
+  const fetchKYCInfo = async () => {
+    try {
+      const data = await api.get('/kyc');
+      setCurrentTier(data.current_tier);
+      setAttemptsCount(data.attempts_count || 0);
+      setApplication(data.application);
+      if (data.application) {
+        setKycStatus(data.application.status);
+      } else {
+        setKycStatus('NONE');
+      }
+    } catch (err) {
+      console.error('Fetch KYC Error:', err);
+      // If the error is a session expiry (which our api.js now handles), 
+      // the global Alert will trigger. For other errors, we show a local alert.
+      if (!err.message.includes('expired')) {
+        Alert.alert('Connection Issue', 'Could not reach the server. Please check your internet or try again.');
+      }
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    fetchKYCInfo();
+  }, []);
+
+  React.useEffect(() => {
+    fetchKYCInfo();
+  }, []);
 
   const pickIDPhoto = async () => {
     try {
@@ -35,83 +73,77 @@ export default function KYCScreen() {
     }
   };
 
-  const [showSelfieGuide, setShowSelfieGuide] = useState(false);
+  const pickAddressProof = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') return;
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets[0]) {
+        setAddressProofImage(result.assets[0].uri);
+      }
+    } catch (err) {
+      Alert.alert('Error', 'Could not open image picker');
+    }
+  };
+
   const [previewImage, setPreviewImage] = useState(null);
 
   const takeSelfie = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Camera Access Required', 'Please allow camera access.');
-      return;
-    }
-    setShowSelfieGuide(true);
-  };
-
-  const launchCamera = async () => {
-    // Just trigger the state change so useEffect can handle it after modal closes
-    setShowSelfieGuide(false);
-    setTimeout(() => {
-      setShouldLaunchCamera(true);
-    }, 300);
-  };
-
-  // Dedicated effect to launch camera after modal is safely gone
-  React.useEffect(() => {
-    if (shouldLaunchCamera) {
-      setShouldLaunchCamera(false);
-      performCameraLaunch();
-    }
-  }, [shouldLaunchCamera]);
-
-  const performCameraLaunch = async () => {
     try {
-      const { status } = await ImagePicker.requestCameraPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Camera Access Required', 'Please allow camera access in your settings.');
-        return;
-      }
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') return;
 
-      const result = await ImagePicker.launchCameraAsync({
-        allowsEditing: false, 
-        quality: 0.7,
-        cameraType: ImagePicker.CameraType.front,
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
       });
-      
       if (!result.canceled && result.assets[0]) {
         setSelfieImage(result.assets[0].uri);
       }
     } catch (err) {
-      console.error('Launch Camera Error:', err);
-      Alert.alert('Camera Error', `Could not open camera: ${err.message || 'Unknown error'}`);
+      Alert.alert('Error', 'Could not open image picker');
     }
   };
 
   const handleApply = async () => {
-    if (!idImage || !selfieImage) {
+    const targetTier = currentTier + 1;
+
+    if (targetTier === 2 && (!idImage || !selfieImage)) {
       Alert.alert('Missing Documents', 'Please upload both your Government ID and a selfie before applying.');
+      return;
+    }
+    if (targetTier === 3 && !addressProofImage) {
+      Alert.alert('Missing Documents', 'Please upload a Proof of Address to reach Tier 3.');
       return;
     }
 
     setUploading(true);
     try {
-      // Optimize images before upload
-      const [optId, optSelfie] = await Promise.all([
-        optimizeImage(idImage),
-        optimizeImage(selfieImage)
-      ]);
+      const uploadPromises = [];
+      if (idImage) uploadPromises.push(optimizeImage(idImage).then(img => api.upload(img)));
+      if (selfieImage) uploadPromises.push(optimizeImage(selfieImage).then(img => api.upload(img)));
+      if (addressProofImage) uploadPromises.push(optimizeImage(addressProofImage).then(img => api.upload(img)));
 
-      const [idUpload, selfieUpload] = await Promise.all([
-        api.upload(optId),
-        api.upload(optSelfie),
-      ]);
+      const uploads = await Promise.all(uploadPromises);
 
-      await api.post('/kyc/apply', {
-        target_tier: 2,
-        gov_id_url: idUpload.url,
-        selfie_url: selfieUpload.url,
-      });
+      const payload = {
+        target_tier: targetTier,
+        gov_id_url: targetTier === 2 ? uploads[0]?.url : null,
+        selfie_url: targetTier === 2 ? uploads[1]?.url : null,
+        proof_of_address_url: targetTier === 3 ? uploads[uploads.length - 1]?.url : null,
+      };
 
-      setKycState('PENDING');
+      await api.post('/kyc/apply', payload);
+      fetchKYCInfo(); // Refresh state
+      Alert.alert('Success', 'Verification documents submitted successfully and are now under review.');
     } catch (err) {
       Alert.alert('Upload Failed', err.message || 'Could not upload documents. Please try again.');
     } finally {
@@ -122,7 +154,8 @@ export default function KYCScreen() {
   const handleResubmit = () => {
     setIdImage(null);
     setSelfieImage(null);
-    setKycState('Tier 1');
+    setAddressProofImage(null);
+    setKycStatus('NONE');
   };
 
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -130,17 +163,23 @@ export default function KYCScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
       <RNStatusBar barStyle={colors.statusBar} backgroundColor={colors.bg} />
-      
+
       <View style={styles.header}>
         <Text style={[styles.headerTitle, { color: colors.text }]}>KYC Verification</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand} />
+        }
+      >
+
         {/* Tier Progress */}
         <View style={styles.progressContainer}>
           <View style={styles.progressTrack} />
-          
+
           <View style={styles.tierNodeWrapper}>
             <View style={[styles.tierNode, styles.nodeCompletedAmber]}>
               <Ionicons name="checkmark" size={14} color={colors.white} />
@@ -166,7 +205,7 @@ export default function KYCScreen() {
         {/* Current Status */}
         <View style={styles.statusSection}>
           <Text style={styles.statusText}>
-            Your Current Tier: <Text style={{ color: colors.warning }}>1 (Basic)</Text>
+            Your Current Tier: <Text style={{ color: colors.warning }}>{currentTier} ({currentTier === 1 ? 'Basic' : currentTier === 2 ? 'Verified' : 'Premium'})</Text>
           </Text>
         </View>
 
@@ -181,9 +220,9 @@ export default function KYCScreen() {
               <Text style={styles.limitValue}>GHS 1,000</Text>
             </View>
           </View>
-          
+
           <View style={styles.divider} />
-          
+
           <View style={styles.limitRow}>
             <View style={styles.limitIconWrapper}>
               <Ionicons name="wallet-outline" size={20} color={colors.text} />
@@ -196,95 +235,124 @@ export default function KYCScreen() {
         </View>
 
         {/* Conditional Upgrade State */}
-        {kycState === 'Tier 1' && (
+        {currentTier < 3 && kycStatus !== 'PENDING' && (
           <View style={styles.upgradeCard}>
             <View style={styles.upgradeHeader}>
               <Ionicons name="arrow-up-circle" size={24} color={colors.brand} />
-              <Text style={styles.upgradeTitle}>Upgrade to Tier 2 — Verified</Text>
+              <Text style={styles.upgradeTitle}>Upgrade to Tier {currentTier + 1}</Text>
             </View>
             <Text style={styles.upgradeDesc}>
-              Increase your maximum transaction limit to GHS 10,000 and your weekly withdrawal limit to GHS 50,000 by verifying your identity.
+              {currentTier === 1
+                ? 'Increase your maximum transaction limit to GHS 10,000 and your weekly withdrawal limit to GHS 50,000 by verifying your identity.'
+                : 'Unlock unlimited transactions and premium features by providing your proof of residence.'
+              }
             </Text>
 
             <View style={styles.uploadRow}>
-              {/* Government ID */}
-              <TouchableOpacity style={[styles.uploadBox, idImage && styles.uploadBoxFilled]} activeOpacity={0.7} onPress={pickIDPhoto}>
-                {idImage ? (
-                  <View style={styles.uploadPreviewWrap}>
-                    <Image source={{ uri: idImage }} style={styles.uploadPreview} />
-                    <View style={styles.uploadCheckmark}>
-                      <Ionicons name="checkmark-circle" size={22} color="#22C55E" />
+              {currentTier === 1 && (
+                <>
+                  {/* Government ID */}
+                  <TouchableOpacity style={[styles.uploadBox, idImage && styles.uploadBoxFilled]} activeOpacity={0.7} onPress={pickIDPhoto}>
+                    {idImage ? (
+                      <View style={styles.uploadPreviewWrap}>
+                        <Image source={{ uri: idImage }} style={styles.uploadPreview} />
+                      </View>
+                    ) : (
+                      <>
+                        <Ionicons name="id-card-outline" size={24} color={colors.textMuted} style={styles.uploadIcon} />
+                        <Text style={styles.uploadBoxText}>Government ID</Text>
+                        <Text style={styles.uploadBoxHint}>Tap to upload</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+
+                  {/* Selfie */}
+                  <TouchableOpacity style={[styles.uploadBox, selfieImage && styles.uploadBoxFilled]} activeOpacity={0.7} onPress={takeSelfie}>
+                    {selfieImage ? (
+                      <View style={styles.uploadPreviewWrap}>
+                        <Image source={{ uri: selfieImage }} style={styles.uploadPreview} />
+                      </View>
+                    ) : (
+                      <>
+                        <Ionicons name="camera-outline" size={24} color={colors.textMuted} style={styles.uploadIcon} />
+                        <Text style={styles.uploadBoxText}>Selfie with ID</Text>
+                        <Text style={styles.uploadBoxHint}>Tap to take photo</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </>
+              )}
+
+              {currentTier === 2 && (
+                <TouchableOpacity style={[styles.uploadBox, addressProofImage && styles.uploadBoxFilled, { flex: 1 }]} activeOpacity={0.7} onPress={pickAddressProof}>
+                  {addressProofImage ? (
+                    <View style={styles.uploadPreviewWrap}>
+                      <Image source={{ uri: addressProofImage }} style={styles.uploadPreview} />
                     </View>
-                  </View>
-                ) : (
-                  <>
-                    <Ionicons name="id-card-outline" size={24} color={colors.textMuted} style={styles.uploadIcon} />
-                    <Text style={styles.uploadBoxText}>Government ID</Text>
-                    <Text style={styles.uploadBoxHint}>Tap to upload</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-              
-              {/* Selfie */}
-              <TouchableOpacity style={[styles.uploadBox, selfieImage && styles.uploadBoxFilled]} activeOpacity={0.7} onPress={takeSelfie}>
-                {selfieImage ? (
-                  <View style={styles.uploadPreviewWrap}>
-                    <Image source={{ uri: selfieImage }} style={styles.uploadPreview} />
-                    <View style={styles.uploadCheckmark}>
-                      <Ionicons name="checkmark-circle" size={22} color="#22C55E" />
-                    </View>
-                  </View>
-                ) : (
-                  <>
-                    <Ionicons name="camera-outline" size={24} color={colors.textMuted} style={styles.uploadIcon} />
-                    <Text style={styles.uploadBoxText}>Selfie with ID</Text>
-                    <Text style={styles.uploadBoxHint}>Tap to take photo</Text>
-                  </>
-                )}
-              </TouchableOpacity>
+                  ) : (
+                    <>
+                      <Ionicons name="home-outline" size={24} color={colors.textMuted} style={styles.uploadIcon} />
+                      <Text style={styles.uploadBoxText}>Proof of Address</Text>
+                      <Text style={styles.uploadBoxHint}>Utility bill or Bank statement</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              )}
             </View>
 
             {/* Selfie Instructions */}
-            <View style={styles.instructionBox}>
-              <Ionicons name="information-circle-outline" size={18} color={colors.brand} />
-              <Text style={styles.instructionText}>
-                For the selfie: hold your ID next to your face, look directly at the camera, and ensure good lighting.
-              </Text>
-            </View>
+            {currentTier === 1 && (
+              <View style={styles.instructionBox}>
+                <Ionicons name="information-circle-outline" size={18} color={colors.brand} />
+                <Text style={styles.instructionText}>
+                  For the selfie: hold your ID next to your face, look directly at the camera, and ensure good lighting.
+                </Text>
+              </View>
+            )}
 
-            <TouchableOpacity 
-              style={[styles.primaryButton, (!idImage || !selfieImage || uploading) && styles.buttonDisabled]} 
+            <TouchableOpacity
+              style={[styles.primaryButton, uploading && styles.buttonDisabled]}
               onPress={handleApply}
-              disabled={!idImage || !selfieImage || uploading}
+              disabled={uploading}
             >
               {uploading ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <ActivityIndicator color="#ffffff" />
-                  <Text style={styles.primaryButtonText}>Uploading Documents...</Text>
+                  <Text style={styles.primaryButtonText}>Uploading...</Text>
                 </View>
               ) : (
-                <Text style={styles.primaryButtonText}>Apply for Tier 2</Text>
+                <Text style={styles.primaryButtonText}>Apply for Tier {currentTier + 1}</Text>
               )}
             </TouchableOpacity>
           </View>
         )}
 
-        {kycState === 'PENDING' && (
+        {currentTier === 3 && (
           <View style={styles.pendingCard}>
-            <Ionicons name="hourglass-outline" size={48} color={colors.brand} style={styles.statusIcon} />
-            <Text style={styles.pendingTitle}>Application under review</Text>
+            <Ionicons name="ribbon-outline" size={48} color={colors.warning} style={styles.statusIcon} />
+            <Text style={styles.pendingTitle}>Maximum Tier Reached</Text>
             <Text style={styles.pendingDesc}>
-              We are currently reviewing your documents. This usually takes 1-2 business days.
+              Congratulations! You have verified your identity and reached the maximum seller tier with the highest possible limits.
             </Text>
           </View>
         )}
 
-        {kycState === 'REJECTED' && (
+        {kycStatus === 'PENDING' && (
+          <View style={styles.pendingCard}>
+            <Ionicons name="hourglass-outline" size={48} color={colors.brand} style={styles.statusIcon} />
+            <Text style={styles.pendingTitle}>Application under review</Text>
+            <Text style={styles.pendingDesc}>
+              Our team is currently reviewing your documents manually. This usually takes 24 to 72h. High AI confidence matches are prioritized.
+            </Text>
+          </View>
+        )}
+
+        {kycStatus === 'REJECTED' && (
           <View style={styles.rejectedCard}>
             <Ionicons name="alert-circle-outline" size={48} color={colors.danger} style={styles.statusIcon} />
             <Text style={styles.rejectedTitle}>Application Rejected</Text>
             <Text style={styles.rejectedDesc}>
-              The selfie you provided was blurry. Please resubmit clear photos to upgrade to Tier 2.
+              {application?.rejection_reason || 'The documents you provided were unclear. Please resubmit clear photos.'}
             </Text>
             <TouchableOpacity style={styles.dangerButton} onPress={handleResubmit}>
               <Text style={styles.dangerButtonText}>Resubmit Documents</Text>
@@ -294,41 +362,6 @@ export default function KYCScreen() {
 
       </ScrollView>
 
-      {/* Modern Selfie Guide Modal */}
-      <Modal visible={showSelfieGuide} transparent animationType="fade">
-        <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}>
-          <View style={styles.guideCard}>
-            <View style={styles.guideHeader}>
-              <Ionicons name="camera" size={32} color={colors.brand} />
-              <Text style={styles.guideTitle}>Verification Selfie</Text>
-            </View>
-            
-            <View style={styles.instructionList}>
-              <View style={styles.instructionRow}>
-                <View style={styles.instructionStep}><Text style={styles.stepNum}>1</Text></View>
-                <Text style={styles.stepText}>Hold your ID card next to your face</Text>
-              </View>
-              <View style={styles.instructionRow}>
-                <View style={styles.instructionStep}><Text style={styles.stepNum}>2</Text></View>
-                <Text style={styles.stepText}>Ensure both face and ID are fully visible</Text>
-              </View>
-              <View style={styles.instructionRow}>
-                <View style={styles.instructionStep}><Text style={styles.stepNum}>3</Text></View>
-                <Text style={styles.stepText}>Use bright, even lighting</Text>
-              </View>
-            </View>
-
-            <View style={styles.guideActions}>
-              <TouchableOpacity style={styles.cancelGuideBtn} onPress={() => setShowSelfieGuide(false)}>
-                <Text style={styles.cancelGuideText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.startCameraBtn} onPress={launchCamera}>
-                <Text style={styles.startCameraText}>Open Camera</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
 
       {/* Image Preview Modal */}
       <Modal visible={!!previewImage} transparent animationType="fade">
@@ -339,6 +372,7 @@ export default function KYCScreen() {
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
+
     </SafeAreaView>
   );
 }
@@ -783,5 +817,116 @@ const createStyles = (colors) => StyleSheet.create({
     backgroundColor: colors.cardAlt,
     borderWidth: 1,
     borderColor: colors.border,
+  },
+  cameraContainer: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  camera: {
+    flex: 1,
+  },
+  gridContainer: {
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0.15,
+  },
+  gridLineV: {
+    position: 'absolute',
+    left: '33.3%',
+    top: 0,
+    bottom: 0,
+    width: 1,
+    backgroundColor: '#fff',
+  },
+  gridLineH: {
+    position: 'absolute',
+    top: '33.3%',
+    left: 0,
+    right: 0,
+    height: 1,
+    backgroundColor: '#fff',
+  },
+  maskContainer: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  maskTop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+  },
+  maskBottom: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center',
+    paddingTop: 20,
+  },
+  maskRow: {
+    flexDirection: 'row',
+    height: 380, // Oval height
+  },
+  maskSide: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+  },
+  ovalCutout: {
+    width: 260, // Oval width
+    borderRadius: 130, // Oval-ish
+    borderWidth: 2,
+    borderColor: '#fff',
+    backgroundColor: 'transparent',
+  },
+  cameraInstructions: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  cameraSubInstructions: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 14,
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  instructionsGlobe: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 30,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  cameraControls: {
+    position: 'absolute',
+    bottom: 40,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingHorizontal: 20,
+  },
+  captureBtn: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 4,
+    borderColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  captureBtnInner: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#fff',
+  },
+  closeCameraBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

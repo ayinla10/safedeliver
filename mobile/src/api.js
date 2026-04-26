@@ -10,32 +10,45 @@ async function request(endpoint, options = {}) {
 
     const response = await fetch(`${API_URL}${endpoint}`, { ...options, headers });
 
-    if (response.status === 401 && token) {
-        const refreshToken = await AsyncStorage.getItem('sd-refresh-token');
-        if (refreshToken) {
-            try {
-                const refreshRes = await fetch(`${API_URL}/auth/refresh`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ refreshToken }),
-                });
-                if (refreshRes.ok) {
-                    const data = await refreshRes.json();
-                    await AsyncStorage.setItem('sd-token', data.accessToken);
-                    await AsyncStorage.setItem('sd-refresh-token', data.refreshToken);
-                    headers['Authorization'] = `Bearer ${data.accessToken}`;
-                    const retry = await fetch(`${API_URL}${endpoint}`, { ...options, headers });
-                    const retryData = await retry.json();
-                    if (!retry.ok) throw new Error(retryData.error || 'Request failed');
-                    return retryData;
+    if (response.status === 401) {
+        if (token) {
+            const refreshToken = await AsyncStorage.getItem('sd-refresh-token');
+            if (refreshToken) {
+                try {
+                    const refreshRes = await fetch(`${API_URL}/auth/refresh`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ refreshToken }),
+                    });
+                    if (refreshRes.ok) {
+                        const data = await refreshRes.json();
+                        await AsyncStorage.setItem('sd-token', data.accessToken);
+                        await AsyncStorage.setItem('sd-refresh-token', data.refreshToken);
+                        headers['Authorization'] = `Bearer ${data.accessToken}`;
+                        const retry = await fetch(`${API_URL}${endpoint}`, { ...options, headers });
+                        const retryData = await retry.json();
+                        if (!retry.ok) throw new Error(retryData.error || 'Request failed');
+                        return retryData;
+                    }
+                } catch (err) {
+                    console.log('Refresh token attempt failed:', err.message);
                 }
-            } catch {
-                await AsyncStorage.multiRemove(['sd-token', 'sd-refresh-token', 'sd-seller']);
-                if (api.onTokenExpired) api.onTokenExpired();
             }
-        } else {
-            if (api.onTokenExpired) api.onTokenExpired();
         }
+        
+        // If we reach here, either no refresh token or refresh failed.
+        // Force logout and throw error.
+        await AsyncStorage.multiRemove(['sd-token', 'sd-refresh-token', 'sd-seller']);
+        if (api.onTokenExpired) api.onTokenExpired();
+
+        const { Alert } = require('react-native');
+        Alert.alert(
+            'Session Expired',
+            'Your login session has expired for security. Please sign in again to continue.',
+            [{ text: 'OK' }]
+        );
+
+        throw new Error('Your session has expired. Please login again.');
     }
 
     const data = await response.json();

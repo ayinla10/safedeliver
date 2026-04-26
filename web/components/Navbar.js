@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
+import { ShieldCheck, Sun, Moon, Menu, X } from 'lucide-react';
 
 export default function Navbar() {
     const pathname = usePathname();
@@ -35,14 +36,14 @@ export default function Navbar() {
     return (
         <nav className="navbar">
             <div className="navbar-inner">
-                <Link href="/" className="navbar-brand">
-                    🛡️ Safe<span>Deliver</span>
+                <Link href="/" className="navbar-brand" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <ShieldCheck size={24} color="var(--brand)" /> Safe<span>Deliver</span>
                 </Link>
 
                 {!isCheckoutPage && (
                     <>
                         <button className="mobile-menu-btn" onClick={() => setMenuOpen(!menuOpen)}>
-                            {menuOpen ? '✕' : '☰'}
+                            {menuOpen ? <X size={24} /> : <Menu size={24} />}
                         </button>
 
                         <ul className={`navbar-links ${menuOpen ? 'open' : ''}`}>
@@ -63,8 +64,8 @@ export default function Navbar() {
                                 </Link>
                             </li>
                             <li>
-                                <button className="theme-toggle" onClick={toggleTheme} title="Toggle dark mode">
-                                    {theme === 'dark' ? '☀️' : '🌙'}
+                                <button className="theme-toggle" onClick={toggleTheme} title="Toggle dark mode" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
                                 </button>
                             </li>
                         </ul>

@@ -4,3 +4,9 @@ node_modules/
 .env.local
 uploads/
 *.log
+
+# Mobile Specific Ignores
+mobile/node_modules/
+mobile/android/
+mobile/ios/
+mobile/.expo/
