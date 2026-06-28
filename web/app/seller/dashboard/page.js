@@ -83,28 +83,9 @@ export default function SellerDashboard() {
                     <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', margin: '0 0 0.25rem' }}>
                         Total Revenue
                     </p>
-                    <p style={{ color: '#fff', fontSize: 'clamp(2rem, 8vw, 2.75rem)', fontWeight: 800, margin: '0 0 1.25rem', letterSpacing: '-1px', lineHeight: 1 }}>
+                    <p style={{ color: '#fff', fontSize: 'clamp(2rem, 8vw, 2.75rem)', fontWeight: 800, margin: 0, letterSpacing: '-1px', lineHeight: 1 }}>
                         GHS {((stats?.total_revenue || 0) / 100).toFixed(2)}
                     </p>
-
-                    <Link href="/seller/dashboard/links/new" style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '0.5rem',
-                        background: 'rgba(255,255,255,0.18)',
-                        backdropFilter: 'blur(8px)',
-                        border: '1px solid rgba(255,255,255,0.25)',
-                        color: '#fff',
-                        borderRadius: 14,
-                        padding: '0.875rem',
-                        fontWeight: 700,
-                        fontSize: '1rem',
-                        textDecoration: 'none',
-                        width: '100%',
-                    }}>
-                        + New Link
-                    </Link>
                 </div>
             </div>
 
@@ -160,11 +141,33 @@ export default function SellerDashboard() {
                                 strokeLinecap="round" transform="rotate(-90 26 26)"
                                 style={{ transition: 'stroke-dashoffset 1s ease' }} />
                         </svg>
-                        <span style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text)', lineHeight: 1 }}>{scoreOver10}<span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-muted)' }}>/10</span></span>
+                        <span style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text)', lineHeight: 1 }}>
+                            {scoreOver10}<span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>/10</span>
+                        </span>
                         <span style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>Trust</span>
                     </div>
                 </div>
             )}
+
+            {/* ── Create New Link Button ── */}
+            <Link href="/seller/dashboard/links/new" style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.5rem',
+                background: '#FF6B00',
+                color: '#fff',
+                borderRadius: 16,
+                padding: '1rem',
+                fontWeight: 700,
+                fontSize: '1rem',
+                textDecoration: 'none',
+                width: '100%',
+                marginBottom: '1.25rem',
+                boxShadow: '0 6px 20px rgba(255,107,0,0.35)',
+            }}>
+                + Create New Link
+            </Link>
 
             {/* ── Escrow Balance (if any) ── */}
             {stats && (stats.escrow_balance || 0) > 0 && (
