@@ -22,20 +22,27 @@ function normalizePhone(raw) {
 // Register
 router.post('/register', authLimiter, async (req, res) => {
     try {
-        const schema = z.object({ full_name: z.string().min(2), email: z.string().email(), phone: z.string().min(1), password: z.string().min(8) });
+        const schema = z.object({
+            full_name: z.string().min(2),
+            email: z.string().email(),
+            phone: z.string().min(1),
+            password: z.string().min(8),
+            momo_number: z.string().min(10).optional(),
+        });
         const data = schema.parse(req.body);
         data.phone = normalizePhone(data.phone);
         if (!/^0[0-9]{9}$/.test(data.phone)) {
             return res.status(400).json({ error: 'Invalid Ghana phone number. Expected 10 digits starting with 0 (e.g. 0241234567).' });
         }
+        const momoNormalized = data.momo_number ? normalizePhone(data.momo_number) : null;
         const exists = await db.query('SELECT id FROM sellers WHERE phone = $1 OR email = $2', [data.phone, data.email]);
         if (exists.rows.length > 0) return res.status(409).json({ error: 'Phone or email already registered' });
         const hash = await bcrypt.hash(data.password, 12);
         const otp = String(Math.floor(100000 + Math.random() * 900000));
         const id = uuid();
         await db.query(
-            `INSERT INTO sellers (id, full_name, email, phone, password_hash, otp_code, otp_expires_at) VALUES ($1,$2,$3,$4,$5,$6, NOW() + INTERVAL '10 minutes')`,
-            [id, data.full_name, data.email, data.phone, hash, otp]
+            `INSERT INTO sellers (id, full_name, email, phone, momo_number, password_hash, otp_code, otp_expires_at) VALUES ($1,$2,$3,$4,$5,$6,$7, NOW() + INTERVAL '10 minutes')`,
+            [id, data.full_name, data.email, data.phone, momoNormalized, hash, otp]
         );
         if (process.env.NODE_ENV === 'development') {
             console.log(`\n📱 OTP for ${data.phone}: ${otp}\n`);
@@ -225,22 +232,20 @@ router.post('/reset-password', async (req, res) => {
 // Update profile
 router.patch('/profile', authenticateSeller, async (req, res) => {
     try {
-        const { full_name, business_name, phone, city, region } = req.body;
+        const { full_name, business_name, phone } = req.body;
         const normalizedPhone = phone ? normalizePhone(phone) : undefined;
-        
+
         await db.query(
-            `UPDATE sellers SET 
-                full_name = COALESCE($1, full_name), 
-                business_name = COALESCE($2, business_name), 
+            `UPDATE sellers SET
+                full_name = COALESCE($1, full_name),
+                business_name = COALESCE($2, business_name),
                 phone = COALESCE($3, phone),
-                city = COALESCE($4, city), 
-                region = COALESCE($5, region),
-                updated_at = NOW() 
-             WHERE id = $6`,
-            [full_name, business_name, normalizedPhone, city, region, req.seller.id]
+                updated_at = NOW()
+             WHERE id = $4`,
+            [full_name, business_name, normalizedPhone, req.seller.id]
         );
 
-        const result = await db.query('SELECT id, full_name, email, phone, business_name, city, region, is_admin FROM sellers WHERE id = $1', [req.seller.id]);
+        const result = await db.query('SELECT id, full_name, email, phone, business_name, is_admin FROM sellers WHERE id = $1', [req.seller.id]);
         res.json({ message: 'Profile updated', seller: result.rows[0] });
     } catch (err) {
         console.error('Profile update error:', err);

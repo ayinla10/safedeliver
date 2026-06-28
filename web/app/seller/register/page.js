@@ -7,7 +7,7 @@ import { api } from '@/lib/api';
 
 export default function RegisterPage() {
     const router = useRouter();
-    const [form, setForm] = useState({ full_name: '', email: '', phone: '', password: '' });
+    const [form, setForm] = useState({ full_name: '', email: '', phone: '', momo_number: '', password: '' });
     const [error, setError] = useState(null);
     const [loading, setLoading] = useState(false);
 
@@ -47,8 +47,14 @@ export default function RegisterPage() {
                         </div>
                         <div className="form-group">
                             <label>Phone Number</label>
-                            <input className="form-input" required placeholder="+233..." value={form.phone}
+                            <input className="form-input" required placeholder="e.g. 0241234567" value={form.phone}
                                 onChange={e => setForm({ ...form, phone: e.target.value })} />
+                        </div>
+                        <div className="form-group">
+                            <label>MoMo Number</label>
+                            <input className="form-input" required placeholder="e.g. 0241234567" value={form.momo_number}
+                                onChange={e => setForm({ ...form, momo_number: e.target.value })} />
+                            <p className="text-xs text-muted mt-1">Your Mobile Money number for receiving payouts. Cannot be changed later without contacting support.</p>
                         </div>
                         <div className="form-group">
                             <label>Password (min 8 characters)</label>
