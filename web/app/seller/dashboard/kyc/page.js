@@ -217,21 +217,6 @@ export default function KYCPage() {
                 </div>
             </div>
 
-            {/* Feature chips */}
-            {features.length > 0 && (
-                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
-                    {features.map(f => (
-                        <span key={f} style={{
-                            fontSize: '0.72rem', fontWeight: 600,
-                            background: 'var(--bg-alt)',
-                            color: 'var(--text-secondary)',
-                            border: '1px solid var(--border)',
-                            padding: '0.3rem 0.75rem',
-                            borderRadius: 20,
-                        }}>⊕ {f}</span>
-                    ))}
-                </div>
-            )}
 
             {/* ── Pending State ── */}
             {hasPending && (
