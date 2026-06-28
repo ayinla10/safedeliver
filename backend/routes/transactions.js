@@ -87,9 +87,9 @@ router.post('/', async (req, res) => {
 
         await db.query('UPDATE checkout_links SET order_count = order_count + 1 WHERE id = $1', [link.id]);
 
-        // SMS to buyer — order placed confirmation
+        // SMS to buyer — order placed confirmation (keep under 160 chars)
         await notify.sms(buyer_phone,
-            `SafeDeliver: Hi ${buyer_name}, your order for "${link.product_name}" (Ref: ${orderRef}) has been placed! The seller will quote delivery within 12 hours. Track: ${process.env.FRONTEND_URL}/track/${orderRef}`,
+            `SafeDeliver: Order placed! Ref: ${orderRef}. Seller will quote delivery within 12hrs. Track: ${process.env.FRONTEND_URL}/track/${orderRef}`,
             id, orderRef
         );
 
@@ -138,9 +138,9 @@ router.patch('/:id/quote', authenticateSeller, async (req, res) => {
             [deliveryFeeInt, totalAmount, platformFee, sellerPayout, tx.id]
         );
 
-        // SMS to buyer — delivery quoted
+        // SMS to buyer — delivery quoted (keep under 160 chars)
         await notify.sms(tx.buyer_phone,
-            `SafeDeliver: Your delivery quote for order ${tx.order_ref} is ready! Delivery: GHS ${(deliveryFeeInt / 100).toFixed(2)}, Total: GHS ${(totalAmount / 100).toFixed(2)}. Review & pay: ${process.env.FRONTEND_URL}/track/${tx.order_ref}`,
+            `SafeDeliver: Quote ready for ${tx.order_ref}. Delivery: GHS ${(deliveryFeeInt / 100).toFixed(2)}, Total: GHS ${(totalAmount / 100).toFixed(2)}. Pay: ${process.env.FRONTEND_URL}/track/${tx.order_ref}`,
             tx.id, tx.order_ref
         );
 
@@ -200,9 +200,9 @@ router.post('/sim-confirm', async (req, res) => {
         const simRef = await sim.holdFunds(transaction_id, tx.order_ref, tx.total_amount);
         await db.query('UPDATE transactions SET sim_reference = $1 WHERE id = $2', [simRef, transaction_id]);
 
-        // SMS to buyer — payment confirmed
+        // SMS to buyer — payment confirmed (keep under 160 chars)
         await notify.sms(tx.buyer_phone,
-            `SafeDeliver: Payment of GHS ${(tx.total_amount / 100).toFixed(2)} confirmed for order ${tx.order_ref}. Your funds are held safely in escrow until delivery. Track: ${process.env.FRONTEND_URL}/track/${tx.order_ref}`,
+            `SafeDeliver: Payment confirmed for ${tx.order_ref}. GHS ${(tx.total_amount / 100).toFixed(2)} held in escrow. Track: ${process.env.FRONTEND_URL}/track/${tx.order_ref}`,
             transaction_id, tx.order_ref
         );
 

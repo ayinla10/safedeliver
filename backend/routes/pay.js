@@ -99,9 +99,9 @@ router.get('/verify/:reference', async (req, res) => {
             const simRef = await sim.holdFunds(tx.id, tx.order_ref, tx.total_amount);
             await db.query('UPDATE transactions SET sim_reference = $1 WHERE id = $2', [simRef, tx.id]);
 
-            // SMS to buyer — payment confirmed
+            // SMS to buyer — payment confirmed (keep under 160 chars)
             await notify.sms(tx.buyer_phone,
-                `SafeDeliver: Payment of GHS ${(tx.total_amount / 100).toFixed(2)} confirmed for order ${tx.order_ref}. Your funds are held safely in escrow until delivery. Track: ${process.env.FRONTEND_URL}/track/${tx.order_ref}`,
+                `SafeDeliver: Payment confirmed for ${tx.order_ref}. GHS ${(tx.total_amount / 100).toFixed(2)} held in escrow. Track: ${process.env.FRONTEND_URL}/track/${tx.order_ref}`,
                 tx.id, tx.order_ref
             );
 
@@ -148,9 +148,9 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
                     const simRef = await sim.holdFunds(tx.id, tx.order_ref, tx.total_amount);
                     await db.query('UPDATE transactions SET sim_reference = $1 WHERE id = $2', [simRef, tx.id]);
 
-                    // SMS to buyer — payment confirmed
+                    // SMS to buyer — payment confirmed (keep under 160 chars)
                     await notify.sms(tx.buyer_phone,
-                        `SafeDeliver: Payment of GHS ${(tx.total_amount / 100).toFixed(2)} confirmed for order ${tx.order_ref}. Your funds are held safely in escrow until delivery. Track: ${process.env.FRONTEND_URL}/track/${tx.order_ref}`,
+                        `SafeDeliver: Payment confirmed for ${tx.order_ref}. GHS ${(tx.total_amount / 100).toFixed(2)} held in escrow. Track: ${process.env.FRONTEND_URL}/track/${tx.order_ref}`,
                         tx.id, tx.order_ref
                     );
 
