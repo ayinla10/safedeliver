@@ -421,7 +421,7 @@ router.get('/', authenticateSeller, async (req, res) => {
 // ── Seller: get single transaction ──
 router.get('/:id', authenticateSeller, async (req, res) => {
     const result = await db.query(
-        `SELECT t.*, cl.price as product_price FROM transactions t LEFT JOIN checkout_links cl ON t.checkout_link_id = cl.id WHERE t.id = $1 AND t.seller_id = $2`,
+        `SELECT t.*, cl.price as product_price, s.seller_lat, s.seller_lng FROM transactions t LEFT JOIN checkout_links cl ON t.checkout_link_id = cl.id LEFT JOIN sellers s ON t.seller_id = s.id WHERE t.id = $1 AND t.seller_id = $2`,
         [req.params.id, req.seller.id]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'Not found' });

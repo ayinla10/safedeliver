@@ -4,6 +4,16 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 
+function haversine(lat1, lng1, lat2, lng2) {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) ** 2 +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+    const d = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return d < 1 ? `${(d * 1000).toFixed(0)} m` : d.toFixed(1) + ' km';
+}
+
 export default function OrderDetailPage() {
     const { id } = useParams();
     const [order, setOrder] = useState(null);
@@ -138,12 +148,27 @@ export default function OrderDetailPage() {
                         <hr className="divider" style={{ margin: '0.25rem 0' }} />
                         <div>
                             <span className="text-sm" style={{ fontWeight: 600, display: 'block', marginBottom: '0.25rem' }}>Buyer Location / Address</span>
-                            <span>{order.buyer_location_text || order.buyer_address}</span>
+                            <span className="text-sm">{order.buyer_location_text || order.buyer_address || <span className="text-muted">Not provided</span>}</span>
 
-                            {(showFullBuyerDetails && order.buyer_lat && order.buyer_lng) && (
+                            {(order.buyer_lat && order.buyer_lng) && (
                                 <a href={`https://www.google.com/maps/search/?api=1&query=${order.buyer_lat},${order.buyer_lng}`} target="_blank" rel="noopener noreferrer" className="text-xs mt-1" style={{ display: 'inline-block', color: 'var(--brand)' }}>
-                                    📍 View on Maps
+                                    📍 View on Google Maps
                                 </a>
+                            )}
+
+                            {(order.buyer_lat && order.buyer_lng && order.seller_lat && order.seller_lng) && (
+                                <div style={{
+                                    marginTop: '0.625rem',
+                                    padding: '0.5rem 0.75rem',
+                                    background: 'rgba(255,107,0,0.07)',
+                                    border: '1px solid rgba(255,107,0,0.2)',
+                                    borderRadius: 8,
+                                    fontSize: '0.8125rem',
+                                    fontWeight: 600,
+                                    color: '#FF6B00',
+                                }}>
+                                    📏 ~{haversine(order.seller_lat, order.seller_lng, order.buyer_lat, order.buyer_lng)} km from your location
+                                </div>
                             )}
                         </div>
                         </div>
