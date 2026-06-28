@@ -95,7 +95,8 @@ export default function OrdersPage() {
                                         return (
                                             <tr key={tx.id}>
                                                 <td style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', whiteSpace: 'nowrap' }}>
-                                                    {new Date(tx.created_at).toLocaleDateString()}
+                                                    <div>{new Date(tx.created_at).toLocaleDateString()}</div>
+                                                    <div style={{ fontSize: '0.72rem', opacity: 0.7 }}>{new Date(tx.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
                                                 </td>
                                                 {/* Order Ref — light blue pill */}
                                                 <td>
