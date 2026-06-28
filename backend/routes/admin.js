@@ -185,16 +185,23 @@ router.patch('/kyc-applications/:id', async (req, res) => {
 // Simulation Ledger
 router.get('/ledger', async (req, res) => {
     try {
-        const { type, search } = req.query;
-        let q = 'SELECT * FROM simulation_ledger';
+        const { type, search, limit = 25, offset = 0 } = req.query;
+        const pageLimit = Math.min(parseInt(limit) || 25, 200);
+        const pageOffset = parseInt(offset) || 0;
+
         const params = [];
         const conditions = [];
         if (type) { params.push(type); conditions.push(`entry_type = $${params.length}`); }
         if (search) { params.push(`%${search}%`); conditions.push(`order_ref ILIKE $${params.length}`); }
-        if (conditions.length) q += ' WHERE ' + conditions.join(' AND ');
-        q += ' ORDER BY created_at DESC LIMIT 200';
-        const result = await db.query(q, params);
-        res.json(result.rows);
+        const where = conditions.length ? ' WHERE ' + conditions.join(' AND ') : '';
+
+        const countResult = await db.query(`SELECT COUNT(*) FROM simulation_ledger${where}`, params);
+        const total = parseInt(countResult.rows[0].count);
+
+        const dataParams = [...params, pageLimit, pageOffset];
+        const q = `SELECT * FROM simulation_ledger${where} ORDER BY created_at DESC LIMIT $${dataParams.length - 1} OFFSET $${dataParams.length}`;
+        const result = await db.query(q, dataParams);
+        res.json({ entries: result.rows, total, limit: pageLimit, offset: pageOffset });
     } catch (err) {
         console.error('Admin ledger error:', err);
         res.status(500).json({ error: err.message });
