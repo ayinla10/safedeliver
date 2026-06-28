@@ -220,7 +220,7 @@ app.patch('/api/v1/seller/profile', require('./middleware/auth').authenticateSel
 app.patch('/api/v1/seller/location', require('./middleware/auth').authenticateSeller, async (req, res) => {
     try {
         const { city, location_text, lat, lng } = req.body;
-        const locationLabel = location_text || city;
+        const locationLabel = (location_text || city || '').substring(0, 500);
         if (!locationLabel) return res.status(400).json({ error: 'Location is required' });
 
         const seller = await db.query('SELECT location_changes_this_year, location_change_year FROM sellers WHERE id = $1', [req.seller.id]);
