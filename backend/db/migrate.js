@@ -27,8 +27,8 @@ async function migrate() {
       last_login_at TIMESTAMPTZ,
       business_name VARCHAR(200),
       seller_score INT DEFAULT 100,
-      city VARCHAR(100),
-      region VARCHAR(100),
+      city TEXT,
+      region TEXT,
       pickup_description TEXT,
       location_changes_this_year INT DEFAULT 0,
       last_location_change_at TIMESTAMPTZ,
@@ -187,8 +187,10 @@ async function migrate() {
   // Add new columns to existing tables (safe — IF NOT EXISTS / try-catch)
   const alterations = [
     `ALTER TABLE sellers ADD COLUMN IF NOT EXISTS seller_score INT DEFAULT 100`,
-    `ALTER TABLE sellers ADD COLUMN IF NOT EXISTS city VARCHAR(100)`,
-    `ALTER TABLE sellers ADD COLUMN IF NOT EXISTS region VARCHAR(100)`,
+    `ALTER TABLE sellers ADD COLUMN IF NOT EXISTS city TEXT`,
+    `ALTER TABLE sellers ADD COLUMN IF NOT EXISTS region TEXT`,
+    `ALTER TABLE sellers ALTER COLUMN city TYPE TEXT`,
+    `ALTER TABLE sellers ALTER COLUMN region TYPE TEXT`,
     `ALTER TABLE sellers ADD COLUMN IF NOT EXISTS pickup_description TEXT`,
     `ALTER TABLE sellers ADD COLUMN IF NOT EXISTS location_changes_this_year INT DEFAULT 0`,
     `ALTER TABLE sellers ADD COLUMN IF NOT EXISTS last_location_change_at TIMESTAMPTZ`,
