@@ -206,6 +206,8 @@ async function migrate() {
     `ALTER TABLE transactions ADD COLUMN IF NOT EXISTS quote_deadline TIMESTAMPTZ`,
     `ALTER TABLE sellers ADD COLUMN IF NOT EXISTS kyc_tier INT DEFAULT 1`,
     `ALTER TABLE sellers ADD COLUMN IF NOT EXISTS kyc_document_url VARCHAR(255)`,
+    `ALTER TABLE sellers ADD COLUMN IF NOT EXISTS seller_lat DOUBLE PRECISION`,
+    `ALTER TABLE sellers ADD COLUMN IF NOT EXISTS seller_lng DOUBLE PRECISION`,
     `ALTER TABLE kyc_applications ADD COLUMN IF NOT EXISTS auto_verify_score DECIMAL`,
     `ALTER TABLE kyc_applications ADD COLUMN IF NOT EXISTS ocr_data JSONB`,
     `ALTER TABLE kyc_applications ADD COLUMN IF NOT EXISTS is_auto_verified BOOLEAN DEFAULT false`,

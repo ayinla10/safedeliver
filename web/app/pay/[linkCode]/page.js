@@ -344,7 +344,11 @@ export default function CheckoutPage() {
                                             <span>Delivery Address / Pickup Point *</span>
                                         </label>
                                         <p className="text-xs text-muted" style={{ marginBottom: '0.5rem' }}>Help the seller quote an accurate delivery fee by providing your exact location.</p>
-                                        <LocationPicker onChange={handleLocationChange} />
+                                        <LocationPicker
+                                            onChange={handleLocationChange}
+                                            sellerLat={product.seller_lat}
+                                            sellerLng={product.seller_lng}
+                                        />
                                     </div>
 
                                     <button type="submit" className="btn btn-primary btn-block btn-lg" style={{ marginTop: '2rem' }} disabled={loading}>

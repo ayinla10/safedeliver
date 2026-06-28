@@ -44,7 +44,7 @@ router.post('/', authenticateSeller, async (req, res) => {
 router.get('/:code', async (req, res, next) => {
     try {
         const result = await db.query(
-            `SELECT cl.*, s.full_name as seller_name, s.city as seller_city, s.region as seller_region
+            `SELECT cl.*, s.full_name as seller_name, s.city as seller_city, s.region as seller_region, s.seller_lat, s.seller_lng
              FROM checkout_links cl JOIN sellers s ON cl.seller_id = s.id WHERE cl.link_code = $1`,
             [req.params.code]
         );

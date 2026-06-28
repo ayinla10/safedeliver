@@ -232,9 +232,24 @@ app.patch('/api/v1/seller/location', require('./middleware/auth').authenticateSe
             return res.status(400).json({ error: 'You can only change your location twice per year' });
         }
 
+        // Geocode city + region to get lat/lng
+        let sellerLat = null, sellerLng = null;
+        try {
+            const geoRes = await require('axios').get(
+                `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(`${city}, ${region}, Ghana`)}&limit=1`,
+                { headers: { 'User-Agent': 'SafeDeliver/1.0' } }
+            );
+            if (geoRes.data && geoRes.data.length > 0) {
+                sellerLat = parseFloat(geoRes.data[0].lat);
+                sellerLng = parseFloat(geoRes.data[0].lon);
+            }
+        } catch (geoErr) {
+            console.warn('[Location] Geocode failed (non-fatal):', geoErr.message);
+        }
+
         await db.query(
-            `UPDATE sellers SET city = $1, region = $2, pickup_description = $3, location_changes_this_year = $4, location_change_year = $5, last_location_change_at = NOW(), updated_at = NOW() WHERE id = $6`,
-            [city, region, pickup_description || null, changesThisYear + 1, currentYear, req.seller.id]
+            `UPDATE sellers SET city = $1, region = $2, pickup_description = $3, location_changes_this_year = $4, location_change_year = $5, last_location_change_at = NOW(), updated_at = NOW(), seller_lat = $7, seller_lng = $8 WHERE id = $6`,
+            [city, region, pickup_description || null, changesThisYear + 1, currentYear, req.seller.id, sellerLat, sellerLng]
         );
 
         // Notify buyers with open unpaid orders from this seller
