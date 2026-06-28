@@ -4,14 +4,24 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 
-function haversine(lat1, lng1, lat2, lng2) {
-    const R = 6371;
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLng = (lng2 - lng1) * Math.PI / 180;
-    const a = Math.sin(dLat / 2) ** 2 +
-        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
-    const d = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return d < 1 ? `${(d * 1000).toFixed(0)} m` : d.toFixed(1) + ' km';
+function formatDuration(seconds) {
+    const m = Math.round(seconds / 60);
+    if (m < 60) return `${m} min`;
+    const h = Math.floor(m / 60);
+    const rem = m % 60;
+    return rem > 0 ? `${h}h ${rem}min` : `${h}h`;
+}
+
+function formatDistance(metres) {
+    return metres >= 1000 ? `${(metres / 1000).toFixed(1)} km` : `${Math.round(metres)} m`;
+}
+
+async function fetchRoute(profile, slat, slng, blat, blng) {
+    const url = `https://router.project-osrm.org/route/v1/${profile}/${slng},${slat};${blng},${blat}?overview=false`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data.code !== 'Ok') return null;
+    return { duration: data.routes[0].duration, distance: data.routes[0].distance };
 }
 
 export default function OrderDetailPage() {
@@ -21,6 +31,8 @@ export default function OrderDetailPage() {
     const [actionLoading, setActionLoading] = useState(false);
     const [msg, setMsg] = useState(null);
     const [deliveryFee, setDeliveryFee] = useState('');
+    const [routeInfo, setRouteInfo] = useState(null);
+    const [routeLoading, setRouteLoading] = useState(false);
 
     const fetchOrder = async () => {
         try {
@@ -36,6 +48,17 @@ export default function OrderDetailPage() {
     useEffect(() => {
         fetchOrder();
     }, [id]);
+
+    useEffect(() => {
+        if (!order?.buyer_lat || !order?.buyer_lng || !order?.seller_lat || !order?.seller_lng) return;
+        setRouteLoading(true);
+        Promise.all([
+            fetchRoute('driving', order.seller_lat, order.seller_lng, order.buyer_lat, order.buyer_lng),
+            fetchRoute('bike', order.seller_lat, order.seller_lng, order.buyer_lat, order.buyer_lng),
+        ]).then(([car, bike]) => {
+            setRouteInfo({ car, bike });
+        }).catch(() => {}).finally(() => setRouteLoading(false));
+    }, [order?.id]);
 
     async function handleQuote(e) {
         e.preventDefault();
@@ -157,17 +180,38 @@ export default function OrderDetailPage() {
                             )}
 
                             {(order.buyer_lat && order.buyer_lng && order.seller_lat && order.seller_lng) && (
-                                <div style={{
-                                    marginTop: '0.625rem',
-                                    padding: '0.5rem 0.75rem',
-                                    background: 'rgba(255,107,0,0.07)',
-                                    border: '1px solid rgba(255,107,0,0.2)',
-                                    borderRadius: 8,
-                                    fontSize: '0.8125rem',
-                                    fontWeight: 600,
-                                    color: '#FF6B00',
-                                }}>
-                                    📏 ~{haversine(order.seller_lat, order.seller_lng, order.buyer_lat, order.buyer_lng)} km from your location
+                                <div style={{ marginTop: '0.75rem' }}>
+                                    {routeLoading && (
+                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>⏳ Calculating route...</div>
+                                    )}
+                                    {routeInfo && (
+                                        <div style={{
+                                            background: 'rgba(255,107,0,0.06)',
+                                            border: '1px solid rgba(255,107,0,0.18)',
+                                            borderRadius: 10,
+                                            padding: '0.75rem',
+                                            display: 'flex',
+                                            gap: '0.75rem',
+                                        }}>
+                                            {routeInfo.car && (
+                                                <div style={{ flex: 1, textAlign: 'center' }}>
+                                                    <div style={{ fontSize: '1.25rem' }}>🚗</div>
+                                                    <div style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--text)' }}>{formatDuration(routeInfo.car.duration)}</div>
+                                                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{formatDistance(routeInfo.car.distance)}</div>
+                                                    <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: 2 }}>By Car</div>
+                                                </div>
+                                            )}
+                                            <div style={{ width: 1, background: 'var(--border)' }} />
+                                            {routeInfo.bike && (
+                                                <div style={{ flex: 1, textAlign: 'center' }}>
+                                                    <div style={{ fontSize: '1.25rem' }}>🏍️</div>
+                                                    <div style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--text)' }}>{formatDuration(routeInfo.bike.duration * 0.75)}</div>
+                                                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{formatDistance(routeInfo.bike.distance)}</div>
+                                                    <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: 2 }}>By Motorbike</div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
