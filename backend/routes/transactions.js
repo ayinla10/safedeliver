@@ -220,7 +220,7 @@ router.post('/sim-confirm', async (req, res) => {
 router.get('/track-order/:orderRef', async (req, res) => {
     const { token } = req.query; // Optional buyer_token for auth'd actions
     const result = await db.query(
-        `SELECT t.*, cl.image_url, cl.price as product_price, s.city as seller_city, s.region as seller_region, s.pickup_description as seller_pickup
+        `SELECT t.*, cl.image_url, cl.price as product_price, s.city as seller_city, s.region as seller_region, s.pickup_description as seller_pickup, s.seller_score, s.full_name as seller_name
          FROM transactions t
          LEFT JOIN checkout_links cl ON t.checkout_link_id = cl.id
          LEFT JOIN sellers s ON t.seller_id = s.id
@@ -257,7 +257,7 @@ router.get('/track-order/:orderRef', async (req, res) => {
 // ── Track order (legacy, by buyer token) ──
 router.get('/track/:token', async (req, res) => {
     const result = await db.query(
-        `SELECT t.*, cl.image_url, cl.price as product_price, s.city as seller_city, s.region as seller_region, s.pickup_description as seller_pickup
+        `SELECT t.*, cl.image_url, cl.price as product_price, s.city as seller_city, s.region as seller_region, s.pickup_description as seller_pickup, s.seller_score, s.full_name as seller_name
          FROM transactions t
          LEFT JOIN checkout_links cl ON t.checkout_link_id = cl.id
          LEFT JOIN sellers s ON t.seller_id = s.id
@@ -360,17 +360,37 @@ router.post('/:orderRef/review', async (req, res) => {
     } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to submit review' }); }
 });
 
-// ── Seller: list transactions ──
+// ── Seller: list transactions (paginated) ──
 router.get('/', authenticateSeller, async (req, res) => {
-    const { status, limit = 50 } = req.query;
-    let q = `SELECT * FROM transactions WHERE seller_id = $1`;
+    const { status, limit = 20, page = 1 } = req.query;
+    const limitInt = Math.min(parseInt(limit), 100);
+    const offset = (Math.max(parseInt(page), 1) - 1) * limitInt;
+
+    let countQ = 'SELECT COUNT(*) FROM transactions WHERE seller_id = $1';
+    let q = 'SELECT * FROM transactions WHERE seller_id = $1';
     const params = [req.seller.id];
-    if (status) { q += ` AND status = $${params.length + 1}`; params.push(status); }
-    q += ' ORDER BY created_at DESC LIMIT $' + (params.length + 1);
-    params.push(parseInt(limit));
-    const result = await db.query(q, params);
-    const countResult = await db.query('SELECT COUNT(*) FROM transactions WHERE seller_id = $1', [req.seller.id]);
-    res.json({ transactions: result.rows, total: parseInt(countResult.rows[0].count) });
+
+    if (status) {
+        params.push(status);
+        q += ` AND status = $${params.length}`;
+        countQ += ` AND status = $${params.length}`;
+    }
+
+    q += ` ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+
+    const [result, countResult] = await Promise.all([
+        db.query(q, [...params, limitInt, offset]),
+        db.query(countQ, params),
+    ]);
+
+    const total = parseInt(countResult.rows[0].count);
+    res.json({
+        transactions: result.rows,
+        total,
+        page: parseInt(page),
+        limit: limitInt,
+        totalPages: Math.ceil(total / limitInt),
+    });
 });
 
 // ── Seller: get single transaction ──

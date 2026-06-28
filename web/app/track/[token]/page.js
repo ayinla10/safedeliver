@@ -257,6 +257,26 @@ export default function TrackingPage() {
                                 )}
                             </div>
                         )}
+
+                        {order.seller_score != null && (
+                            <div style={{ marginTop: '0.75rem', padding: '0.75rem', background: 'var(--bg-alt)', borderRadius: '8px', border: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div>
+                                    <p className="text-xs text-muted" style={{ marginBottom: '0.25rem' }}>Seller Trust Score</p>
+                                    <p className="text-sm" style={{ fontWeight: 700 }}>{order.seller_name}</p>
+                                </div>
+                                <div style={{ textAlign: 'right' }}>
+                                    <div style={{
+                                        fontSize: '1.25rem', fontWeight: 800,
+                                        color: order.seller_score >= 80 ? 'var(--success)' : order.seller_score >= 50 ? 'var(--warning)' : 'var(--danger)'
+                                    }}>
+                                        {order.seller_score}/100
+                                    </div>
+                                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                                        {order.seller_score >= 80 ? '✅ Trusted' : order.seller_score >= 50 ? '⚠️ Average' : '🔴 Low'}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Pending Quote */}
