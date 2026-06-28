@@ -329,6 +329,9 @@ export default function CheckoutPage() {
                                         <label>Phone Number *</label>
                                         <input className="form-input" required placeholder="+233..." value={form.buyer_phone}
                                             onChange={e => setForm({ ...form, buyer_phone: e.target.value })} />
+                                        <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.375rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                            📱 We'll send order updates to this number via SMS. Make sure it's correct.
+                                        </p>
                                     </div>
                                     <div className="form-group">
                                         <label>Email <span className="text-muted">(Optional)</span></label>
