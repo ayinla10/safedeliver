@@ -211,18 +211,28 @@ router.get('/ledger', async (req, res) => {
 // Notifications log
 router.get('/notifications', async (req, res) => {
     try {
-        const { type, search } = req.query;
-        let q = 'SELECT * FROM notifications';
+        const { channel, status, search, limit = 25, offset = 0 } = req.query;
+        const pageLimit = Math.min(parseInt(limit) || 25, 200);
+        const pageOffset = parseInt(offset) || 0;
+
         const params = [];
         const conditions = [];
-        if (type === 'TRANSACTIONS') { conditions.push('transaction_id IS NOT NULL'); }
-        if (type === 'SYSTEM') { conditions.push('transaction_id IS NULL'); }
+        if (channel) { params.push(channel); conditions.push(`channel = $${params.length}`); }
+        if (status) { params.push(status); conditions.push(`status = $${params.length}`); }
         if (search) { params.push(`%${search}%`); conditions.push(`(recipient_id ILIKE $${params.length} OR order_ref ILIKE $${params.length})`); }
-        if (conditions.length) q += ' WHERE ' + conditions.join(' AND ');
-        q += ' ORDER BY sent_at DESC LIMIT 200';
-        const result = await db.query(q, params);
-        // Map recipient_id → phone for frontend compatibility
-        res.json(result.rows.map(n => ({ ...n, phone: n.recipient_id })));
+        const where = conditions.length ? ' WHERE ' + conditions.join(' AND ') : '';
+
+        const countResult = await db.query(`SELECT COUNT(*) FROM notifications${where}`, params);
+        const total = parseInt(countResult.rows[0].count);
+
+        const dataParams = [...params, pageLimit, pageOffset];
+        const q = `SELECT * FROM notifications${where} ORDER BY sent_at DESC LIMIT $${dataParams.length - 1} OFFSET $${dataParams.length}`;
+        const result = await db.query(q, dataParams);
+
+        res.json({
+            notifications: result.rows.map(n => ({ ...n, phone: n.recipient_id })),
+            total, limit: pageLimit, offset: pageOffset
+        });
     } catch (err) {
         console.error('Admin notifications error:', err);
         res.status(500).json({ error: err.message });
