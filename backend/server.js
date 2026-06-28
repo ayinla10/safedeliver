@@ -11,6 +11,9 @@ const { startAutoReleaseCron } = require('./services/cron');
 const app = express();
 const fs = require('fs');
 
+// Trust Render/proxy X-Forwarded-For headers (required for rate limiting behind a proxy)
+app.set('trust proxy', 1);
+
 // Ensure uploads directory exists
 const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
