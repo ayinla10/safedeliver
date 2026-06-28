@@ -87,22 +87,13 @@ router.post('/', async (req, res) => {
 
         await db.query('UPDATE checkout_links SET order_count = order_count + 1 WHERE id = $1', [link.id]);
 
-        // Notify seller about new order request
-        await notify.sms(link.seller_phone,
-            `📦 New order request! ${buyer_name} wants "${link.product_name}". Check the delivery address and quote a delivery fee within 12 hours. Dashboard: ${process.env.FRONTEND_URL}/seller/dashboard/orders`,
-            id, orderRef
-        );
-        await notify.whatsapp(link.seller_phone,
-            `📦 *SafeDeliver — New Order!*\n\nHi! *${buyer_name}* just placed an order for *"${link.product_name}"*.\n\nOrder: \`${orderRef}\`\nLocation: ${buyer_location_text || buyer_address || 'Not specified'}\n\n👉 Quote delivery fee within 12 hours:\n${process.env.FRONTEND_URL}/seller/dashboard/orders`,
+        // SMS to buyer — order placed confirmation
+        await notify.sms(buyer_phone,
+            `SafeDeliver: Hi ${buyer_name}, your order for "${link.product_name}" (Ref: ${orderRef}) has been placed! The seller will quote delivery within 12 hours. Track: ${process.env.FRONTEND_URL}/track/${orderRef}`,
             id, orderRef
         );
 
-        // Notify buyer — order received confirmation
-        await notify.whatsapp(buyer_phone,
-            `🛡️ *SafeDeliver — Order Received!*\n\nHi *${buyer_name}*, your order has been placed successfully!\n\n🛒 Item: *"${link.product_name}"*\nOrder: \`${orderRef}\`\nSeller: ${link.seller_name}\n\n⏳ The seller will quote a delivery fee within *12 hours*. You'll get a message here when it's ready.\n\n👉 Track your order anytime:\n${process.env.FRONTEND_URL}/track/${orderRef}`,
-            id, orderRef
-        );
-
+        // Push notification to seller
         await webpush.sendToUser(link.seller_id, {
             title: '📦 New Order Request',
             body: `${buyer_name} wants "${link.product_name}". Quote delivery within 12 hours.`,
@@ -147,13 +138,9 @@ router.patch('/:id/quote', authenticateSeller, async (req, res) => {
             [deliveryFeeInt, totalAmount, platformFee, sellerPayout, tx.id]
         );
 
-        // Notify buyer
+        // SMS to buyer — delivery quoted
         await notify.sms(tx.buyer_phone,
-            `💰 Delivery quote received for your order ${tx.order_ref}! Delivery: GHS ${(deliveryFeeInt / 100).toFixed(2)}, Total: GHS ${(totalAmount / 100).toFixed(2)}. View: ${process.env.FRONTEND_URL}/track/${tx.order_ref}`,
-            tx.id, tx.order_ref
-        );
-        await notify.whatsapp(tx.buyer_phone,
-            `💰 *SafeDeliver — Delivery Quote Ready!*\n\nYour order \`${tx.order_ref}\` has been quoted:\n\n🛒 Product: ${tx.product_name}\n🚚 Delivery: GHS ${(deliveryFeeInt / 100).toFixed(2)}\n💵 *Total: GHS ${(totalAmount / 100).toFixed(2)}*\n\n👉 Review & pay here:\n${process.env.FRONTEND_URL}/track/${tx.order_ref}`,
+            `SafeDeliver: Your delivery quote for order ${tx.order_ref} is ready! Delivery: GHS ${(deliveryFeeInt / 100).toFixed(2)}, Total: GHS ${(totalAmount / 100).toFixed(2)}. Review & pay: ${process.env.FRONTEND_URL}/track/${tx.order_ref}`,
             tx.id, tx.order_ref
         );
 
@@ -213,22 +200,13 @@ router.post('/sim-confirm', async (req, res) => {
         const simRef = await sim.holdFunds(transaction_id, tx.order_ref, tx.total_amount);
         await db.query('UPDATE transactions SET sim_reference = $1 WHERE id = $2', [simRef, transaction_id]);
 
+        // SMS to buyer — payment confirmed
         await notify.sms(tx.buyer_phone,
-            `✅ Payment confirmed! Your order ${tx.order_ref} is being processed. Track: ${process.env.FRONTEND_URL}/track/${tx.order_ref}`,
-            transaction_id, tx.order_ref
-        );
-        await notify.whatsapp(tx.buyer_phone,
-            `🛡️ SafeDeliver: Payment of GHS ${(tx.total_amount / 100).toFixed(2)} confirmed for "${tx.product_name}". Track your order: ${process.env.FRONTEND_URL}/track/${tx.order_ref}`,
+            `SafeDeliver: Payment of GHS ${(tx.total_amount / 100).toFixed(2)} confirmed for order ${tx.order_ref}. Your funds are held safely in escrow until delivery. Track: ${process.env.FRONTEND_URL}/track/${tx.order_ref}`,
             transaction_id, tx.order_ref
         );
 
-        const seller = await db.query('SELECT phone FROM sellers WHERE id = $1', [tx.seller_id]);
-        if (seller.rows[0]) {
-            await notify.sms(seller.rows[0].phone,
-                `💰 Payment received for order ${tx.order_ref}! GHS ${(tx.total_amount / 100).toFixed(2)}. ${tx.delivery_type === 'SELF' ? 'Buyer handling own delivery.' : 'Ship to buyer.'} Dashboard: ${process.env.FRONTEND_URL}/seller/dashboard/orders`,
-                transaction_id, tx.order_ref
-            );
-        }
+        // Push notification to seller
         await webpush.sendToUser(tx.seller_id, {
             title: '💰 Payment Received!',
             body: `GHS ${(tx.total_amount / 100).toFixed(2)} secured in escrow for order ${tx.order_ref}. Ship now!`,
@@ -314,8 +292,11 @@ router.patch('/:id/ship', authenticateSeller, async (req, res) => {
         if (tx.status !== 'PAID') return res.status(400).json({ error: 'Order must be PAID to ship' });
 
         await escrow.transition(req.params.id, 'SHIPPED');
-        await notify.sms(tx.buyer_phone, `📦 Your order ${tx.order_ref} has been shipped! Track: ${process.env.FRONTEND_URL}/track/${tx.order_ref}`, tx.id, tx.order_ref);
-        await notify.whatsapp(tx.buyer_phone, `📦 SafeDeliver: Your order "${tx.product_name}" has been shipped! Track it here: ${process.env.FRONTEND_URL}/track/${tx.order_ref}`, tx.id, tx.order_ref);
+        // SMS to buyer — order shipped
+        await notify.sms(tx.buyer_phone,
+            `SafeDeliver: Great news! Your order ${tx.order_ref} ("${tx.product_name}") has been shipped. Track it here: ${process.env.FRONTEND_URL}/track/${tx.order_ref}`,
+            tx.id, tx.order_ref
+        );
         await webpush.sendToAdmins({
             title: '📦 Order Shipped',
             body: `Order ${tx.order_ref} marked as shipped by seller.`,
@@ -337,21 +318,18 @@ router.patch('/:orderRef/confirm-delivery', async (req, res) => {
         await escrow.transition(tx.id, 'RELEASED');
         await escrow.releaseFundsToSeller(tx.id);
 
-        // Notify buyer
-        await notify.sms(tx.buyer_phone, `✅ Delivery confirmed for ${tx.order_ref}. Thank you!`, tx.id, tx.order_ref);
-        await notify.whatsapp(tx.buyer_phone,
-            `✅ *SafeDeliver — Order Complete!*\n\nYou've confirmed delivery of *"${tx.product_name}"* (Order \`${tx.order_ref}\`).\n\nPayment has been released to the seller. Thank you for using SafeDeliver! 🛡️`,
+        // SMS to buyer — delivery confirmed
+        await notify.sms(tx.buyer_phone,
+            `SafeDeliver: You've confirmed delivery of order ${tx.order_ref}. Payment has been released to the seller. Thank you for using SafeDeliver!`,
             tx.id, tx.order_ref
         );
 
-        // Notify seller funds released
-        const sellerForRelease = await db.query('SELECT phone, full_name FROM sellers WHERE id = $1', [tx.seller_id]);
-        if (sellerForRelease.rows[0]) {
-            await notify.whatsapp(sellerForRelease.rows[0].phone,
-                `💸 *SafeDeliver — Funds Released!*\n\nGreat news! The buyer confirmed delivery for order \`${tx.order_ref}\`.\n\n💵 *GHS ${(tx.seller_payout_amount / 100).toFixed(2)}* has been released to your account.\n\nThank you for using SafeDeliver! 🛡️`,
-                tx.id, tx.order_ref
-            );
-        }
+        // Push notification to seller — funds released
+        await webpush.sendToUser(tx.seller_id, {
+            title: '💸 Funds Released!',
+            body: `Buyer confirmed delivery for order ${tx.order_ref}. GHS ${(tx.seller_payout_amount / 100).toFixed(2)} released to your account.`,
+            url: '/seller/dashboard',
+        });
 
         res.json({ message: 'Delivery confirmed, payment released' });
     } catch (err) { res.status(500).json({ error: err.message }); }

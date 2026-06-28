@@ -99,28 +99,19 @@ router.get('/verify/:reference', async (req, res) => {
             const simRef = await sim.holdFunds(tx.id, tx.order_ref, tx.total_amount);
             await db.query('UPDATE transactions SET sim_reference = $1 WHERE id = $2', [simRef, tx.id]);
 
-            // Notify buyer
+            // SMS to buyer — payment confirmed
             await notify.sms(tx.buyer_phone,
-                `Payment confirmed! Your order ${tx.order_ref} is being processed. Track: ${process.env.FRONTEND_URL}/track/${tx.order_ref}`,
-                tx.id, tx.order_ref
-            );
-            await notify.whatsapp(tx.buyer_phone,
-                `✅ *SafeDeliver — Payment Confirmed!*\n\n🛡️ GHS ${(tx.total_amount / 100).toFixed(2)} is now held safely in escrow for:\n*"${tx.product_name}"* — Order \`${tx.order_ref}\`\n\nThe seller has been notified to ship. You'll get a message when it's on its way!\n\n👉 Track your order:\n${process.env.FRONTEND_URL}/track/${tx.order_ref}`,
+                `SafeDeliver: Payment of GHS ${(tx.total_amount / 100).toFixed(2)} confirmed for order ${tx.order_ref}. Your funds are held safely in escrow until delivery. Track: ${process.env.FRONTEND_URL}/track/${tx.order_ref}`,
                 tx.id, tx.order_ref
             );
 
-            // Notify seller
-            const seller = await db.query('SELECT phone FROM sellers WHERE id = $1', [tx.seller_id]);
-            if (seller.rows[0]) {
-                await notify.sms(seller.rows[0].phone,
-                    `Payment received for order ${tx.order_ref}! GHS ${(tx.total_amount / 100).toFixed(2)}. Ship to buyer. Dashboard: ${process.env.FRONTEND_URL}/seller/dashboard/orders`,
-                    tx.id, tx.order_ref
-                );
-                await notify.whatsapp(seller.rows[0].phone,
-                    `💰 *SafeDeliver — Payment Secured!*\n\nGHS ${(tx.total_amount / 100).toFixed(2)} is now held in escrow for order \`${tx.order_ref}\`.\n\n📦 Please ship *"${tx.product_name}"* to the buyer and mark it as shipped on your dashboard:\n${process.env.FRONTEND_URL}/seller/dashboard/orders`,
-                    tx.id, tx.order_ref
-                );
-            }
+            // Push notification to seller
+            const webpush = require('../services/webpush');
+            await webpush.sendToUser(tx.seller_id, {
+                title: '💰 Payment Received!',
+                body: `GHS ${(tx.total_amount / 100).toFixed(2)} secured in escrow for order ${tx.order_ref}. Ship now!`,
+                url: '/seller/dashboard/orders',
+            });
         }
 
         res.json({ verified: true, order_ref: tx.order_ref, status: 'PAID' });
@@ -157,26 +148,19 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
                     const simRef = await sim.holdFunds(tx.id, tx.order_ref, tx.total_amount);
                     await db.query('UPDATE transactions SET sim_reference = $1 WHERE id = $2', [simRef, tx.id]);
 
+                    // SMS to buyer — payment confirmed
                     await notify.sms(tx.buyer_phone,
-                        `Payment confirmed! Your order ${tx.order_ref} is being processed. Track: ${process.env.FRONTEND_URL}/track/${tx.order_ref}`,
-                        tx.id, tx.order_ref
-                    );
-                    await notify.whatsapp(tx.buyer_phone,
-                        `✅ *SafeDeliver — Payment Confirmed!*\n\n🛡️ GHS ${(tx.total_amount / 100).toFixed(2)} is now held safely in escrow for:\n*"${tx.product_name}"* — Order \`${tx.order_ref}\`\n\nThe seller has been notified to ship. You'll get a message when it's on its way!\n\n👉 Track your order:\n${process.env.FRONTEND_URL}/track/${tx.order_ref}`,
+                        `SafeDeliver: Payment of GHS ${(tx.total_amount / 100).toFixed(2)} confirmed for order ${tx.order_ref}. Your funds are held safely in escrow until delivery. Track: ${process.env.FRONTEND_URL}/track/${tx.order_ref}`,
                         tx.id, tx.order_ref
                     );
 
-                    const seller = await db.query('SELECT phone FROM sellers WHERE id = $1', [tx.seller_id]);
-                    if (seller.rows[0]) {
-                        await notify.sms(seller.rows[0].phone,
-                            `Payment received for order ${tx.order_ref}! GHS ${(tx.total_amount / 100).toFixed(2)}. Ship to buyer.`,
-                            tx.id, tx.order_ref
-                        );
-                        await notify.whatsapp(seller.rows[0].phone,
-                            `💰 *SafeDeliver — Payment Secured!*\n\nGHS ${(tx.total_amount / 100).toFixed(2)} is now held in escrow for order \`${tx.order_ref}\`.\n\n📦 Please ship *"${tx.product_name}"* to the buyer and mark it as shipped:\n${process.env.FRONTEND_URL}/seller/dashboard/orders`,
-                            tx.id, tx.order_ref
-                        );
-                    }
+                    // Push notification to seller
+                    const webpushW = require('../services/webpush');
+                    await webpushW.sendToUser(tx.seller_id, {
+                        title: '💰 Payment Received!',
+                        body: `GHS ${(tx.total_amount / 100).toFixed(2)} secured in escrow for order ${tx.order_ref}. Ship now!`,
+                        url: '/seller/dashboard/orders',
+                    });
                 }
             }
         }
