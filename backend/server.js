@@ -116,6 +116,18 @@ app.post('/api/v1/upload', require('./middleware/auth').authenticateSeller, uplo
 });
 
 // One-time migration endpoint — protected by secret key
+app.get('/api/v1/fix-columns', async (req, res) => {
+    const secret = req.headers['x-migrate-secret'] || req.query.secret;
+    if (!secret || secret !== process.env.MIGRATE_SECRET) return res.status(403).json({ error: 'Forbidden' });
+    try {
+        await db.query(`ALTER TABLE sellers ALTER COLUMN city TYPE TEXT USING city::TEXT`);
+        await db.query(`ALTER TABLE sellers ALTER COLUMN region TYPE TEXT USING region::TEXT`);
+        res.json({ message: 'Columns fixed — city and region are now TEXT.' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.get('/api/v1/migrate', async (req, res) => {
     const secret = req.headers['x-migrate-secret'] || req.query.secret;
     if (!secret || secret !== process.env.MIGRATE_SECRET) {
