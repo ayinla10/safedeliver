@@ -41,6 +41,7 @@
   --border: rgba(0, 48, 120, 0.06);
   --border-focus: #FF6B35;
   --navbar-bg: rgba(255, 255, 255, 0.8);
+  --sidebar-bg: #FFFFFF;
 
   --radius-sm: 8px;
   --radius-md: 14px;
@@ -83,6 +84,7 @@
   --border: rgba(0, 48, 120, 0.08) !important;
   --card-shadow: 0 4px 12px rgba(0, 48, 120, 0.04) !important;
   --card-shadow-hover: 0 8px 24px rgba(0, 48, 120, 0.08) !important;
+  --sidebar-bg: #FFFFFF !important;
   background-color: var(--bg) !important;
   color: var(--text) !important;
 }
@@ -1868,14 +1870,19 @@ h3 {
 
 /* Hamburger button */
 .hamburger-btn {
-  background: none;
-  border: none;
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
   cursor: pointer;
   padding: 0.5rem;
   display: flex;
   flex-direction: column;
   gap: 5px;
+  align-items: center;
+  justify-content: center;
   border-radius: var(--radius-sm);
+  color: var(--text);
+  width: 40px;
+  height: 40px;
 }
 
 .hamburger-btn span {
@@ -1888,7 +1895,9 @@ h3 {
 }
 
 .hamburger-btn:hover {
-  background: var(--bg-alt);
+  background: var(--border);
+  border-color: var(--brand);
+  color: var(--brand);
 }
 
 @media (max-width: 768px) {
@@ -1905,9 +1914,10 @@ h3 {
     padding: 0.75rem 1rem;
     background: var(--sidebar-bg);
     border-bottom: 1px solid var(--border);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
     position: sticky;
     top: 0;
-    z-index: 100;
+    z-index: 150;
     height: 56px;
   }
 
@@ -2087,9 +2097,10 @@ h3 {
     bottom: 0;
     left: 0;
     right: 0;
-    z-index: 100;
+    z-index: 150;
     background: var(--sidebar-bg);
     border-top: 1px solid var(--border);
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08);
     padding: 0.5rem 0 calc(0.5rem + env(safe-area-inset-bottom, 0));
     justify-content: space-around;
     backdrop-filter: blur(20px);
