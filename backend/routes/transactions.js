@@ -172,8 +172,15 @@ router.patch('/:orderRef/cancel', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ── Simulate payment confirmation (only for ACCEPTED) ──
+// ── Simulate payment confirmation (dev/admin only — requires MIGRATE_SECRET header) ──
 router.post('/sim-confirm', async (req, res) => {
+    // Only allow in development OR with the migrate secret
+    const secret = req.headers['x-migrate-secret'];
+    const isDev = process.env.NODE_ENV === 'development';
+    if (!isDev && secret !== process.env.MIGRATE_SECRET) {
+        return res.status(403).json({ error: 'Forbidden: sim-confirm is disabled in production' });
+    }
+
     try {
         const { transaction_id } = req.body;
         const result = await db.query('SELECT * FROM transactions WHERE id = $1', [transaction_id]);
@@ -194,7 +201,6 @@ router.post('/sim-confirm', async (req, res) => {
             transaction_id, tx.order_ref
         );
 
-        // Notify seller about payment
         const seller = await db.query('SELECT phone FROM sellers WHERE id = $1', [tx.seller_id]);
         if (seller.rows[0]) {
             await notify.sms(seller.rows[0].phone,

@@ -112,8 +112,12 @@ app.post('/api/v1/upload', require('./middleware/auth').authenticateSeller, uplo
     }
 });
 
-// One-time migration endpoint (safe to run multiple times)
+// One-time migration endpoint — protected by secret key
 app.get('/api/v1/migrate', async (req, res) => {
+    const secret = req.headers['x-migrate-secret'] || req.query.secret;
+    if (!secret || secret !== process.env.MIGRATE_SECRET) {
+        return res.status(403).json({ error: 'Forbidden' });
+    }
     try {
         const migrate = require('./db/migrate');
         await migrate();
