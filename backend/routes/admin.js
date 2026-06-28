@@ -80,10 +80,60 @@ router.get('/transactions', async (req, res) => {
 // Sellers list
 router.get('/sellers', async (req, res) => {
     try {
-        const result = await db.query('SELECT id, full_name, email, phone, kyc_status, kyc_tier, kyc_document_url, is_active, seller_score, created_at FROM sellers WHERE is_admin = false ORDER BY created_at DESC');
-        res.json(result.rows);
+        const { search, status, limit = 25, offset = 0 } = req.query;
+        const pageLimit = Math.min(parseInt(limit) || 25, 200);
+        const pageOffset = parseInt(offset) || 0;
+
+        const params = [];
+        const conditions = ['is_admin = false'];
+        if (search) {
+            params.push(`%${search}%`);
+            conditions.push(`(full_name ILIKE $${params.length} OR email ILIKE $${params.length} OR phone ILIKE $${params.length} OR business_name ILIKE $${params.length})`);
+        }
+        if (status === 'ACTIVE')    conditions.push('is_active = true');
+        if (status === 'SUSPENDED') conditions.push('is_active = false');
+        if (status === 'PENDING')   conditions.push("kyc_status = 'PENDING'");
+        const where = ' WHERE ' + conditions.join(' AND ');
+
+        const countResult = await db.query(`SELECT COUNT(*) FROM sellers${where}`, params);
+        const total = parseInt(countResult.rows[0].count);
+
+        const dataParams = [...params, pageLimit, pageOffset];
+        const q = `
+            SELECT s.id, s.full_name, s.business_name, s.email, s.phone, s.momo_number,
+                   s.kyc_status, s.kyc_tier, s.kyc_document_url, s.is_active, s.seller_score,
+                   s.city, s.region, s.last_login_at, s.created_at,
+                   COUNT(t.id) FILTER (WHERE t.status NOT IN ('CANCELLED')) AS total_orders,
+                   COALESCE(SUM(t.seller_payout_amount) FILTER (WHERE t.status IN ('RELEASED','AUTO_RELEASED')), 0) AS total_revenue
+            FROM sellers s
+            LEFT JOIN transactions t ON t.seller_id = s.id
+            ${where}
+            GROUP BY s.id
+            ORDER BY s.created_at DESC
+            LIMIT $${dataParams.length - 1} OFFSET $${dataParams.length}
+        `;
+        const result = await db.query(q, dataParams);
+        res.json({ sellers: result.rows, total, limit: pageLimit, offset: pageOffset });
     } catch (err) {
         console.error('Admin sellers error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Single seller stats (for detail view)
+router.get('/sellers/:id/stats', async (req, res) => {
+    try {
+        const stats = await db.query(`
+            SELECT
+                COUNT(*) FILTER (WHERE status NOT IN ('CANCELLED')) AS total_orders,
+                COUNT(*) FILTER (WHERE status IN ('PAID','SHIPPED')) AS active_orders,
+                COUNT(*) FILTER (WHERE status IN ('RELEASED','AUTO_RELEASED')) AS completed_orders,
+                COUNT(*) FILTER (WHERE status = 'DISPUTED') AS disputed_orders,
+                COALESCE(SUM(seller_payout_amount) FILTER (WHERE status IN ('RELEASED','AUTO_RELEASED')), 0) AS total_revenue
+            FROM transactions WHERE seller_id = $1
+        `, [req.params.id]);
+        res.json(stats.rows[0]);
+    } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });

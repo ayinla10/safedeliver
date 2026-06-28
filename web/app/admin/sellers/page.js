@@ -1,252 +1,469 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { adminApi } from '@/lib/adminApi';
-import { Users, ChevronLeft, CheckCircle2, AlertCircle, ShieldAlert, ArrowRight, Eye, MoreHorizontal } from 'lucide-react';
+import {
+    Users, ChevronLeft, CheckCircle2, AlertCircle, ShieldAlert, Eye,
+    Search, X, ChevronsLeft, ChevronsRight, ChevronRight,
+    Phone, Mail, MapPin, CreditCard, Star, Calendar, ShoppingBag,
+    TrendingUp, Clock, Ban, RefreshCw, Building2
+} from 'lucide-react';
 
-export default function AdminSellers() {
-    const [sellers, setSellers] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [selected, setSelected] = useState(null);
+const PAGE_SIZE = 25;
+
+const TIER_COLORS = { 1: 'var(--warning)', 2: 'var(--brand)', 3: 'var(--success)' };
+const TIER_LABELS = { 1: 'Basic', 2: 'Verified', 3: 'Premium' };
+
+const KYC_CONFIG = {
+    APPROVED: { color: 'var(--success)', bg: 'rgba(34,197,94,0.1)',  icon: <CheckCircle2 size={13} /> },
+    PENDING:  { color: 'var(--warning)', bg: 'rgba(234,179,8,0.1)',  icon: <AlertCircle size={13} /> },
+    REJECTED: { color: 'var(--danger)',  bg: 'rgba(239,68,68,0.1)',  icon: <AlertCircle size={13} /> },
+    SUSPENDED:{ color: 'var(--danger)',  bg: 'rgba(239,68,68,0.1)',  icon: <ShieldAlert size={13} /> },
+};
+
+function KycBadge({ status }) {
+    const c = KYC_CONFIG[status] || KYC_CONFIG.PENDING;
+    return (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', padding: '0.2rem 0.55rem', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 700, background: c.bg, color: c.color }}>
+            {c.icon} {status || 'PENDING'}
+        </span>
+    );
+}
+
+function TierBadge({ tier }) {
+    return (
+        <span style={{ display: 'inline-block', padding: '0.2rem 0.6rem', borderRadius: '999px', fontSize: '0.7rem', fontWeight: 700, background: TIER_COLORS[tier] || 'var(--muted)', color: '#fff' }}>
+            T{tier} {TIER_LABELS[tier] || ''}
+        </span>
+    );
+}
+
+function StatMini({ icon, label, value, color }) {
+    return (
+        <div style={{ padding: '0.875rem 1rem', background: 'var(--bg-alt)', borderRadius: '10px', border: '1px solid var(--border)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.65rem', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.3rem' }}>
+                <span style={{ color: color || 'var(--muted)' }}>{icon}</span>{label}
+            </div>
+            <div style={{ fontSize: '1.1rem', fontWeight: 800, color: color || 'var(--text)' }}>{value}</div>
+        </div>
+    );
+}
+
+function PaginationBar({ page, totalPages, setPage }) {
+    if (totalPages <= 1) return null;
+    return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+            <button onClick={() => setPage(1)} disabled={page === 1} style={{ padding: '0.3rem 0.5rem', borderRadius: '6px', border: '1px solid var(--border)', background: 'none', cursor: page === 1 ? 'not-allowed' : 'pointer', opacity: page === 1 ? 0.4 : 1, display: 'flex' }}><ChevronsLeft size={15} /></button>
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} style={{ padding: '0.3rem 0.5rem', borderRadius: '6px', border: '1px solid var(--border)', background: 'none', cursor: page === 1 ? 'not-allowed' : 'pointer', opacity: page === 1 ? 0.4 : 1, display: 'flex' }}><ChevronLeft size={15} /></button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 2)
+                .reduce((acc, p, idx, arr) => { if (idx > 0 && p - arr[idx - 1] > 1) acc.push('...'); acc.push(p); return acc; }, [])
+                .map((p, i) => p === '...'
+                    ? <span key={`e${i}`} style={{ padding: '0 0.3rem', color: 'var(--muted)', fontSize: '0.8rem' }}>…</span>
+                    : <button key={p} onClick={() => setPage(p)} style={{ padding: '0.3rem 0.6rem', borderRadius: '6px', border: '1px solid', fontSize: '0.8rem', fontWeight: p === page ? 700 : 400, cursor: 'pointer', background: p === page ? 'var(--brand)' : 'none', color: p === page ? '#fff' : 'var(--text)', borderColor: p === page ? 'var(--brand)' : 'var(--border)' }}>{p}</button>
+                )}
+            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} style={{ padding: '0.3rem 0.5rem', borderRadius: '6px', border: '1px solid var(--border)', background: 'none', cursor: page === totalPages ? 'not-allowed' : 'pointer', opacity: page === totalPages ? 0.4 : 1, display: 'flex' }}><ChevronRight size={15} /></button>
+            <button onClick={() => setPage(totalPages)} disabled={page === totalPages} style={{ padding: '0.3rem 0.5rem', borderRadius: '6px', border: '1px solid var(--border)', background: 'none', cursor: page === totalPages ? 'not-allowed' : 'pointer', opacity: page === totalPages ? 0.4 : 1, display: 'flex' }}><ChevronsRight size={15} /></button>
+        </div>
+    );
+}
+
+// ── Detail View ──────────────────────────────────────────────
+function SellerDetail({ seller, onBack, onAction }) {
     const [kycApps, setKycApps] = useState([]);
+    const [stats, setStats] = useState(null);
     const [msg, setMsg] = useState(null);
     const [actionLoading, setActionLoading] = useState(false);
+    const [rejectModal, setRejectModal] = useState(null);
+    const [rejectReason, setRejectReason] = useState('');
 
-    function load() {
-        adminApi.get('/admin/sellers').then(data => { setSellers(data); setLoading(false); }).catch(() => setLoading(false));
-    }
-    useEffect(load, []);
-
-    async function openDetail(seller) {
-        setSelected(seller);
-        setMsg(null);
-        try {
-            const apps = await adminApi.get(`/admin/kyc-applications`);
+    useEffect(() => {
+        adminApi.get(`/admin/kyc-applications`).then(apps => {
             setKycApps(apps.filter(a => a.seller_id === seller.id));
-        } catch { setKycApps([]); }
-    }
+        }).catch(() => {});
+        adminApi.get(`/admin/sellers/${seller.id}/stats`).then(setStats).catch(() => {});
+    }, [seller.id]);
 
-    async function handleSuspend(id, currentActive) {
-        const action = currentActive ? 'suspend' : 'reactivate';
+    async function handleSuspend() {
+        const action = seller.is_active !== false ? 'suspend' : 'reactivate';
         if (!window.confirm(`Are you sure you want to ${action} this seller?`)) return;
         setActionLoading(true);
         try {
-            await adminApi.patch(`/admin/sellers/${id}`, { is_active: !currentActive });
+            await adminApi.patch(`/admin/sellers/${seller.id}`, { is_active: seller.is_active === false });
             setMsg({ type: 'success', text: `Seller ${action}d successfully.` });
-            load();
-            if (selected) setSelected({ ...selected, is_active: !currentActive });
+            onAction();
         } catch (err) { setMsg({ type: 'error', text: err.message }); }
         finally { setActionLoading(false); }
     }
 
-    if (loading) return <div className="flex-center" style={{ padding: '4rem' }}><div className="spinner" /></div>;
+    async function handleKycApprove(id) {
+        if (!window.confirm('Approve this KYC application and upgrade the seller?')) return;
+        setActionLoading(true); setMsg(null);
+        try {
+            await adminApi.patch(`/admin/kyc-applications/${id}`, { action: 'APPROVE' });
+            setMsg({ type: 'success', text: 'Application approved. Seller tier upgraded.' });
+            const apps = await adminApi.get('/admin/kyc-applications');
+            setKycApps(apps.filter(a => a.seller_id === seller.id));
+        } catch (err) { setMsg({ type: 'error', text: err.message }); }
+        finally { setActionLoading(false); }
+    }
 
-    const tierLabel = t => t === 3 ? 'Premium' : t === 2 ? 'Verified' : 'Basic';
-    const tierColor = t => t === 3 ? 'var(--success)' : t === 2 ? 'var(--brand)' : 'var(--warning)';
+    async function handleKycReject(id) {
+        if (!rejectReason.trim()) return setMsg({ type: 'error', text: 'Rejection reason is required.' });
+        setActionLoading(true); setMsg(null);
+        try {
+            await adminApi.patch(`/admin/kyc-applications/${id}`, { action: 'REJECT', rejection_reason: rejectReason });
+            setMsg({ type: 'success', text: 'Application rejected.' });
+            setRejectModal(null); setRejectReason('');
+            const apps = await adminApi.get('/admin/kyc-applications');
+            setKycApps(apps.filter(a => a.seller_id === seller.id));
+        } catch (err) { setMsg({ type: 'error', text: err.message }); }
+        finally { setActionLoading(false); }
+    }
 
-    // Detail View
-    if (selected) {
-        return (
-            <div className="animate-in" style={{ maxWidth: 800 }}>
-                <button className="btn btn-ghost btn-sm" onClick={() => setSelected(null)} style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                    <ChevronLeft size={16} /> Back to Sellers
-                </button>
+    const scoreOver10 = ((seller.seller_score || 100) / 10).toFixed(1);
+    const isSuspended = seller.is_active === false;
+    const pendingApps = kycApps.filter(a => a.status === 'PENDING');
 
-                {msg && (
-                    <div className={`alert ${msg.type === 'success' ? 'alert-success' : 'alert-danger'}`} style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        {msg.type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
-                        {msg.text}
+    return (
+        <div className="animate-in" style={{ maxWidth: 860 }}>
+            {/* Back */}
+            <button className="btn btn-ghost btn-sm" onClick={onBack} style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                <ChevronLeft size={16} /> Back to Sellers
+            </button>
+
+            {msg && (
+                <div className={`alert ${msg.type === 'success' ? 'alert-success' : 'alert-danger'}`} style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    {msg.type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
+                    {msg.text}
+                </div>
+            )}
+
+            {/* Seller Header Card */}
+            <div className="card" style={{ marginBottom: '1.25rem', borderLeft: `4px solid ${isSuspended ? 'var(--danger)' : 'var(--brand)'}` }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+                    <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.25rem' }}>
+                            <h2 style={{ margin: 0, fontSize: '1.25rem' }}>{seller.full_name}</h2>
+                            {isSuspended && (
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', padding: '0.2rem 0.6rem', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 700, background: 'rgba(239,68,68,0.1)', color: 'var(--danger)' }}>
+                                    <Ban size={11} /> SUSPENDED
+                                </span>
+                            )}
+                        </div>
+                        {seller.business_name && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--muted)', fontSize: '0.875rem', marginBottom: '0.75rem' }}>
+                                <Building2 size={14} /> {seller.business_name}
+                            </div>
+                        )}
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', color: 'var(--muted)' }}><Mail size={14} />{seller.email}</span>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', color: 'var(--muted)' }}><Phone size={14} />{seller.phone}</span>
+                            {seller.momo_number && <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', color: 'var(--muted)' }}><CreditCard size={14} />MoMo: {seller.momo_number}</span>}
+                            {(seller.city || seller.region) && <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', color: 'var(--muted)' }}><MapPin size={14} />{seller.city || seller.region}</span>}
+                        </div>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'flex-end' }}>
+                        <TierBadge tier={seller.kyc_tier || 1} />
+                        <KycBadge status={seller.kyc_status} />
+                    </div>
+                </div>
+
+                {/* Joined + Last Login */}
+                <div style={{ display: 'flex', gap: '1.5rem', marginTop: '1rem', paddingTop: '0.875rem', borderTop: '1px solid var(--border)', flexWrap: 'wrap' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem', color: 'var(--muted)' }}>
+                        <Calendar size={13} /> Joined {new Date(seller.created_at).toLocaleDateString()}
+                    </span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem', color: 'var(--muted)' }}>
+                        <Clock size={13} /> Last login: {seller.last_login_at ? new Date(seller.last_login_at).toLocaleString() : 'Never'}
+                    </span>
+                </div>
+            </div>
+
+            {/* Order Stats */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.75rem', marginBottom: '1.25rem' }}>
+                <StatMini icon={<ShoppingBag size={14} />} label="Total Orders" value={stats?.total_orders ?? '—'} color="var(--brand)" />
+                <StatMini icon={<TrendingUp size={14} />}  label="Completed"    value={stats?.completed_orders ?? '—'} color="var(--success)" />
+                <StatMini icon={<Clock size={14} />}       label="Active"       value={stats?.active_orders ?? '—'} color="#0369a1" />
+                <StatMini icon={<AlertCircle size={14} />} label="Disputed"     value={stats?.disputed_orders ?? '—'} color={stats?.disputed_orders > 0 ? 'var(--danger)' : 'var(--muted)'} />
+                <StatMini icon={<Star size={14} />}        label="Trust Score"  value={`${scoreOver10}/10`} color={(seller.seller_score || 100) < 50 ? 'var(--danger)' : 'var(--success)'} />
+            </div>
+
+            {/* Revenue */}
+            {stats && (
+                <div className="card" style={{ marginBottom: '1.25rem', background: 'rgba(43,125,233,0.03)', border: '1px solid rgba(43,125,233,0.12)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                            <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.25rem' }}>Total Revenue Earned</div>
+                            <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--success)' }}>
+                                GHS {(stats.total_revenue / 100).toFixed(2)}
+                            </div>
+                        </div>
+                        <TrendingUp size={36} style={{ opacity: 0.15, color: 'var(--success)' }} />
+                    </div>
+                </div>
+            )}
+
+            {/* KYC Applications */}
+            <div className="card" style={{ marginBottom: '1.25rem' }}>
+                <h3 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    KYC Applications
+                    {pendingApps.length > 0 && (
+                        <span style={{ padding: '0.1rem 0.5rem', borderRadius: '999px', fontSize: '0.7rem', fontWeight: 700, background: 'rgba(234,179,8,0.15)', color: '#b45309' }}>
+                            {pendingApps.length} pending
+                        </span>
+                    )}
+                </h3>
+
+                {/* Legacy doc */}
+                {seller.kyc_document_url && kycApps.length === 0 && (
+                    <div style={{ marginBottom: '1rem', padding: '0.875rem', background: 'var(--bg-alt)', borderRadius: '8px' }}>
+                        <p className="text-xs text-muted" style={{ marginBottom: '0.5rem' }}>Legacy KYC Document</p>
+                        <a href={seller.kyc_document_url} target="_blank" rel="noreferrer">
+                            <img src={seller.kyc_document_url} alt="KYC" style={{ maxWidth: '100%', maxHeight: 240, borderRadius: 6, border: '1px solid var(--border)' }} />
+                        </a>
                     </div>
                 )}
 
-                {/* Seller Header */}
-                <div className="card" style={{ marginBottom: '1.5rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <div>
-                            <h2 style={{ margin: 0 }}>{selected.full_name}</h2>
-                            <p className="text-sm text-muted" style={{ marginTop: '0.25rem' }}>{selected.email} | {selected.phone}</p>
+                {kycApps.length === 0 && !seller.kyc_document_url && (
+                    <p className="text-sm text-muted">No KYC applications submitted yet.</p>
+                )}
+
+                {kycApps.map(app => (
+                    <div key={app.id} style={{ padding: '1rem', borderRadius: '8px', border: '1px solid var(--border)', marginBottom: '0.875rem', background: 'var(--bg-color)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.875rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>Tier {app.current_tier} → Tier {app.target_tier}</span>
+                            </div>
+                            <KycBadge status={app.status} />
                         </div>
-                        <div style={{ textAlign: 'right' }}>
-                            <span style={{
-                                display: 'inline-block', padding: '0.25rem 0.75rem', borderRadius: '999px',
-                                fontSize: '0.75rem', fontWeight: 700,
-                                background: tierColor(selected.kyc_tier || 1),
-                                color: '#fff'
-                            }}>
-                                Tier {selected.kyc_tier || 1} — {tierLabel(selected.kyc_tier || 1)}
+
+                        {/* Documents */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.75rem', marginBottom: '0.875rem' }}>
+                            {[
+                                { url: app.gov_id_url, label: 'Government ID' },
+                                { url: app.selfie_url, label: 'Selfie with ID' },
+                                { url: app.proof_of_address_url, label: 'Proof of Address' },
+                            ].filter(d => d.url).map(d => (
+                                <div key={d.label} style={{ borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border)' }}>
+                                    <a href={d.url} target="_blank" rel="noreferrer">
+                                        <img src={d.url} alt={d.label} style={{ width: '100%', height: 160, objectFit: 'cover', display: 'block' }} />
+                                    </a>
+                                    <div style={{ padding: '0.35rem 0.6rem', fontSize: '0.7rem', fontWeight: 600, color: 'var(--muted)', background: 'var(--bg-alt)' }}>{d.label}</div>
+                                </div>
+                            ))}
+                        </div>
+
+                        {app.rejection_reason && (
+                            <div className="alert alert-danger" style={{ padding: '0.5rem 0.75rem', marginBottom: '0.75rem' }}>
+                                <strong>Rejected:</strong> {app.rejection_reason}
+                            </div>
+                        )}
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span className="text-xs text-muted">
+                                Submitted {new Date(app.created_at).toLocaleString()}
+                                {app.reviewed_at && <> · Reviewed {new Date(app.reviewed_at).toLocaleString()}</>}
                             </span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Info Grid */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
-                    <div className="card" style={{ textAlign: 'center', padding: '1.25rem' }}>
-                        <div className="text-xs text-muted">Trust Score</div>
-                        <div style={{ fontSize: '1.5rem', fontWeight: 700, color: (selected.seller_score || 100) < 50 ? 'var(--danger)' : 'var(--success)', marginTop: '0.25rem' }}>
-                            {selected.seller_score ?? 100}
-                        </div>
-                    </div>
-                    <div className="card" style={{ textAlign: 'center', padding: '1.25rem' }}>
-                        <div className="text-xs text-muted">KYC Status</div>
-                        <div style={{ fontSize: '1rem', fontWeight: 700, marginTop: '0.5rem', color: selected.kyc_status === 'APPROVED' ? 'var(--success)' : selected.kyc_status === 'SUSPENDED' ? 'var(--danger)' : 'var(--warning)' }}>
-                            {selected.kyc_status || 'PENDING'}
-                        </div>
-                    </div>
-                    <div className="card" style={{ textAlign: 'center', padding: '1.25rem' }}>
-                        <div className="text-xs text-muted">Joined</div>
-                        <div style={{ fontSize: '0.875rem', fontWeight: 600, marginTop: '0.5rem' }}>
-                            {new Date(selected.created_at).toLocaleDateString()}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Uploaded Documents */}
-                <div className="card" style={{ marginBottom: '1.5rem' }}>
-                    <h3 style={{ marginBottom: '1rem' }}>Uploaded Documents</h3>
-                    {selected.kyc_document_url ? (
-                        <div style={{ marginBottom: '1rem' }}>
-                            <p className="text-sm text-muted" style={{ marginBottom: '0.5rem' }}>Legacy KYC Document</p>
-                            <a href={selected.kyc_document_url} target="_blank" rel="noreferrer">
-                                <img src={selected.kyc_document_url} alt="KYC Document" style={{ maxWidth: '100%', maxHeight: 300, borderRadius: 8, border: '1px solid var(--border)' }} />
-                            </a>
-                        </div>
-                    ) : null}
-
-                    {kycApps.length > 0 ? kycApps.map(app => (
-                        <div key={app.id} style={{ padding: '1rem', borderRadius: '8px', border: '1px solid var(--border)', marginBottom: '1rem', background: 'var(--bg-color)' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-                                <span style={{ fontWeight: 600 }}>Tier {app.target_tier} Application</span>
-                                <span style={{
-                                    padding: '0.15rem 0.5rem', borderRadius: '999px', fontSize: '0.7rem', fontWeight: 600,
-                                    background: app.status === 'PENDING' ? 'rgba(234,179,8,0.15)' : app.status === 'APPROVED' ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)',
-                                    color: app.status === 'PENDING' ? 'var(--warning)' : app.status === 'APPROVED' ? 'var(--success)' : 'var(--danger)'
-                                }}>{app.status}</span>
-                            </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem' }}>
-                                {app.gov_id_url && (
-                                    <div>
-                                        <p className="text-xs text-muted" style={{ marginBottom: '0.25rem' }}>Government ID</p>
-                                        <a href={app.gov_id_url} target="_blank" rel="noreferrer">
-                                            <img src={app.gov_id_url} alt="Gov ID" style={{ width: '100%', maxHeight: 180, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border)' }} />
-                                        </a>
-                                    </div>
-                                )}
-                                {app.selfie_url && (
-                                    <div>
-                                        <p className="text-xs text-muted" style={{ marginBottom: '0.25rem' }}>Selfie</p>
-                                        <a href={app.selfie_url} target="_blank" rel="noreferrer">
-                                            <img src={app.selfie_url} alt="Selfie" style={{ width: '100%', maxHeight: 180, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border)' }} />
-                                        </a>
-                                    </div>
-                                )}
-                                {app.proof_of_address_url && (
-                                    <div>
-                                        <p className="text-xs text-muted" style={{ marginBottom: '0.25rem' }}>Proof of Address</p>
-                                        <a href={app.proof_of_address_url} target="_blank" rel="noreferrer">
-                                            <img src={app.proof_of_address_url} alt="Address Proof" style={{ width: '100%', maxHeight: 180, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border)' }} />
-                                        </a>
-                                    </div>
-                                )}
-                            </div>
-
-                            {app.rejection_reason && (
-                                <div className="alert alert-danger" style={{ marginTop: '0.75rem', padding: '0.5rem 0.75rem' }}>
-                                    <strong>Rejected:</strong> {app.rejection_reason}
+                            {app.status === 'PENDING' && (
+                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                    <button className="btn btn-primary btn-sm" onClick={() => handleKycApprove(app.id)} disabled={actionLoading}>Approve</button>
+                                    <button className="btn btn-ghost btn-sm" style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }} onClick={() => setRejectModal(app.id)} disabled={actionLoading}>Reject</button>
                                 </div>
                             )}
-                            <div className="text-xs text-muted" style={{ marginTop: '0.5rem' }}>
-                                Submitted {new Date(app.created_at).toLocaleString()}
-                                {app.reviewed_at && <> | Reviewed {new Date(app.reviewed_at).toLocaleString()}</>}
-                            </div>
                         </div>
-                    )) : (
-                        <p className="text-sm text-muted">No KYC applications submitted yet.</p>
+                    </div>
+                ))}
+            </div>
+
+            {/* Admin Actions */}
+            <div className="card">
+                <h3 style={{ marginBottom: '1rem' }}>Administrative Actions</h3>
+                <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                    {isSuspended ? (
+                        <button className="btn btn-primary btn-sm" onClick={handleSuspend} disabled={actionLoading} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            <RefreshCw size={14} /> {actionLoading ? 'Processing...' : 'Reactivate Seller'}
+                        </button>
+                    ) : (
+                        <button className="btn btn-danger btn-sm" onClick={handleSuspend} disabled={actionLoading} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            <Ban size={14} /> {actionLoading ? 'Processing...' : 'Suspend Seller'}
+                        </button>
                     )}
                 </div>
+            </div>
 
-                {/* Admin Actions */}
-                <div className="card">
-                    <h3 style={{ marginBottom: '1rem' }}>Administrative Actions</h3>
-                    <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-                        {selected.is_active !== false ? (
-                            <button className="btn btn-danger btn-sm" onClick={() => handleSuspend(selected.id, true)} disabled={actionLoading}>
-                                {actionLoading ? 'Processing...' : 'Suspend Seller'}
+            {/* Reject Modal */}
+            {rejectModal && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, backdropFilter: 'blur(4px)' }} onClick={() => setRejectModal(null)}>
+                    <div className="card" style={{ maxWidth: 480, width: '90%' }} onClick={e => e.stopPropagation()}>
+                        <h3 style={{ marginBottom: '0.25rem', color: 'var(--danger)' }}>Reject Application</h3>
+                        <p className="text-sm text-muted" style={{ marginBottom: '1.25rem' }}>The seller will see this reason and can resubmit.</p>
+                        <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                            <label>Reason for rejection</label>
+                            <textarea className="form-input" value={rejectReason} onChange={e => setRejectReason(e.target.value)} placeholder="e.g. ID image is blurry, selfie does not match..." style={{ minHeight: 100 }} />
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <button className="btn btn-danger" style={{ flex: 1 }} onClick={() => handleKycReject(rejectModal)} disabled={actionLoading}>
+                                {actionLoading ? 'Processing...' : 'Confirm Rejection'}
                             </button>
-                        ) : (
-                            <button className="btn btn-primary btn-sm" onClick={() => handleSuspend(selected.id, false)} disabled={actionLoading}>
-                                {actionLoading ? 'Processing...' : 'Reactivate Seller'}
-                            </button>
-                        )}
+                            <button className="btn btn-ghost" onClick={() => { setRejectModal(null); setRejectReason(''); }}>Cancel</button>
+                        </div>
                     </div>
                 </div>
-            </div>
+            )}
+        </div>
+    );
+}
+
+// ── Sellers List ─────────────────────────────────────────────
+export default function AdminSellers() {
+    const [sellers, setSellers] = useState([]);
+    const [total, setTotal] = useState(0);
+    const [loading, setLoading] = useState(true);
+    const [selected, setSelected] = useState(null);
+    const [search, setSearch] = useState('');
+    const [searchInput, setSearchInput] = useState('');
+    const [statusFilter, setStatusFilter] = useState('');
+    const [page, setPage] = useState(1);
+
+    const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+    const load = useCallback(() => {
+        setLoading(true);
+        const offset = (page - 1) * PAGE_SIZE;
+        const params = new URLSearchParams({ limit: PAGE_SIZE, offset });
+        if (search) params.set('search', search);
+        if (statusFilter) params.set('status', statusFilter);
+        adminApi.get(`/admin/sellers?${params}`).then(data => {
+            const rows = data.sellers || data;
+            setSellers(Array.isArray(rows) ? rows : []);
+            setTotal(typeof data.total === 'number' ? data.total : (Array.isArray(rows) ? rows.length : 0));
+            setLoading(false);
+        }).catch(() => setLoading(false));
+    }, [page, search, statusFilter]);
+
+    useEffect(() => { load(); }, [load]);
+
+    function changeStatus(s) { setStatusFilter(s); setPage(1); }
+    function submitSearch(e) { e.preventDefault(); setSearch(searchInput); setPage(1); }
+    function clearSearch() { setSearchInput(''); setSearch(''); setPage(1); }
+
+    if (selected) {
+        return (
+            <SellerDetail
+                seller={selected}
+                onBack={() => { setSelected(null); load(); }}
+                onAction={() => { load(); setSelected(null); }}
+            />
         );
     }
 
-    // Sellers List
     return (
         <div className="animate-in">
-            <h1 style={{ fontSize: '1.5rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                <Users size={28} color="var(--brand)" /> Sellers ({sellers.length})
-            </h1>
-            <div className="card" style={{ padding: 0 }}>
-                <div style={{ overflowX: 'auto' }}>
-                    <table className="data-table">
-                        <thead>
-                            <tr>
-                                <th>Name</th>
-                                <th>Contact</th>
-                                <th>Score</th>
-                                <th>Tier</th>
-                                <th>Status</th>
-                                <th>Joined</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {sellers.length === 0 ? (
-                                <tr><td colSpan={7} style={{ textAlign: 'center', padding: '2rem' }}>No sellers registered yet.</td></tr>
-                            ) : sellers.map(s => (
-                                <tr key={s.id}>
-                                    <td style={{ fontWeight: 600 }}>{s.full_name}</td>
-                                    <td>
-                                        <div className="text-sm">{s.email}</div>
-                                        <div className="text-xs text-muted">{s.phone}</div>
-                                    </td>
-                                    <td style={{ fontWeight: 700, color: (s.seller_score || 100) < 50 ? 'var(--danger)' : 'var(--brand)' }}>
-                                        {s.seller_score ?? 100}
-                                    </td>
-                                    <td>
-                                        <span style={{
-                                            display: 'inline-block', padding: '0.2rem 0.6rem', borderRadius: '999px',
-                                            fontSize: '0.7rem', fontWeight: 700,
-                                            background: tierColor(s.kyc_tier || 1), color: '#fff'
-                                        }}>
-                                            T{s.kyc_tier || 1}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <span style={{
-                                            fontSize: '0.75rem', fontWeight: 600,
-                                            display: 'flex', alignItems: 'center', gap: '0.3rem',
-                                            color: s.kyc_status === 'APPROVED' ? 'var(--success)' : s.kyc_status === 'SUSPENDED' ? 'var(--danger)' : 'var(--warning)'
-                                        }}>
-                                            {s.kyc_status === 'APPROVED' ? <CheckCircle2 size={14} /> : s.kyc_status === 'SUSPENDED' ? <ShieldAlert size={14} /> : <AlertCircle size={14} />}
-                                            {s.kyc_status || 'PENDING'}
-                                        </span>
-                                    </td>
-                                    <td className="text-sm">{new Date(s.created_at).toLocaleDateString()}</td>
-                                    <td>
-                                        <button className="btn btn-ghost btn-sm" onClick={() => openDetail(s)} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                                            <Eye size={14} /> View
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                <h1 style={{ fontSize: '1.5rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                    <Users size={26} color="var(--brand)" /> Sellers
+                </h1>
             </div>
+
+            {/* Status filter tabs */}
+            <div className="tab-bar" style={{ marginBottom: '1rem', flexWrap: 'wrap' }}>
+                {[
+                    { val: '',          label: 'All' },
+                    { val: 'ACTIVE',    label: 'Active' },
+                    { val: 'SUSPENDED', label: 'Suspended' },
+                    { val: 'PENDING',   label: 'KYC Pending' },
+                ].map(({ val, label }) => (
+                    <button key={val} className={`tab-btn ${statusFilter === val ? 'active' : ''}`} onClick={() => changeStatus(val)}>{label}</button>
+                ))}
+            </div>
+
+            {/* Search */}
+            <form onSubmit={submitSearch} style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem' }}>
+                <div style={{ position: 'relative', flex: 1 }}>
+                    <Search size={16} style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }} />
+                    <input className="form-input" placeholder="Search by name, email, phone or business…" value={searchInput} onChange={e => setSearchInput(e.target.value)} style={{ paddingLeft: '2.5rem', margin: 0 }} />
+                    {searchInput && (
+                        <button type="button" onClick={clearSearch} style={{ position: 'absolute', right: '0.875rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', display: 'flex' }}><X size={15} /></button>
+                    )}
+                </div>
+                <button type="submit" className="btn btn-primary btn-sm">Search</button>
+            </form>
+
+            {/* Table */}
+            {loading ? (
+                <div className="flex-center" style={{ padding: '4rem' }}><div className="spinner" /></div>
+            ) : (
+                <div className="card" style={{ padding: 0 }}>
+                    <div style={{ overflowX: 'auto' }}>
+                        <table className="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Seller</th>
+                                    <th>Contact</th>
+                                    <th>Tier</th>
+                                    <th>KYC</th>
+                                    <th>Trust</th>
+                                    <th>Revenue</th>
+                                    <th>Orders</th>
+                                    <th>Status</th>
+                                    <th>Joined</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {sellers.length === 0 ? (
+                                    <tr><td colSpan={10} style={{ textAlign: 'center', padding: '3rem', color: 'var(--muted)' }}>
+                                        {search ? `No sellers matching "${search}"` : 'No sellers found'}
+                                    </td></tr>
+                                ) : sellers.map(s => (
+                                    <tr key={s.id} onClick={() => setSelected(s)} style={{ cursor: 'pointer' }}>
+                                        <td>
+                                            <div style={{ fontWeight: 700 }}>{s.full_name}</div>
+                                            {s.business_name && <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>{s.business_name}</div>}
+                                        </td>
+                                        <td>
+                                            <div style={{ fontSize: '0.85rem' }}>{s.email}</div>
+                                            <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>{s.phone}</div>
+                                        </td>
+                                        <td><TierBadge tier={s.kyc_tier || 1} /></td>
+                                        <td><KycBadge status={s.kyc_status} /></td>
+                                        <td style={{ fontWeight: 700, color: (s.seller_score || 100) < 50 ? 'var(--danger)' : 'var(--success)' }}>
+                                            {((s.seller_score || 100) / 10).toFixed(1)}/10
+                                        </td>
+                                        <td style={{ fontWeight: 600, fontSize: '0.875rem' }}>
+                                            GHS {(s.total_revenue / 100).toFixed(2)}
+                                        </td>
+                                        <td style={{ fontSize: '0.875rem' }}>{s.total_orders || 0}</td>
+                                        <td>
+                                            {s.is_active === false
+                                                ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.72rem', fontWeight: 700, color: 'var(--danger)' }}><Ban size={12} /> Suspended</span>
+                                                : <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.72rem', fontWeight: 700, color: 'var(--success)' }}><CheckCircle2 size={12} /> Active</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            <div style={{ fontSize: '0.8rem' }}>{new Date(s.created_at).toLocaleDateString()}</div>
+                                        </td>
+                                        <td>
+                                            <button className="btn btn-ghost btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                                <Eye size={14} /> View
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* Footer */}
+                    <div style={{ padding: '0.75rem 1.25rem', borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
+                            {total === 0 ? 'No sellers found' : `Showing ${((page - 1) * PAGE_SIZE) + 1}–${Math.min(page * PAGE_SIZE, total)} of ${total} seller${total !== 1 ? 's' : ''}`}
+                        </span>
+                        <PaginationBar page={page} totalPages={totalPages} setPage={setPage} />
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
