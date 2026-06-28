@@ -17,6 +17,7 @@ export default function ProfilePage() {
 
     // Forms
     const [profileForm, setProfileForm] = useState({ full_name: '', email: '', phone: '', business_name: '', momo_number: '' });
+    const [originalMomo, setOriginalMomo] = useState('');
     const [locationForm, setLocationForm] = useState({ city: '', region: '', pickup_description: '' });
     const [sellerLocation, setSellerLocation] = useState({ lat: null, lng: null, text: '' });
 
@@ -35,6 +36,7 @@ export default function ProfilePage() {
                 business_name: data.business_name || '',
                 momo_number: data.momo_number || ''
             });
+            if (data.momo_number) setOriginalMomo(data.momo_number);
             setLocationForm({
                 city: data.city || '',
                 region: data.region || '',
@@ -157,12 +159,12 @@ export default function ProfilePage() {
                         <input
                             className="form-input"
                             value={profileForm.momo_number}
-                            onChange={e => !seller?.momo_number && setProfileForm({ ...profileForm, momo_number: e.target.value })}
+                            onChange={e => !originalMomo && setProfileForm({ ...profileForm, momo_number: e.target.value })}
                             placeholder="e.g. 0241234567"
-                            readOnly={!!seller?.momo_number}
-                            style={seller?.momo_number ? { background: 'var(--bg-alt)', cursor: 'not-allowed', opacity: 0.7 } : {}}
+                            readOnly={!!originalMomo}
+                            style={originalMomo ? { background: 'var(--bg-alt)', cursor: 'not-allowed', opacity: 0.7 } : {}}
                         />
-                        {seller?.momo_number
+                        {originalMomo
                             ? <p className="text-xs text-muted mt-1">MoMo number cannot be changed. Contact support if needed.</p>
                             : <p className="text-xs text-muted mt-1">This is the number your earnings will be sent to. Once saved, it cannot be changed without contacting support.</p>
                         }
