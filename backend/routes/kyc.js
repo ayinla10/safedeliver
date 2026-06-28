@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const { authenticateSeller } = require('../middleware/auth');
-const kycVerify = require('../services/kyc-verify');
 
 // ── GET Current KYC Status & Active Limits ──
 router.get('/', authenticateSeller, async (req, res) => {
