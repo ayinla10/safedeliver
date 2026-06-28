@@ -26,6 +26,7 @@ export default function SellerDashboard() {
     if (loading) return <div className="flex-center" style={{ padding: '4rem' }}><div className="spinner" /></div>;
 
     const score = stats?.seller_score ?? 0;
+    const scoreOver10 = (score / 10).toFixed(1);
     const circumference = 2 * Math.PI * 22;
     const offset = circumference - (score / 100) * circumference;
 
@@ -158,10 +159,9 @@ export default function SellerDashboard() {
                                 strokeDasharray={circumference} strokeDashoffset={offset}
                                 strokeLinecap="round" transform="rotate(-90 26 26)"
                                 style={{ transition: 'stroke-dashoffset 1s ease' }} />
-                            <text x="26" y="26" textAnchor="middle" dominantBaseline="central"
-                                fill="var(--text)" fontSize="13" fontWeight="800">{score}</text>
                         </svg>
-                        <span style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>Trust</span>
+                        <span style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text)', lineHeight: 1 }}>{scoreOver10}</span>
+                        <span style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>/ 10</span>
                     </div>
                 </div>
             )}
