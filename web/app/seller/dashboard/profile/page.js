@@ -16,7 +16,7 @@ export default function ProfilePage() {
     const [kycMsg, setKycMsg] = useState('');
 
     // Forms
-    const [profileForm, setProfileForm] = useState({ full_name: '', email: '', phone: '', business_name: '' });
+    const [profileForm, setProfileForm] = useState({ full_name: '', email: '', phone: '', business_name: '', momo_number: '' });
     const [locationForm, setLocationForm] = useState({ city: '', region: '', pickup_description: '' });
     const [sellerLocation, setSellerLocation] = useState({ lat: null, lng: null, text: '' });
 
@@ -32,7 +32,8 @@ export default function ProfilePage() {
                 full_name: data.full_name || '',
                 email: data.email || '',
                 phone: data.phone || '',
-                business_name: data.business_name || ''
+                business_name: data.business_name || '',
+                momo_number: data.momo_number || ''
             });
             setLocationForm({
                 city: data.city || '',
@@ -150,6 +151,19 @@ export default function ProfilePage() {
                         <label>Phone Number</label>
                         <input className="form-input" value={profileForm.phone} readOnly style={{ background: 'var(--bg-alt)', cursor: 'not-allowed', opacity: 0.7 }} />
                         <p className="text-xs text-muted mt-1">Phone number cannot be changed directly.</p>
+                    </div>
+                    <div className="form-group">
+                        <label>MoMo Number *</label>
+                        <input
+                            className="form-input"
+                            value={profileForm.momo_number}
+                            onChange={e => setProfileForm({ ...profileForm, momo_number: e.target.value })}
+                            placeholder="e.g. 0241234567"
+                        />
+                        <p className="text-xs text-muted mt-1">This is the number your earnings will be sent to when a payout is made.</p>
+                        {!profileForm.momo_number && (
+                            <p className="text-xs mt-1" style={{ color: 'var(--danger)', fontWeight: 600 }}>⚠ You have not set a MoMo number. You will not be able to receive payouts until you do.</p>
+                        )}
                     </div>
                     <button type="submit" className="btn btn-primary btn-block" disabled={savingProfile}>{savingProfile ? 'Saving...' : 'Save Profile Changes'}</button>
                 </form>
