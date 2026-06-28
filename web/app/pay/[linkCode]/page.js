@@ -10,7 +10,7 @@ export default function CheckoutPage() {
     const [product, setProduct] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [step, setStep] = useState('choice'); // choice | details | success
+    const [step, setStep] = useState('details'); // details | success
     const [form, setForm] = useState({ buyer_name: '', buyer_phone: '', buyer_email: '', buyer_address: '', buyer_lat: null, buyer_lng: null, buyer_location_text: '' });
     const [txData, setTxData] = useState(null);
     const [activeIndex, setActiveIndex] = useState(0);
@@ -23,14 +23,8 @@ export default function CheckoutPage() {
         
         api.get(`/checkout-links/${linkCode}`)
             .then(data => { 
-                setProduct(data); 
-                setLoading(false); 
-                
-                // If not on mobile, skip choice
-                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-                if (!isMobile) {
-                    setStep('details');
-                }
+                setProduct(data);
+                setLoading(false);
             })
             .catch(err => { setError(err.message); setLoading(false); });
 
