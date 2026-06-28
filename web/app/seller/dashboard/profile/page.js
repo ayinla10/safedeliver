@@ -1,8 +1,11 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
+import { LogOut } from 'lucide-react';
 
 export default function ProfilePage() {
+    const router = useRouter();
     const [seller, setSeller] = useState(null);
     const [loading, setLoading] = useState(true);
     const [savingProfile, setSavingProfile] = useState(false);
@@ -98,6 +101,13 @@ export default function ProfilePage() {
         } finally {
             setUploadingKyc(false);
         }
+    }
+
+    function logout() {
+        localStorage.removeItem('sd-token');
+        localStorage.removeItem('sd-refresh-token');
+        localStorage.removeItem('sd-seller');
+        router.push('/seller/login');
     }
 
     if (loading) return <div className="flex-center" style={{ padding: '4rem' }}><div className="spinner" /></div>;
@@ -197,7 +207,7 @@ export default function ProfilePage() {
             </div>
 
             {seller && (
-                <div className="card">
+                <div className="card" style={{ marginBottom: '2rem' }}>
                     <h3 style={{ marginBottom: '0.75rem' }}>Account Details</h3>
                     <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
                         <div><span className="text-xs">Seller Score</span><div style={{ fontWeight: 700, color: 'var(--brand)' }}>{seller.seller_score}/100</div></div>
@@ -205,6 +215,14 @@ export default function ProfilePage() {
                     </div>
                 </div>
             )}
+
+            <button
+                onClick={logout}
+                className="btn btn-block"
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: 'var(--danger)', color: '#fff', marginBottom: '2rem' }}
+            >
+                <LogOut size={16} /> Logout
+            </button>
         </div>
     );
 }
