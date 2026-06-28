@@ -1,10 +1,11 @@
+const cron = require('node-cron');
 const db = require('../db');
 const escrow = require('./escrow');
 const notify = require('./notify');
 
 function startAutoReleaseCron() {
     // Run every 15 minutes
-    setInterval(async () => {
+    cron.schedule('*/15 * * * *', async () => {
         try {
             // 1. Auto-release: shipped orders older than 5 days
             const shipped = await db.query(
@@ -44,7 +45,7 @@ function startAutoReleaseCron() {
         } catch (err) {
             console.error('[Cron] Error:', err.message);
         }
-    }, 15 * 60 * 1000); // every 15 minutes
+    });
 
     console.log('⏰ Cron started (auto-release + quote timeout, every 15 min)');
 }

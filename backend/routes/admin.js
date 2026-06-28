@@ -158,4 +158,66 @@ router.patch('/kyc-applications/:id', async (req, res) => {
     }
 });
 
+// Simulation Ledger
+router.get('/ledger', async (req, res) => {
+    try {
+        const { type, search } = req.query;
+        let q = 'SELECT * FROM simulation_ledger';
+        const params = [];
+        const conditions = [];
+        if (type) { params.push(type); conditions.push(`entry_type = $${params.length}`); }
+        if (search) { params.push(`%${search}%`); conditions.push(`order_ref ILIKE $${params.length}`); }
+        if (conditions.length) q += ' WHERE ' + conditions.join(' AND ');
+        q += ' ORDER BY created_at DESC LIMIT 200';
+        const result = await db.query(q, params);
+        res.json(result.rows);
+    } catch (err) {
+        console.error('Admin ledger error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Notifications log
+router.get('/notifications', async (req, res) => {
+    try {
+        const { type, search } = req.query;
+        let q = 'SELECT * FROM notifications';
+        const params = [];
+        const conditions = [];
+        if (type === 'TRANSACTIONS') { conditions.push('transaction_id IS NOT NULL'); }
+        if (type === 'SYSTEM') { conditions.push('transaction_id IS NULL'); }
+        if (search) { params.push(`%${search}%`); conditions.push(`(recipient_id ILIKE $${params.length} OR order_ref ILIKE $${params.length})`); }
+        if (conditions.length) q += ' WHERE ' + conditions.join(' AND ');
+        q += ' ORDER BY sent_at DESC LIMIT 200';
+        const result = await db.query(q, params);
+        // Map recipient_id → phone for frontend compatibility
+        res.json(result.rows.map(n => ({ ...n, phone: n.recipient_id })));
+    } catch (err) {
+        console.error('Admin notifications error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// System settings — read
+router.get('/settings', async (req, res) => {
+    try {
+        const result = await db.query('SELECT * FROM system_settings ORDER BY key');
+        res.json(result.rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// System settings — update
+router.patch('/settings/:key', async (req, res) => {
+    try {
+        const { value } = req.body;
+        if (!value) return res.status(400).json({ error: 'Value required' });
+        await db.query(
+            'UPDATE system_settings SET value = $1, updated_at = NOW(), updated_by = $2 WHERE key = $3',
+            [value, req.seller.id, req.params.key]
+        );
+        await audit.log('ADMIN', req.seller.id, 'UPDATE_SETTING', 'SYSTEM', null, req.ip, { key: req.params.key, value });
+        res.json({ message: 'Setting updated' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 module.exports = router;
