@@ -87,7 +87,7 @@ export default function ProfilePage() {
         
         try {
             // Get session token directly or let api handle it
-            const token = localStorage.getItem('seller_token');
+            const token = localStorage.getItem('sd-token');
             const formData = new FormData();
             formData.append('file', kycFile);
             

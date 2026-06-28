@@ -206,7 +206,7 @@ router.get('/settings', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// System settings — update
+// System settings — update single key
 router.patch('/settings/:key', async (req, res) => {
     try {
         const { value } = req.body;
@@ -217,6 +217,22 @@ router.patch('/settings/:key', async (req, res) => {
         );
         await audit.log('ADMIN', req.seller.id, 'UPDATE_SETTING', 'SYSTEM', null, req.ip, { key: req.params.key, value });
         res.json({ message: 'Setting updated' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// System settings — bulk update
+router.patch('/settings', async (req, res) => {
+    try {
+        const { settings } = req.body;
+        if (!Array.isArray(settings) || settings.length === 0) return res.status(400).json({ error: 'Settings array required' });
+        for (const s of settings) {
+            await db.query(
+                'UPDATE system_settings SET value = $1, updated_at = NOW(), updated_by = $2 WHERE key = $3',
+                [s.value, req.seller.id, s.key]
+            );
+        }
+        await audit.log('ADMIN', req.seller.id, 'BULK_UPDATE_SETTINGS', 'SYSTEM', null, req.ip, { count: settings.length });
+        res.json({ message: 'All settings updated' });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

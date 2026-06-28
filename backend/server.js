@@ -216,11 +216,11 @@ app.get('/api/v1/seller/profile', require('./middleware/auth').authenticateSelle
 // Update seller profile
 app.patch('/api/v1/seller/profile', require('./middleware/auth').authenticateSeller, async (req, res) => {
     try {
-        const { full_name, momo_number, business_name } = req.body;
+        const { full_name, momo_number, business_name, kyc_document_url } = req.body;
         const result = await db.query(
-            `UPDATE sellers SET full_name = COALESCE($1, full_name), momo_number = COALESCE($2, momo_number), business_name = COALESCE($3, business_name), updated_at = NOW()
-       WHERE id = $4 RETURNING id, full_name, email, phone, business_name, kyc_status, momo_number, seller_score`,
-            [full_name, momo_number, business_name, req.seller.id]
+            `UPDATE sellers SET full_name = COALESCE($1, full_name), momo_number = COALESCE($2, momo_number), business_name = COALESCE($3, business_name), kyc_document_url = COALESCE($5, kyc_document_url), updated_at = NOW()
+       WHERE id = $4 RETURNING id, full_name, email, phone, business_name, kyc_status, momo_number, seller_score, kyc_document_url`,
+            [full_name, momo_number, business_name, req.seller.id, kyc_document_url || null]
         );
         res.json(result.rows[0]);
     } catch (err) {
