@@ -125,12 +125,13 @@ export default function ProfilePage() {
 
                 <form onSubmit={saveProfile}>
                     <div className="form-group">
-                        <label>Business Name (Optional)</label>
-                        <input className="form-input" value={profileForm.business_name} onChange={e => setProfileForm({ ...profileForm, business_name: e.target.value })} />
+                        <label>Business Name *</label>
+                        <input className="form-input" required value={profileForm.business_name} onChange={e => setProfileForm({ ...profileForm, business_name: e.target.value })} placeholder="Enter your business name" />
                     </div>
                     <div className="form-group">
                         <label>Full Name</label>
-                        <input className="form-input" value={profileForm.full_name} onChange={e => setProfileForm({ ...profileForm, full_name: e.target.value })} />
+                        <input className="form-input" value={profileForm.full_name} readOnly style={{ background: 'var(--bg-alt)', cursor: 'not-allowed', opacity: 0.7 }} />
+                        <p className="text-xs text-muted mt-1">Full name cannot be changed. Contact support if needed.</p>
                     </div>
                     <div className="form-group">
                         <label>Email</label>
@@ -138,7 +139,7 @@ export default function ProfilePage() {
                     </div>
                     <div className="form-group">
                         <label>Phone Number</label>
-                        <input className="form-input" value={profileForm.phone} disabled style={{ background: 'rgba(255,255,255,0.05)', cursor: 'not-allowed' }} />
+                        <input className="form-input" value={profileForm.phone} readOnly style={{ background: 'var(--bg-alt)', cursor: 'not-allowed', opacity: 0.7 }} />
                         <p className="text-xs text-muted mt-1">Phone number cannot be changed directly.</p>
                     </div>
                     <button type="submit" className="btn btn-primary btn-block" disabled={savingProfile}>{savingProfile ? 'Saving...' : 'Save Profile Changes'}</button>
