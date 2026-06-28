@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Download, X, ShieldCheck, Bell, Wifi } from 'lucide-react';
+import { Download, X, ShieldCheck } from 'lucide-react';
 
 export default function PWAInstall() {
     const [installPrompt, setInstallPrompt] = useState(null);
@@ -125,23 +125,9 @@ export default function PWAInstall() {
                 <div style={{ fontWeight: 700, fontSize: '1.25rem', color: '#fff', marginBottom: '0.5rem' }}>
                     Install the App
                 </div>
-                <p style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.6)', marginBottom: '1.5rem', lineHeight: 1.6 }}>
-                    Get instant push notifications for new orders and payments. Works offline too.
+                <p style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.6)', marginBottom: '2rem', lineHeight: 1.6 }}>
+                    Add SafeDeliver to your home screen for quick access and instant notifications.
                 </p>
-
-                {/* Features */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '2rem' }}>
-                    {[
-                        { icon: <Bell size={16} />, text: 'Instant order & payment notifications' },
-                        { icon: <Wifi size={16} />, text: 'Works offline — no internet needed' },
-                        { icon: <Download size={16} />, text: 'No App Store — installs in seconds' },
-                    ].map((f, i) => (
-                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                            <div style={{ color: '#FF6B00', flexShrink: 0 }}>{f.icon}</div>
-                            <span style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.75)' }}>{f.text}</span>
-                        </div>
-                    ))}
-                </div>
 
                 {/* Buttons */}
                 <button
