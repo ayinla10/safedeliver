@@ -254,16 +254,6 @@ app.patch('/api/v1/seller/location', require('./middleware/auth').authenticateSe
             [locationLabel, changesThisYear + 1, currentYear, req.seller.id, sellerLat, sellerLng]
         );
 
-        // Notify buyers with open unpaid orders from this seller
-        const openOrders = await db.query(
-            `SELECT buyer_phone, order_ref, buyer_token FROM transactions WHERE seller_id = $1 AND status IN ('REQUESTED','QUOTED')`,
-            [req.seller.id]
-        );
-        const notify = require('./services/notify');
-        for (const o of openOrders.rows) {
-            await notify.sms(o.buyer_phone, `📍 The seller for order ${o.order_ref} has updated their location. View: ${process.env.FRONTEND_URL}/track/${o.buyer_token}`, null, o.order_ref);
-        }
-
         res.json({ message: 'Location updated', changes_remaining: 2 - (changesThisYear + 1) });
     } catch (err) {
         console.error('Location update error:', err);
