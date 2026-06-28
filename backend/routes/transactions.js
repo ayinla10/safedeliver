@@ -96,6 +96,13 @@ router.post('/', async (req, res) => {
             `📦 *SafeDeliver — New Order!*\n\nHi! *${buyer_name}* just placed an order for *"${link.product_name}"*.\n\nOrder: \`${orderRef}\`\nLocation: ${buyer_location_text || buyer_address || 'Not specified'}\n\n👉 Quote delivery fee within 12 hours:\n${process.env.FRONTEND_URL}/seller/dashboard/orders`,
             id, orderRef
         );
+
+        // Notify buyer — order received confirmation
+        await notify.whatsapp(buyer_phone,
+            `🛡️ *SafeDeliver — Order Received!*\n\nHi *${buyer_name}*, your order has been placed successfully!\n\n🛒 Item: *"${link.product_name}"*\nOrder: \`${orderRef}\`\nSeller: ${link.seller_name}\n\n⏳ The seller will quote a delivery fee within *12 hours*. You'll get a message here when it's ready.\n\n👉 Track your order anytime:\n${process.env.FRONTEND_URL}/track/${orderRef}`,
+            id, orderRef
+        );
+
         await webpush.sendToUser(link.seller_id, {
             title: '📦 New Order Request',
             body: `${buyer_name} wants "${link.product_name}". Quote delivery within 12 hours.`,
