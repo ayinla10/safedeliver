@@ -219,8 +219,9 @@ app.patch('/api/v1/seller/profile', require('./middleware/auth').authenticateSel
 // Update seller location (max 2/year)
 app.patch('/api/v1/seller/location', require('./middleware/auth').authenticateSeller, async (req, res) => {
     try {
-        const { city, region, pickup_description } = req.body;
-        if (!city || !region) return res.status(400).json({ error: 'City and region required' });
+        const { city, location_text, lat, lng } = req.body;
+        const locationLabel = location_text || city;
+        if (!locationLabel) return res.status(400).json({ error: 'Location is required' });
 
         const seller = await db.query('SELECT location_changes_this_year, location_change_year FROM sellers WHERE id = $1', [req.seller.id]);
         const s = seller.rows[0];
@@ -232,24 +233,13 @@ app.patch('/api/v1/seller/location', require('./middleware/auth').authenticateSe
             return res.status(400).json({ error: 'You can only change your location twice per year' });
         }
 
-        // Geocode city + region to get lat/lng
-        let sellerLat = null, sellerLng = null;
-        try {
-            const geoRes = await require('axios').get(
-                `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(`${city}, ${region}, Ghana`)}&limit=1`,
-                { headers: { 'User-Agent': 'SafeDeliver/1.0' } }
-            );
-            if (geoRes.data && geoRes.data.length > 0) {
-                sellerLat = parseFloat(geoRes.data[0].lat);
-                sellerLng = parseFloat(geoRes.data[0].lon);
-            }
-        } catch (geoErr) {
-            console.warn('[Location] Geocode failed (non-fatal):', geoErr.message);
-        }
+        // Use lat/lng from LocationPicker directly — no geocoding needed
+        const sellerLat = lat ? parseFloat(lat) : null;
+        const sellerLng = lng ? parseFloat(lng) : null;
 
         await db.query(
-            `UPDATE sellers SET city = $1, region = $2, pickup_description = $3, location_changes_this_year = $4, location_change_year = $5, last_location_change_at = NOW(), updated_at = NOW(), seller_lat = $7, seller_lng = $8 WHERE id = $6`,
-            [city, region, pickup_description || null, changesThisYear + 1, currentYear, req.seller.id, sellerLat, sellerLng]
+            `UPDATE sellers SET city = $1, region = $1, location_changes_this_year = $2, location_change_year = $3, last_location_change_at = NOW(), updated_at = NOW(), seller_lat = $5, seller_lng = $6 WHERE id = $4`,
+            [locationLabel, changesThisYear + 1, currentYear, req.seller.id, sellerLat, sellerLng]
         );
 
         // Notify buyers with open unpaid orders from this seller
@@ -259,7 +249,7 @@ app.patch('/api/v1/seller/location', require('./middleware/auth').authenticateSe
         );
         const notify = require('./services/notify');
         for (const o of openOrders.rows) {
-            await notify.sms(o.buyer_phone, `📍 The seller for order ${o.order_ref} has updated their location to ${city}, ${region}. View: ${process.env.FRONTEND_URL}/track/${o.buyer_token}`, null, o.order_ref);
+            await notify.sms(o.buyer_phone, `📍 The seller for order ${o.order_ref} has updated their location. View: ${process.env.FRONTEND_URL}/track/${o.buyer_token}`, null, o.order_ref);
         }
 
         res.json({ message: 'Location updated', changes_remaining: 2 - (changesThisYear + 1) });

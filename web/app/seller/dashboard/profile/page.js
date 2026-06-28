@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { LogOut } from 'lucide-react';
+import LocationPicker from '@/components/LocationPicker';
 
 export default function ProfilePage() {
     const router = useRouter();
@@ -17,6 +18,7 @@ export default function ProfilePage() {
     // Forms
     const [profileForm, setProfileForm] = useState({ full_name: '', email: '', phone: '', business_name: '' });
     const [locationForm, setLocationForm] = useState({ city: '', region: '', pickup_description: '' });
+    const [sellerLocation, setSellerLocation] = useState({ lat: null, lng: null, text: '' });
 
     // Messages
     const [profileMsg, setProfileMsg] = useState('');
@@ -61,10 +63,17 @@ export default function ProfilePage() {
 
     async function saveLocation(e) {
         e.preventDefault();
+        if (!sellerLocation.text) return setLocationMsg('Please pick a location on the map or search for one.');
         if (!window.confirm('Are you sure you want to change your location? You can only do this twice a year.')) return;
         setSavingLocation(true); setLocationMsg('');
         try {
-            const res = await api.patch('/seller/location', locationForm);
+            const res = await api.patch('/seller/location', {
+                city: sellerLocation.text,
+                region: sellerLocation.text,
+                lat: sellerLocation.lat,
+                lng: sellerLocation.lng,
+                location_text: sellerLocation.text,
+            });
             setLocationMsg(res.message || 'Location updated successfully!');
             await fetchProfile();
         } catch (err) { setLocationMsg(err.message); }
@@ -159,19 +168,8 @@ export default function ProfilePage() {
                 </div>
 
                 <form onSubmit={saveLocation}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                        <div className="form-group">
-                            <label>City *</label>
-                            <input className="form-input" required value={locationForm.city} onChange={e => setLocationForm({ ...locationForm, city: e.target.value })} disabled={!canChangeLocation} placeholder="e.g. Accra" />
-                        </div>
-                        <div className="form-group">
-                            <label>Region *</label>
-                            <input className="form-input" required value={locationForm.region} onChange={e => setLocationForm({ ...locationForm, region: e.target.value })} disabled={!canChangeLocation} placeholder="e.g. Greater Accra" />
-                        </div>
-                    </div>
-                    <div className="form-group">
-                        <label>Self-Pickup Instructions (Optional)</label>
-                        <textarea className="form-input" style={{ minHeight: 80 }} value={locationForm.pickup_description} onChange={e => setLocationForm({ ...locationForm, pickup_description: e.target.value })} disabled={!canChangeLocation} placeholder="Where should buyers go if they choose 'Handle Own Delivery'?" />
+                    <div className="form-group" style={{ pointerEvents: canChangeLocation ? 'auto' : 'none', opacity: canChangeLocation ? 1 : 0.5 }}>
+                        <LocationPicker onChange={setSellerLocation} />
                     </div>
 
                     <button type="submit" className="btn btn-primary btn-block" disabled={savingLocation || !canChangeLocation}>
