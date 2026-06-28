@@ -80,12 +80,12 @@ export default function OrdersPage() {
                             <table className="data-table" style={{ minWidth: 640 }}>
                                 <thead>
                                     <tr>
+                                        <th>Date</th>
                                         <th>Order Ref</th>
                                         <th>Product</th>
                                         <th>Buyer</th>
                                         <th>Amount</th>
                                         <th>Status</th>
-                                        <th>Date</th>
                                         <th></th>
                                     </tr>
                                 </thead>
@@ -94,6 +94,9 @@ export default function OrdersPage() {
                                         const s = STATUS_STYLES[tx.status] || STATUS_STYLES.CANCELLED;
                                         return (
                                             <tr key={tx.id}>
+                                                <td style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', whiteSpace: 'nowrap' }}>
+                                                    {new Date(tx.created_at).toLocaleDateString()}
+                                                </td>
                                                 {/* Order Ref — light blue pill */}
                                                 <td>
                                                     <span style={{
@@ -131,9 +134,6 @@ export default function OrdersPage() {
                                                         borderRadius: 8,
                                                         whiteSpace: 'nowrap',
                                                     }}>{tx.status}</span>
-                                                </td>
-                                                <td style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', whiteSpace: 'nowrap' }}>
-                                                    {new Date(tx.created_at).toLocaleDateString()}
                                                 </td>
                                                 {/* View button — orange */}
                                                 <td>
