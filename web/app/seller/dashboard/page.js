@@ -81,10 +81,10 @@ export default function SellerDashboard() {
                     </p>
 
                     <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', margin: '0 0 0.25rem' }}>
-                        Current Balance
+                        Total Revenue
                     </p>
                     <p style={{ color: '#fff', fontSize: 'clamp(2rem, 8vw, 2.75rem)', fontWeight: 800, margin: '0 0 1.25rem', letterSpacing: '-1px', lineHeight: 1 }}>
-                        GHS {((stats?.wallet_balance || 0)).toFixed(2)}
+                        GHS {((stats?.total_revenue || 0) / 100).toFixed(2)}
                     </p>
 
                     <Link href="/seller/dashboard/links/new" style={{
@@ -160,8 +160,8 @@ export default function SellerDashboard() {
                                 strokeLinecap="round" transform="rotate(-90 26 26)"
                                 style={{ transition: 'stroke-dashoffset 1s ease' }} />
                         </svg>
-                        <span style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text)', lineHeight: 1 }}>{scoreOver10}</span>
-                        <span style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>/ 10</span>
+                        <span style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text)', lineHeight: 1 }}>{scoreOver10}<span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-muted)' }}>/10</span></span>
+                        <span style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>Trust Score</span>
                     </div>
                 </div>
             )}
