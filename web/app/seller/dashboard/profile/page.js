@@ -157,10 +157,15 @@ export default function ProfilePage() {
                         <input
                             className="form-input"
                             value={profileForm.momo_number}
-                            onChange={e => setProfileForm({ ...profileForm, momo_number: e.target.value })}
+                            onChange={e => !seller?.momo_number && setProfileForm({ ...profileForm, momo_number: e.target.value })}
                             placeholder="e.g. 0241234567"
+                            readOnly={!!seller?.momo_number}
+                            style={seller?.momo_number ? { background: 'var(--bg-alt)', cursor: 'not-allowed', opacity: 0.7 } : {}}
                         />
-                        <p className="text-xs text-muted mt-1">This is the number your earnings will be sent to when a payout is made.</p>
+                        {seller?.momo_number
+                            ? <p className="text-xs text-muted mt-1">MoMo number cannot be changed. Contact support if needed.</p>
+                            : <p className="text-xs text-muted mt-1">This is the number your earnings will be sent to. Once saved, it cannot be changed without contacting support.</p>
+                        }
                         {!profileForm.momo_number && (
                             <p className="text-xs mt-1" style={{ color: 'var(--danger)', fontWeight: 600 }}>⚠ You have not set a MoMo number. You will not be able to receive payouts until you do.</p>
                         )}
