@@ -38,7 +38,7 @@ function DetailDrawer({ tx, onClose }) {
         { icon: <CreditCard size={14} />, label: 'Platform Fee', value: `GHS ${(tx.platform_fee / 100).toFixed(2)}` },
         { icon: <CreditCard size={14} />, label: 'Seller Payout', value: tx.seller_payout_amount ? `GHS ${(tx.seller_payout_amount / 100).toFixed(2)}` : '—' },
         { icon: <Phone size={14} />, label: 'Buyer Phone', value: tx.buyer_phone || '—' },
-        { icon: <MapPin size={14} />, label: 'Delivery Address', value: tx.delivery_address || '—' },
+        { icon: <MapPin size={14} />, label: 'Delivery Address', value: tx.buyer_location_text || tx.buyer_address || '—' },
         { icon: <Calendar size={14} />, label: 'Created', value: new Date(tx.created_at).toLocaleString() },
         { icon: <Calendar size={14} />, label: 'Last Updated', value: new Date(tx.updated_at).toLocaleString() },
     ];
