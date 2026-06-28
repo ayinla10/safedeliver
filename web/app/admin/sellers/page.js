@@ -158,7 +158,6 @@ function SellerDetail({ seller, onBack, onAction }) {
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
                             <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', color: 'var(--muted)' }}><Mail size={14} />{seller.email}</span>
                             <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', color: 'var(--muted)' }}><Phone size={14} />{seller.phone}</span>
-                            {seller.momo_number && <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', color: 'var(--muted)' }}><CreditCard size={14} />MoMo: {seller.momo_number}</span>}
                             {(seller.city || seller.region) && <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', color: 'var(--muted)' }}><MapPin size={14} />{seller.city || seller.region}</span>}
                         </div>
                     </div>
@@ -176,6 +175,27 @@ function SellerDetail({ seller, onBack, onAction }) {
                     <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem', color: 'var(--muted)' }}>
                         <Clock size={13} /> Last login: {seller.last_login_at ? new Date(seller.last_login_at).toLocaleString() : 'Never'}
                     </span>
+                </div>
+            </div>
+
+            {/* MoMo Payout Number */}
+            <div className="card" style={{ marginBottom: '1.25rem', borderLeft: `4px solid ${seller.momo_number ? 'var(--success)' : 'var(--danger)'}` }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <CreditCard size={20} color={seller.momo_number ? 'var(--success)' : 'var(--danger)'} />
+                        <div>
+                            <div style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.2rem' }}>MoMo Payout Number</div>
+                            {seller.momo_number
+                                ? <div style={{ fontSize: '1.1rem', fontWeight: 800, fontFamily: 'monospace', color: 'var(--success)' }}>{seller.momo_number}</div>
+                                : <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--danger)' }}>⚠ Not set — seller cannot be paid out</div>
+                            }
+                        </div>
+                    </div>
+                    {seller.momo_number && (
+                        <button onClick={() => { navigator.clipboard.writeText(seller.momo_number); }} className="btn btn-ghost btn-sm" style={{ fontSize: '0.75rem' }}>
+                            Copy Number
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -232,7 +252,7 @@ function SellerDetail({ seller, onBack, onAction }) {
                     <div key={app.id} style={{ padding: '1rem', borderRadius: '8px', border: '1px solid var(--border)', marginBottom: '0.875rem', background: 'var(--bg-color)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.875rem' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>Tier {app.current_tier} → Tier {app.target_tier}</span>
+                                <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>Tier {app.target_tier - 1} → Tier {app.target_tier}</span>
                             </div>
                             <KycBadge status={app.status} />
                         </div>
