@@ -1,24 +1,25 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { adminApi } from '@/lib/adminApi';
-import { Search, Download, X, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { Search, Download, X, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Lock, CheckCircle2, Undo2, Banknote } from 'lucide-react';
 
 const PAGE_SIZE = 25;
 
 const ENTRY_STYLES = {
-    HOLD:    { bg: 'rgba(168,85,247,0.1)',  color: '#7c3aed', label: '🔒 HOLD' },
-    RELEASE: { bg: 'rgba(34,197,94,0.12)',  color: '#15803d', label: '✅ RELEASE' },
-    REFUND:  { bg: 'rgba(239,68,68,0.1)',   color: '#b91c1c', label: '↩️ REFUND' },
-    FEE:     { bg: 'rgba(234,179,8,0.1)',   color: '#b45309', label: '💰 FEE' },
+    HOLD:    { bg: 'rgba(168,85,247,0.1)',  color: '#7c3aed', icon: <Lock size={11} />,         label: 'HOLD' },
+    RELEASE: { bg: 'rgba(34,197,94,0.12)',  color: '#15803d', icon: <CheckCircle2 size={11} />, label: 'RELEASE' },
+    REFUND:  { bg: 'rgba(239,68,68,0.1)',   color: '#b91c1c', icon: <Undo2 size={11} />,        label: 'REFUND' },
+    FEE:     { bg: 'rgba(234,179,8,0.1)',   color: '#b45309', icon: <Banknote size={11} />,     label: 'FEE' },
 };
 
 function EntryBadge({ type }) {
-    const s = ENTRY_STYLES[type] || { bg: 'rgba(0,0,0,0.05)', color: '#555', label: type };
+    const s = ENTRY_STYLES[type] || { bg: 'rgba(0,0,0,0.05)', color: '#555', icon: null, label: type };
     return (
         <span style={{
-            display: 'inline-block', padding: '0.2rem 0.6rem', borderRadius: '6px',
+            display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
+            padding: '0.2rem 0.6rem', borderRadius: '6px',
             fontSize: '0.7rem', fontWeight: 700, background: s.bg, color: s.color,
-        }}>{s.label}</span>
+        }}>{s.icon}{s.label}</span>
     );
 }
 
@@ -123,13 +124,15 @@ export default function AdminLedger() {
             {/* Summary bar */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem', marginBottom: '1.5rem' }}>
                 {[
-                    { label: 'Held',     value: summary.holds,    color: '#7c3aed' },
-                    { label: 'Released', value: summary.releases,  color: 'var(--success)' },
-                    { label: 'Refunded', value: summary.refunds,   color: 'var(--danger)' },
-                    { label: 'Fees',     value: summary.fees,      color: 'var(--warning)' },
+                    { label: 'Held',     value: summary.holds,    color: '#7c3aed',          icon: <Lock size={14} /> },
+                    { label: 'Released', value: summary.releases,  color: 'var(--success)',   icon: <CheckCircle2 size={14} /> },
+                    { label: 'Refunded', value: summary.refunds,   color: 'var(--danger)',    icon: <Undo2 size={14} /> },
+                    { label: 'Fees',     value: summary.fees,      color: 'var(--warning)',   icon: <Banknote size={14} /> },
                 ].map(s => (
                     <div key={s.label} style={{ padding: '0.875rem 1rem', background: 'var(--card-bg)', border: '1px solid var(--border)', borderRadius: '10px' }}>
-                        <div style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.3rem' }}>{s.label}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.65rem', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.3rem' }}>
+                            <span style={{ color: s.color }}>{s.icon}</span>{s.label}
+                        </div>
                         <div style={{ fontSize: '1rem', fontWeight: 800, color: s.color }}>GHS {(s.value / 100).toFixed(2)}</div>
                     </div>
                 ))}
@@ -137,8 +140,17 @@ export default function AdminLedger() {
 
             {/* Filter tabs */}
             <div className="tab-bar" style={{ marginBottom: '1rem', flexWrap: 'wrap' }}>
-                {[['', 'All'], ['HOLD', '🔒 Holds'], ['RELEASE', '✅ Releases'], ['REFUND', '↩️ Refunds'], ['FEE', '💰 Fees']].map(([val, label]) => (
-                    <button key={val} className={`tab-btn ${filter === val ? 'active' : ''}`} onClick={() => changeFilter(val)}>{label}</button>
+                {[
+                    { val: '',        label: 'All',      icon: null },
+                    { val: 'HOLD',    label: 'Holds',    icon: <Lock size={13} /> },
+                    { val: 'RELEASE', label: 'Releases', icon: <CheckCircle2 size={13} /> },
+                    { val: 'REFUND',  label: 'Refunds',  icon: <Undo2 size={13} /> },
+                    { val: 'FEE',     label: 'Fees',     icon: <Banknote size={13} /> },
+                ].map(({ val, label, icon }) => (
+                    <button key={val} className={`tab-btn ${filter === val ? 'active' : ''}`} onClick={() => changeFilter(val)}
+                        style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                        {icon}{label}
+                    </button>
                 ))}
             </div>
 
