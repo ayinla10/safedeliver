@@ -149,6 +149,8 @@ export default function AdminSellers() {
                                         <a href={app.proof_of_address_url} target="_blank" rel="noreferrer">
                                             <img src={app.proof_of_address_url} alt="Address Proof" style={{ width: '100%', maxHeight: 180, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border)' }} />
                                         </a>
+                                    </div>
+                                )}
                             </div>
 
                             {app.rejection_reason && (
