@@ -7,7 +7,7 @@ export default function AdminDashboard() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        adminApi.get('/admin/transactions').then(data => {
+        adminApi.get('/admin/transactions?limit=200').then(data => {
             const txs = data.transactions || [];
             const total = txs.reduce((s, t) => s + (t.total_amount || 0), 0);
             const fees = txs.reduce((s, t) => s + (t.platform_fee || 0), 0);

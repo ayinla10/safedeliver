@@ -128,8 +128,11 @@ export default function AdminTransactions() {
         const params = new URLSearchParams({ limit: PAGE_SIZE, offset });
         if (filter) params.set('status', filter);
         adminApi.get(`/admin/transactions?${params}`).then(data => {
-            setTransactions(data.transactions || []);
-            setTotal(data.total || 0);
+            const txs = data.transactions || [];
+            setTransactions(txs);
+            // If backend returns total use it, otherwise fall back to length
+            // (old backend without pagination support)
+            setTotal(typeof data.total === 'number' ? data.total : txs.length);
             setLoading(false);
         }).catch(() => setLoading(false));
     }, [filter, page]);
