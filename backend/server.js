@@ -305,21 +305,11 @@ app.use((err, req, res, next) => {
 
 // Start server
 const PORT = process.env.PORT || 5000;
-
-// Run migrations then start server
-const migrate = require('./db/migrate');
-migrate()
-    .then(() => {
-        app.listen(PORT, () => {
-            console.log(`\n🚀 SafeDeliver API v2.0 running on port ${PORT}`);
-            console.log(`   Environment: ${process.env.NODE_ENV || 'development'}`);
-            console.log(`   Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:3000'}\n`);
-            startAutoReleaseCron();
-        });
-    })
-    .catch(err => {
-        console.error('❌ Migration failed, server will not start:', err.message);
-        process.exit(1);
-    });
+app.listen(PORT, () => {
+    console.log(`\n🚀 SafeDeliver API v2.0 running on port ${PORT}`);
+    console.log(`   Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`   Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:3000'}\n`);
+    startAutoReleaseCron();
+});
 
 module.exports = app;
