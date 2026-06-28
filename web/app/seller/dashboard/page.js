@@ -161,7 +161,7 @@ export default function SellerDashboard() {
                                 style={{ transition: 'stroke-dashoffset 1s ease' }} />
                         </svg>
                         <span style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text)', lineHeight: 1 }}>{scoreOver10}<span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-muted)' }}>/10</span></span>
-                        <span style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>Trust Score</span>
+                        <span style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>Trust</span>
                     </div>
                 </div>
             )}
