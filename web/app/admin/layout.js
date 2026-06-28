@@ -2,10 +2,10 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { 
-    LayoutDashboard, Scale, ArrowRightLeft, Database, Bell, 
-    Users, ShieldCheck, ClipboardList, Settings, Sun, Moon, 
-    LogOut, ChevronLeft, Menu 
+import {
+    LayoutDashboard, Scale, ArrowRightLeft, Database, Bell,
+    Users, ShieldCheck, ClipboardList, Settings, Sun, Moon,
+    LogOut, ChevronLeft, Menu, MessageSquare
 } from 'lucide-react';
 
 export default function AdminLayout({ children }) {
@@ -112,6 +112,7 @@ export default function AdminLayout({ children }) {
         { href: '/admin/kyc', icon: <ShieldCheck size={18} />, label: 'KYC Review' },
         { href: '/admin/audit', icon: <ClipboardList size={18} />, label: 'Audit Logs' },
         { href: '/admin/settings', icon: <Settings size={18} />, label: 'Settings' },
+        { href: '/admin/contact-enquiries', icon: <MessageSquare size={18} />, label: 'Enquiries' },
     ];
 
     const sidebarContent = (

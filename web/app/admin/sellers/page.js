@@ -30,14 +30,10 @@ export default function AdminSellers() {
         if (!window.confirm(`Are you sure you want to ${action} this seller?`)) return;
         setActionLoading(true);
         try {
-            await adminApi.patch(`/admin/sellers/${id}/kyc`, {
-                status: currentActive ? 'SUSPENDED' : 'APPROVED',
-                tier: selected?.kyc_tier || 1,
-                notes: `Seller ${action}d by admin`
-            });
+            await adminApi.patch(`/admin/sellers/${id}`, { is_active: !currentActive });
             setMsg({ type: 'success', text: `Seller ${action}d successfully.` });
             load();
-            if (selected) setSelected({ ...selected, is_active: !currentActive, kyc_status: currentActive ? 'SUSPENDED' : 'APPROVED' });
+            if (selected) setSelected({ ...selected, is_active: !currentActive });
         } catch (err) { setMsg({ type: 'error', text: err.message }); }
         finally { setActionLoading(false); }
     }
