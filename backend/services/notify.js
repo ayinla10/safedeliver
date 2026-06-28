@@ -1,25 +1,34 @@
 const db = require('../db');
 const { v4: uuid } = require('uuid');
-const wa = require('./whatsapp');
+const wa  = require('./whatsapp');
+const sms = require('./sms');
 
-async function send(channel, recipientId, message, transactionId = null, orderRef = null) {
-    const status = process.env.NODE_ENV === 'production' ? 'SENT' : 'SIMULATED';
+/**
+ * Log a notification to the DB.
+ */
+async function log(channel, recipientId, message, transactionId = null, orderRef = null) {
+    const status = process.env.AT_API_KEY || process.env.TWILIO_AUTH_TOKEN ? 'SENT' : 'SIMULATED';
     await db.query(
         `INSERT INTO notifications (id, transaction_id, order_ref, channel, recipient_id, message, status)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
         [uuid(), transactionId, orderRef, channel, recipientId, message, status]
     );
     console.log(`[Notify] ${channel} → ${recipientId}: ${message.substring(0, 80)}...`);
 }
 
 /**
- * Send a real WhatsApp message via Twilio AND log it to the notifications table.
+ * Send a real SMS via Africa's Talking + log to DB.
  */
-async function whatsapp(phone, message, transactionId = null, orderRef = null) {
-    // Fire the real Twilio message (non-blocking failure)
-    await wa.send(phone, message);
+async function sendSms(phone, message, transactionId = null, orderRef = null) {
+    await sms.send(phone, message);
+    await log('SMS', phone, message, transactionId, orderRef);
+}
 
-    // Always log to DB so admin can see notification history
+/**
+ * Send a real WhatsApp via Twilio + log to DB.
+ */
+async function sendWhatsapp(phone, message, transactionId = null, orderRef = null) {
+    await wa.send(phone, message);
     const status = process.env.TWILIO_AUTH_TOKEN ? 'SENT' : 'SIMULATED';
     await db.query(
         `INSERT INTO notifications (id, transaction_id, order_ref, channel, recipient_id, message, status)
@@ -30,8 +39,8 @@ async function whatsapp(phone, message, transactionId = null, orderRef = null) {
 }
 
 module.exports = {
-    sms:      (phone, msg, txId, ref)          => send('SMS', phone, msg, txId, ref),
-    email:    (email, subject, body, txId, ref) => send('EMAIL', email, `${subject}: ${body}`, txId, ref),
-    push:     (userId, msg, txId, ref)          => send('PUSH', userId, msg, txId, ref),
-    whatsapp,
+    sms:      (phone, msg, txId, ref)           => sendSms(phone, msg, txId, ref),
+    email:    (email, subject, body, txId, ref)  => log('EMAIL', email, `${subject}: ${body}`, txId, ref),
+    push:     (userId, msg, txId, ref)           => log('PUSH', userId, msg, txId, ref),
+    whatsapp: (phone, msg, txId, ref)            => sendWhatsapp(phone, msg, txId, ref),
 };
