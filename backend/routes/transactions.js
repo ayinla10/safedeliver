@@ -8,6 +8,7 @@ const escrow = require('../services/escrow');
 const sim = require('../services/simulationEngine');
 const notify = require('../services/notify');
 const audit = require('../services/audit');
+const webpush = require('../services/webpush');
 
 const FEE_PERCENT = parseFloat(process.env.PLATFORM_FEE_PERCENT || '5');
 
@@ -91,6 +92,11 @@ router.post('/', async (req, res) => {
             `📦 New order request! ${buyer_name} wants "${link.product_name}". Check the delivery address and quote a delivery fee within 12 hours. Dashboard: ${process.env.FRONTEND_URL}/seller/dashboard/orders`,
             id, orderRef
         );
+        await webpush.sendToUser(link.seller_id, {
+            title: '📦 New Order Request',
+            body: `${buyer_name} wants "${link.product_name}". Quote delivery within 12 hours.`,
+            url: '/seller/dashboard/orders',
+        });
 
         res.status(201).json({
             transaction_id: id,
@@ -208,6 +214,11 @@ router.post('/sim-confirm', async (req, res) => {
                 transaction_id, tx.order_ref
             );
         }
+        await webpush.sendToUser(tx.seller_id, {
+            title: '💰 Payment Received!',
+            body: `GHS ${(tx.total_amount / 100).toFixed(2)} secured in escrow for order ${tx.order_ref}. Ship now!`,
+            url: '/seller/dashboard/orders',
+        });
 
         res.json({ message: 'Payment confirmed', sim_reference: simRef });
     } catch (err) {
@@ -290,6 +301,11 @@ router.patch('/:id/ship', authenticateSeller, async (req, res) => {
         await escrow.transition(req.params.id, 'SHIPPED');
         await notify.sms(tx.buyer_phone, `📦 Your order ${tx.order_ref} has been shipped! Track: ${process.env.FRONTEND_URL}/track/${tx.order_ref}`, tx.id, tx.order_ref);
         await notify.whatsapp(tx.buyer_phone, `📦 SafeDeliver: Your order "${tx.product_name}" has been shipped! Track it here: ${process.env.FRONTEND_URL}/track/${tx.order_ref}`, tx.id, tx.order_ref);
+        await webpush.sendToAdmins({
+            title: '📦 Order Shipped',
+            body: `Order ${tx.order_ref} marked as shipped by seller.`,
+            url: '/admin/transactions',
+        });
         await audit.log('SELLER', req.seller.id, 'SHIP_ORDER', 'TRANSACTION', tx.id, req.ip);
         res.json({ message: 'Marked as shipped' });
     } catch (err) { res.status(500).json({ error: err.message }); }

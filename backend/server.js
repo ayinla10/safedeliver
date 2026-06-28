@@ -134,6 +134,7 @@ app.use('/api/v1/transactions', require('./routes/transactions'));
 app.use('/api/v1/admin', require('./routes/admin'));
 app.use('/api/v1/kyc', require('./routes/kyc'));
 app.use('/api/v1/pay', require('./routes/pay'));
+app.use('/api/v1/push', require('./routes/push'));
 
 // Contact form (public)
 app.post('/api/v1/contact', async (req, res) => {

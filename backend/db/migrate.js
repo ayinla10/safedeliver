@@ -170,6 +170,15 @@ async function migrate() {
       reviewed_at TIMESTAMPTZ,
       reviewed_by UUID REFERENCES sellers(id)
     );
+
+    CREATE TABLE IF NOT EXISTS web_push_subscriptions (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id UUID REFERENCES sellers(id) ON DELETE CASCADE,
+      endpoint TEXT UNIQUE NOT NULL,
+      subscription JSONB NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
   `;
 
   await db.query(tables);

@@ -2,10 +2,11 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { 
-    LayoutDashboard, Link2, ShoppingBag, ShieldCheck, 
-    User, Home, Sun, Moon, LogOut, Menu 
+import {
+    LayoutDashboard, Link2, ShoppingBag, ShieldCheck,
+    User, Home, Sun, Moon, LogOut, Menu
 } from 'lucide-react';
+import { usePushNotifications } from '@/lib/usePushNotifications';
 
 export default function DashboardLayout({ children }) {
     const pathname = usePathname();
@@ -13,6 +14,9 @@ export default function DashboardLayout({ children }) {
     const [seller, setSeller] = useState(null);
     const [theme, setTheme] = useState('light');
     const [sidebarOpen, setSidebarOpen] = useState(false);
+
+    // Register push notifications for logged-in seller
+    usePushNotifications();
 
     useEffect(() => {
         const token = localStorage.getItem('sd-token');
