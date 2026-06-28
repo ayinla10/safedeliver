@@ -50,14 +50,27 @@ router.patch('/disputes/:id/resolve', async (req, res) => {
 // List all transactions
 router.get('/transactions', async (req, res) => {
     try {
-        const { status, limit = 50 } = req.query;
-        let q = 'SELECT t.*, s.full_name as seller_name FROM transactions t JOIN sellers s ON t.seller_id = s.id';
+        const { status, limit = 25, offset = 0 } = req.query;
+        const pageLimit = Math.min(parseInt(limit) || 25, 200);
+        const pageOffset = parseInt(offset) || 0;
+
         const params = [];
-        if (status) { q += ' WHERE t.status = $1'; params.push(status); }
-        q += ` ORDER BY t.created_at DESC LIMIT $${params.length + 1}`;
-        params.push(parseInt(limit));
-        const result = await db.query(q, params);
-        res.json({ transactions: result.rows });
+        let where = '';
+        if (status) { params.push(status); where = ` WHERE t.status = $${params.length}`; }
+
+        // Total count
+        const countResult = await db.query(
+            `SELECT COUNT(*) FROM transactions t${where}`,
+            params
+        );
+        const total = parseInt(countResult.rows[0].count);
+
+        // Page data
+        const dataParams = [...params, pageLimit, pageOffset];
+        const q = `SELECT t.*, s.full_name as seller_name FROM transactions t JOIN sellers s ON t.seller_id = s.id${where} ORDER BY t.created_at DESC LIMIT $${dataParams.length - 1} OFFSET $${dataParams.length}`;
+        const result = await db.query(q, dataParams);
+
+        res.json({ transactions: result.rows, total, limit: pageLimit, offset: pageOffset });
     } catch (err) {
         console.error('Admin transactions error:', err);
         res.status(500).json({ error: err.message });
@@ -73,6 +86,17 @@ router.get('/sellers', async (req, res) => {
         console.error('Admin sellers error:', err);
         res.status(500).json({ error: err.message });
     }
+});
+
+// Suspend / reactivate seller
+router.patch('/sellers/:id', async (req, res) => {
+    try {
+        const { is_active } = req.body;
+        if (typeof is_active !== 'boolean') return res.status(400).json({ error: 'is_active (boolean) required' });
+        await db.query('UPDATE sellers SET is_active = $1, updated_at = NOW() WHERE id = $2', [is_active, req.params.id]);
+        await audit.log('ADMIN', req.seller.id, is_active ? 'REACTIVATE_SELLER' : 'SUSPEND_SELLER', 'SELLER', req.params.id, req.ip, {});
+        res.json({ message: is_active ? 'Seller reactivated' : 'Seller suspended' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // Audit logs

@@ -1,7 +1,9 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { adminApi } from '@/lib/adminApi';
-import { Search, Download, ChevronDown, ChevronUp, X, Phone, MapPin, Package, Calendar, CreditCard } from 'lucide-react';
+import { Search, Download, ChevronDown, ChevronUp, X, Phone, MapPin, Package, Calendar, CreditCard, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+
+const PAGE_SIZE = 25;
 
 const STATUS_COLORS = {
     REQUESTED:   { bg: 'rgba(99,102,241,0.1)',  color: '#4f46e5' },
@@ -109,21 +111,28 @@ function DetailDrawer({ tx, onClose }) {
 
 export default function AdminTransactions() {
     const [transactions, setTransactions] = useState([]);
+    const [total, setTotal] = useState(0);
     const [filter, setFilter] = useState('');
     const [search, setSearch] = useState('');
     const [loading, setLoading] = useState(true);
     const [selected, setSelected] = useState(null);
     const [sortKey, setSortKey] = useState('created_at');
     const [sortDir, setSortDir] = useState('desc');
+    const [page, setPage] = useState(1);
+
+    const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
     useEffect(() => {
         setLoading(true);
-        const params = filter ? `?status=${filter}` : '';
-        adminApi.get(`/admin/transactions${params}`).then(data => {
+        const offset = (page - 1) * PAGE_SIZE;
+        const params = new URLSearchParams({ limit: PAGE_SIZE, offset });
+        if (filter) params.set('status', filter);
+        adminApi.get(`/admin/transactions?${params}`).then(data => {
             setTransactions(data.transactions || []);
+            setTotal(data.total || 0);
             setLoading(false);
         }).catch(() => setLoading(false));
-    }, [filter]);
+    }, [filter, page]);
 
     // Client-side search
     const filtered = useMemo(() => {
@@ -154,13 +163,13 @@ export default function AdminTransactions() {
         return list;
     }, [transactions, search, sortKey, sortDir]);
 
-    // Summary stats for current filtered view
+    // Summary stats for current page view
     const summary = useMemo(() => ({
-        count: filtered.length,
+        count: total,
         volume: filtered.reduce((s, t) => s + (t.total_amount || 0), 0),
         fees: filtered.reduce((s, t) => s + (t.platform_fee || 0), 0),
         disputes: filtered.filter(t => t.status === 'DISPUTED').length,
-    }), [filtered]);
+    }), [filtered, total]);
 
     function toggleSort(key) {
         if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -199,6 +208,8 @@ export default function AdminTransactions() {
     const tabs = ['', 'REQUESTED', 'QUOTED', 'ACCEPTED', 'PAID', 'SHIPPED', 'DELIVERED', 'RELEASED', 'DISPUTED', 'CANCELLED', 'REFUNDED'];
     const tabLabels = { '': 'All', REQUESTED: 'Requested', QUOTED: 'Quoted', ACCEPTED: 'Accepted', PAID: 'Paid', SHIPPED: 'Shipped', DELIVERED: 'Delivered', RELEASED: 'Released', DISPUTED: 'Disputed', CANCELLED: 'Cancelled', REFUNDED: 'Refunded' };
 
+    function changeFilter(f) { setFilter(f); setSearch(''); setPage(1); }
+
     const thStyle = (col) => ({
         cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap',
         color: sortKey === col ? 'var(--brand)' : undefined,
@@ -236,7 +247,7 @@ export default function AdminTransactions() {
             {/* Status tabs */}
             <div className="tab-bar" style={{ marginBottom: '1rem', flexWrap: 'wrap' }}>
                 {tabs.map(t => (
-                    <button key={t} className={`tab-btn ${filter === t ? 'active' : ''}`} onClick={() => { setFilter(t); setSearch(''); }}>
+                    <button key={t} className={`tab-btn ${filter === t ? 'active' : ''}`} onClick={() => changeFilter(t)}>
                         {tabLabels[t]}
                     </button>
                 ))}
@@ -323,12 +334,64 @@ export default function AdminTransactions() {
                             </tbody>
                         </table>
                     </div>
-                    {filtered.length > 0 && (
-                        <div style={{ padding: '0.75rem 1.25rem', borderTop: '1px solid var(--border)', fontSize: '0.8rem', color: 'var(--muted)' }}>
-                            Showing {filtered.length} of {transactions.length} transaction{transactions.length !== 1 ? 's' : ''}
-                            {search && <span> matching <strong>"{search}"</strong></span>}
-                        </div>
-                    )}
+                    {/* Footer: count + pagination */}
+                    <div style={{ padding: '0.75rem 1.25rem', borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
+                            {search
+                                ? `${filtered.length} result${filtered.length !== 1 ? 's' : ''} on this page matching "${search}"`
+                                : `Showing ${((page - 1) * PAGE_SIZE) + 1}–${Math.min(page * PAGE_SIZE, total)} of ${total} transaction${total !== 1 ? 's' : ''}`
+                            }
+                        </span>
+                        {totalPages > 1 && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                <button
+                                    onClick={() => setPage(1)} disabled={page === 1}
+                                    style={{ padding: '0.3rem 0.5rem', borderRadius: '6px', border: '1px solid var(--border)', background: 'none', cursor: page === 1 ? 'not-allowed' : 'pointer', opacity: page === 1 ? 0.4 : 1, display: 'flex', alignItems: 'center' }}
+                                    title="First page"
+                                ><ChevronsLeft size={15} /></button>
+                                <button
+                                    onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+                                    style={{ padding: '0.3rem 0.5rem', borderRadius: '6px', border: '1px solid var(--border)', background: 'none', cursor: page === 1 ? 'not-allowed' : 'pointer', opacity: page === 1 ? 0.4 : 1, display: 'flex', alignItems: 'center' }}
+                                    title="Previous page"
+                                ><ChevronLeft size={15} /></button>
+
+                                {/* Page number buttons */}
+                                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                                    .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 2)
+                                    .reduce((acc, p, idx, arr) => {
+                                        if (idx > 0 && p - arr[idx - 1] > 1) acc.push('...');
+                                        acc.push(p);
+                                        return acc;
+                                    }, [])
+                                    .map((p, i) => p === '...'
+                                        ? <span key={`ellipsis-${i}`} style={{ padding: '0 0.3rem', color: 'var(--muted)', fontSize: '0.8rem' }}>…</span>
+                                        : <button
+                                            key={p}
+                                            onClick={() => setPage(p)}
+                                            style={{
+                                                padding: '0.3rem 0.6rem', borderRadius: '6px', border: '1px solid',
+                                                fontSize: '0.8rem', fontWeight: p === page ? 700 : 400, cursor: 'pointer',
+                                                background: p === page ? 'var(--brand)' : 'none',
+                                                color: p === page ? '#fff' : 'var(--text)',
+                                                borderColor: p === page ? 'var(--brand)' : 'var(--border)',
+                                            }}
+                                        >{p}</button>
+                                    )
+                                }
+
+                                <button
+                                    onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+                                    style={{ padding: '0.3rem 0.5rem', borderRadius: '6px', border: '1px solid var(--border)', background: 'none', cursor: page === totalPages ? 'not-allowed' : 'pointer', opacity: page === totalPages ? 0.4 : 1, display: 'flex', alignItems: 'center' }}
+                                    title="Next page"
+                                ><ChevronRight size={15} /></button>
+                                <button
+                                    onClick={() => setPage(totalPages)} disabled={page === totalPages}
+                                    style={{ padding: '0.3rem 0.5rem', borderRadius: '6px', border: '1px solid var(--border)', background: 'none', cursor: page === totalPages ? 'not-allowed' : 'pointer', opacity: page === totalPages ? 0.4 : 1, display: 'flex', alignItems: 'center' }}
+                                    title="Last page"
+                                ><ChevronsRight size={15} /></button>
+                            </div>
+                        )}
+                    </div>
                 </div>
             )}
 
