@@ -90,8 +90,12 @@ export default function LocationPicker({ onChange, sellerLat, sellerLng }) {
         debounceRef.current = setTimeout(async () => {
             setSearching(true);
             try {
+                const query = searchQuery.toLowerCase().includes('ghana')
+                    ? searchQuery
+                    : `${searchQuery}, Ghana`;
                 const res = await fetch(
-                    `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&countrycodes=gh&limit=5`
+                    `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=8&addressdetails=1`,
+                    { headers: { 'Accept-Language': 'en' } }
                 );
                 const data = await res.json();
                 setSearchResults(data);
