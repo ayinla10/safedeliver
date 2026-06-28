@@ -320,23 +320,19 @@ export default function TrackingPage() {
                             </div>
                         ) : (
                             <div className="card animate-in" style={{ marginBottom: '2rem', background: '#0a0b10', color: '#fff' }}>
-                                <div className="text-center" style={{ marginBottom: '2rem' }}>
-                                    <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--brand)', marginBottom: '0.5rem' }}>SimPay</div>
-                                    <p style={{ opacity: 0.7, fontSize: '0.875rem' }}>SafeDeliver Secure Payment</p>
+                                <div className="text-center" style={{ marginBottom: '1.5rem' }}>
+                                    <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--brand)', marginBottom: '0.5rem' }}>Demo Payment</div>
+                                    <p style={{ opacity: 0.7, fontSize: '0.875rem' }}>SafeDeliver Research Prototype</p>
                                 </div>
                                 <div className="text-center" style={{ marginBottom: '2rem' }}>
                                     <div style={{ fontSize: '2.5rem', fontWeight: 700 }}>GHS {(order.total_amount / 100).toFixed(2)}</div>
                                     <p style={{ opacity: 0.7, fontSize: '0.875rem' }}>Order: {order.order_ref}</p>
                                 </div>
-                                <div style={{ display: 'grid', gap: '1rem', marginBottom: '2rem' }}>
-                                    <input style={{ padding: '1rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.05)', color: '#fff', fontSize: '1rem' }} placeholder="Mobile Money Number" defaultValue={order.buyer_phone} />
-                                    <input style={{ padding: '1rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.05)', color: '#fff', fontSize: '1rem' }} placeholder="MoMo PIN" type="password" />
-                                </div>
                                 <button onClick={handleConfirmPayment} disabled={actionLoading} style={{ width: '100%', padding: '1rem', borderRadius: '8px', background: 'var(--success)', color: '#fff', border: 'none', fontSize: '1rem', fontWeight: 600, cursor: 'pointer' }}>
-                                    {actionLoading ? 'Processing...' : 'Confirm Payment'}
+                                    {actionLoading ? 'Processing...' : '✅ Simulate Payment'}
                                 </button>
                                 <p className="text-center mt-3" style={{ fontSize: '0.75rem', opacity: 0.5 }}>
-                                    Simulated Payment — Academic Research Demo
+                                    This is a simulated payment for demonstration purposes.
                                 </p>
                             </div>
                         )

@@ -1,13 +1,12 @@
 const db = require('../db');
 const { v4: uuid } = require('uuid');
-const wa  = require('./whatsapp');
 const sms = require('./sms');
 
 /**
  * Log a notification to the DB.
  */
 async function log(channel, recipientId, message, transactionId = null, orderRef = null) {
-    const status = process.env.AT_API_KEY || process.env.TWILIO_AUTH_TOKEN ? 'SENT' : 'SIMULATED';
+    const status = process.env.AT_API_KEY ? 'SENT' : 'SIMULATED';
     await db.query(
         `INSERT INTO notifications (id, transaction_id, order_ref, channel, recipient_id, message, status)
          VALUES ($1, $2, $3, $4, $5, $6, $7)`,
@@ -24,23 +23,8 @@ async function sendSms(phone, message, transactionId = null, orderRef = null) {
     await log('SMS', phone, message, transactionId, orderRef);
 }
 
-/**
- * Send a real WhatsApp via Twilio + log to DB.
- */
-async function sendWhatsapp(phone, message, transactionId = null, orderRef = null) {
-    await wa.send(phone, message);
-    const status = process.env.TWILIO_AUTH_TOKEN ? 'SENT' : 'SIMULATED';
-    await db.query(
-        `INSERT INTO notifications (id, transaction_id, order_ref, channel, recipient_id, message, status)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        [uuid(), transactionId, orderRef, 'WHATSAPP', phone, message, status]
-    );
-    console.log(`[WhatsApp] → ${phone}: ${message.substring(0, 80)}...`);
-}
-
 module.exports = {
-    sms:      (phone, msg, txId, ref)           => sendSms(phone, msg, txId, ref),
-    email:    (email, subject, body, txId, ref)  => log('EMAIL', email, `${subject}: ${body}`, txId, ref),
-    push:     (userId, msg, txId, ref)           => log('PUSH', userId, msg, txId, ref),
-    whatsapp: (phone, msg, txId, ref)            => sendWhatsapp(phone, msg, txId, ref),
+    sms:   (phone, msg, txId, ref)          => sendSms(phone, msg, txId, ref),
+    email: (email, subject, body, txId, ref) => log('EMAIL', email, `${subject}: ${body}`, txId, ref),
+    push:  (userId, msg, txId, ref)          => log('PUSH', userId, msg, txId, ref),
 };
