@@ -5,18 +5,90 @@ const { authenticateAdmin } = require('../middleware/auth');
 const escrow = require('../services/escrow');
 const sim = require('../services/simulationEngine');
 const audit = require('../services/audit');
+const notify = require('../services/notify');
+const settings = require('../services/settings');
 
 // All admin routes require admin auth
 router.use(authenticateAdmin);
 
-// List disputes
+// ── Global platform stats (Overview page) ──────────────────────────────────
+router.get('/stats', async (req, res) => {
+    try {
+        const [txStats, sellerStats, disputeStats] = await Promise.all([
+            db.query(`
+                SELECT
+                    COUNT(*) AS total_transactions,
+                    COALESCE(SUM(total_amount), 0) AS total_volume,
+                    COALESCE(SUM(platform_fee), 0) AS platform_fees,
+                    COALESCE(SUM(total_amount) FILTER (WHERE status IN ('PAID','SHIPPED','DISPUTED')), 0) AS held_volume,
+                    COALESCE(SUM(total_amount) FILTER (WHERE status IN ('RELEASED','AUTO_RELEASED')), 0) AS released_volume,
+                    COUNT(*) FILTER (WHERE status IN ('PAID','SHIPPED','DISPUTED')) AS active_orders,
+                    COUNT(*) FILTER (WHERE status IN ('RELEASED','AUTO_RELEASED')) AS completed_orders,
+                    COUNT(*) FILTER (WHERE status = 'DISPUTED') AS open_disputes,
+                    COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '30 days') AS orders_last_30d
+                FROM transactions
+            `),
+            db.query(`
+                SELECT
+                    COUNT(*) AS total_sellers,
+                    COUNT(*) FILTER (WHERE is_active = true AND is_admin = false) AS active_sellers,
+                    COUNT(*) FILTER (WHERE kyc_status = 'PENDING') AS pending_kyc
+                FROM sellers WHERE is_admin = false
+            `),
+            db.query(`SELECT COUNT(*) AS total FROM transactions WHERE status = 'DISPUTED'`),
+        ]);
+        const t = txStats.rows[0];
+        const s = sellerStats.rows[0];
+        res.json({
+            total_transactions: parseInt(t.total_transactions),
+            total_volume: parseInt(t.total_volume),
+            platform_fees: parseInt(t.platform_fees),
+            held_volume: parseInt(t.held_volume),
+            released_volume: parseInt(t.released_volume),
+            active_orders: parseInt(t.active_orders),
+            completed_orders: parseInt(t.completed_orders),
+            open_disputes: parseInt(t.open_disputes),
+            orders_last_30d: parseInt(t.orders_last_30d),
+            total_sellers: parseInt(s.total_sellers),
+            active_sellers: parseInt(s.active_sellers),
+            pending_kyc: parseInt(s.pending_kyc),
+        });
+    } catch (err) {
+        console.error('Admin stats error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// List disputes (with search + pagination)
 router.get('/disputes', async (req, res) => {
     try {
+        const { search, limit = 25, offset = 0 } = req.query;
+        const pageLimit = Math.min(parseInt(limit) || 25, 200);
+        const pageOffset = parseInt(offset) || 0;
+
+        const params = ["DISPUTED"];
+        const conditions = ["t.status = $1"];
+        if (search) {
+            params.push(`%${search}%`);
+            const n = params.length;
+            conditions.push(`(t.order_ref ILIKE $${n} OR s.full_name ILIKE $${n} OR t.buyer_name ILIKE $${n})`);
+        }
+        const where = ' WHERE ' + conditions.join(' AND ');
+
+        const countResult = await db.query(
+            `SELECT COUNT(*) FROM transactions t JOIN sellers s ON t.seller_id = s.id${where}`, params
+        );
+        const total = parseInt(countResult.rows[0].count);
+
+        const dataParams = [...params, pageLimit, pageOffset];
         const result = await db.query(
             `SELECT t.*, s.full_name as seller_name, s.phone as seller_phone
-             FROM transactions t JOIN sellers s ON t.seller_id = s.id WHERE t.status = 'DISPUTED' ORDER BY t.updated_at DESC`
+             FROM transactions t JOIN sellers s ON t.seller_id = s.id
+             ${where} ORDER BY t.updated_at DESC
+             LIMIT $${dataParams.length - 1} OFFSET $${dataParams.length}`,
+            dataParams
         );
-        res.json(result.rows);
+        res.json({ disputes: result.rows, total, limit: pageLimit, offset: pageOffset });
     } catch (err) {
         console.error('Admin disputes error:', err);
         res.status(500).json({ error: err.message });
@@ -47,7 +119,7 @@ router.patch('/disputes/:id/resolve', async (req, res) => {
     }
 });
 
-// List all transactions
+// List all transactions (with global summary)
 router.get('/transactions', async (req, res) => {
     try {
         const { status, limit = 25, offset = 0 } = req.query;
@@ -58,19 +130,35 @@ router.get('/transactions', async (req, res) => {
         let where = '';
         if (status) { params.push(status); where = ` WHERE t.status = $${params.length}`; }
 
-        // Total count
-        const countResult = await db.query(
-            `SELECT COUNT(*) FROM transactions t${where}`,
-            params
-        );
+        const [countResult, summaryResult, dataResult] = await Promise.all([
+            db.query(`SELECT COUNT(*) FROM transactions t${where}`, params),
+            // Global summary — unaffected by status filter
+            db.query(`
+                SELECT
+                    COUNT(*) AS total,
+                    COALESCE(SUM(total_amount), 0) AS total_volume,
+                    COALESCE(SUM(platform_fee), 0) AS total_fees,
+                    COUNT(*) FILTER (WHERE status = 'DISPUTED') AS total_disputes
+                FROM transactions
+            `),
+            db.query(
+                `SELECT t.*, s.full_name as seller_name FROM transactions t JOIN sellers s ON t.seller_id = s.id${where} ORDER BY t.created_at DESC LIMIT $${[...params, pageLimit, pageOffset].length - 1} OFFSET $${[...params, pageLimit, pageOffset].length}`,
+                [...params, pageLimit, pageOffset]
+            ),
+        ]);
         const total = parseInt(countResult.rows[0].count);
-
-        // Page data
-        const dataParams = [...params, pageLimit, pageOffset];
-        const q = `SELECT t.*, s.full_name as seller_name FROM transactions t JOIN sellers s ON t.seller_id = s.id${where} ORDER BY t.created_at DESC LIMIT $${dataParams.length - 1} OFFSET $${dataParams.length}`;
-        const result = await db.query(q, dataParams);
-
-        res.json({ transactions: result.rows, total, limit: pageLimit, offset: pageOffset });
+        const s = summaryResult.rows[0];
+        res.json({
+            transactions: dataResult.rows,
+            total,
+            limit: pageLimit,
+            offset: pageOffset,
+            summary: {
+                total_volume: parseInt(s.total_volume),
+                total_fees: parseInt(s.total_fees),
+                total_disputes: parseInt(s.total_disputes),
+            },
+        });
     } catch (err) {
         console.error('Admin transactions error:', err);
         res.status(500).json({ error: err.message });
@@ -152,8 +240,57 @@ router.patch('/sellers/:id', async (req, res) => {
 // Audit logs
 router.get('/audit-logs', async (req, res) => {
     try {
-        const result = await db.query('SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT 100');
-        res.json(result.rows);
+        const { search, actor_type, entity_type, limit = 25, offset = 0 } = req.query;
+        const pageLimit = Math.min(parseInt(limit) || 25, 200);
+        const pageOffset = parseInt(offset) || 0;
+
+        const conditions = [];
+        const params = [];
+
+        if (actor_type) {
+            params.push(actor_type);
+            conditions.push(`al.actor_type = $${params.length}`);
+        }
+        if (entity_type) {
+            params.push(entity_type);
+            conditions.push(`al.entity_type = $${params.length}`);
+        }
+        if (search) {
+            params.push(`%${search}%`);
+            const n = params.length;
+            conditions.push(`(al.action ILIKE $${n} OR al.ip_address ILIKE $${n} OR al.entity_id::text ILIKE $${n} OR al.actor_id::text ILIKE $${n})`);
+        }
+        const where = conditions.length ? ' WHERE ' + conditions.join(' AND ') : '';
+
+        // Summary: today's total + per actor_type counts
+        const summaryResult = await db.query(`
+            SELECT
+                COUNT(*) as total,
+                COUNT(*) FILTER (WHERE actor_type = 'ADMIN') as admin_count,
+                COUNT(*) FILTER (WHERE actor_type = 'SELLER') as seller_count,
+                COUNT(*) FILTER (WHERE actor_type = 'SYSTEM') as system_count,
+                COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '24 hours') as today_count
+            FROM audit_logs
+        `);
+        const summary = summaryResult.rows[0];
+
+        const countResult = await db.query(
+            `SELECT COUNT(*) FROM audit_logs al${where}`, params
+        );
+        const total = parseInt(countResult.rows[0].count);
+
+        const dataParams = [...params, pageLimit, pageOffset];
+        const q = `
+            SELECT al.*,
+                   s.full_name as actor_name, s.email as actor_email
+            FROM audit_logs al
+            LEFT JOIN sellers s ON al.actor_id::text = s.id::text
+            ${where}
+            ORDER BY al.created_at DESC
+            LIMIT $${dataParams.length - 1} OFFSET $${dataParams.length}
+        `;
+        const result = await db.query(q, dataParams);
+        res.json({ logs: result.rows, total, summary, limit: pageLimit, offset: pageOffset });
     } catch (err) {
         console.error('Admin audit logs error:', err);
         res.status(500).json({ error: err.message });
@@ -163,10 +300,37 @@ router.get('/audit-logs', async (req, res) => {
 // Contact enquiries
 router.get('/contact-enquiries', async (req, res) => {
     try {
-        const result = await db.query('SELECT * FROM contact_enquiries ORDER BY created_at DESC');
-        res.json(result.rows);
+        const { read, search, limit = 20, offset = 0 } = req.query;
+        const pageLimit = Math.min(parseInt(limit) || 20, 100);
+        const pageOffset = parseInt(offset) || 0;
+        const conditions = [];
+        const params = [];
+        if (read === 'true')  { conditions.push(`is_read = TRUE`); }
+        if (read === 'false') { conditions.push(`is_read = FALSE`); }
+        if (search) { params.push(`%${search}%`); conditions.push(`(full_name ILIKE $${params.length} OR email ILIKE $${params.length} OR message ILIKE $${params.length} OR subject ILIKE $${params.length})`); }
+        const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+        const countResult = await db.query(`SELECT COUNT(*) FROM contact_enquiries ${where}`, params);
+        const total = parseInt(countResult.rows[0].count);
+        params.push(pageLimit, pageOffset);
+        const result = await db.query(`SELECT * FROM contact_enquiries ${where} ORDER BY created_at DESC LIMIT $${params.length - 1} OFFSET $${params.length}`, params);
+        res.json({ enquiries: result.rows, total, limit: pageLimit, offset: pageOffset });
     } catch (err) {
         console.error('Admin contact enquiries error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.patch('/contact-enquiries/:id/read', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await db.query(
+            `UPDATE contact_enquiries SET is_read = TRUE WHERE id = $1 RETURNING *`,
+            [id]
+        );
+        if (result.rowCount === 0) return res.status(404).json({ error: 'Enquiry not found' });
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error('Admin enquiry update error:', err);
         res.status(500).json({ error: err.message });
     }
 });
@@ -174,17 +338,62 @@ router.get('/contact-enquiries', async (req, res) => {
 // KYC Application Review
 router.get('/kyc-applications', async (req, res) => {
     try {
-        const { status } = req.query;
-        let q = `SELECT ka.*, s.full_name as seller_name, s.email as seller_email, s.phone as seller_phone, s.kyc_tier as current_tier
-                 FROM kyc_applications ka JOIN sellers s ON ka.seller_id = s.id`;
+        const { status, search, limit = 20, offset = 0 } = req.query;
+        const pageLimit = Math.min(parseInt(limit) || 20, 100);
+        const pageOffset = parseInt(offset) || 0;
+
+        const conditions = [];
         const params = [];
+
         if (status) {
             params.push(status);
-            q += ` WHERE ka.status = $${params.length}`;
+            conditions.push(`ka.status = $${params.length}`);
         }
-        q += ' ORDER BY ka.created_at DESC LIMIT 100';
-        const result = await db.query(q, params);
-        res.json(result.rows);
+        if (search) {
+            params.push(`%${search}%`);
+            const n = params.length;
+            conditions.push(`(s.full_name ILIKE $${n} OR s.email ILIKE $${n} OR s.phone ILIKE $${n})`);
+        }
+        if (req.query.seller_id) {
+            params.push(req.query.seller_id);
+            conditions.push(`ka.seller_id = $${params.length}`);
+        }
+        const where = conditions.length ? ' WHERE ' + conditions.join(' AND ') : '';
+
+        // Summary counts (ignore search/pagination, always all statuses)
+        const summaryResult = await db.query(
+            `SELECT status, COUNT(*) as count FROM kyc_applications GROUP BY status`
+        );
+        const summary = { PENDING: 0, APPROVED: 0, REJECTED: 0 };
+        summaryResult.rows.forEach(r => { summary[r.status] = parseInt(r.count); });
+
+        const countResult = await db.query(
+            `SELECT COUNT(*) FROM kyc_applications ka JOIN sellers s ON ka.seller_id = s.id${where}`,
+            params
+        );
+        const total = parseInt(countResult.rows[0].count);
+
+        const dataParams = [...params, pageLimit, pageOffset];
+        const q = `
+            SELECT ka.*,
+                   s.full_name as seller_name, s.email as seller_email, s.phone as seller_phone,
+                   s.kyc_tier as current_tier, s.seller_score,
+                   COALESCE(t.total_orders, 0) as total_orders,
+                   COALESCE(t.total_revenue, 0) as total_revenue
+            FROM kyc_applications ka
+            JOIN sellers s ON ka.seller_id = s.id
+            LEFT JOIN (
+                SELECT seller_id, COUNT(*) as total_orders,
+                       COALESCE(SUM(seller_payout_amount) FILTER (WHERE status IN ('RELEASED','AUTO_RELEASED')), 0) as total_revenue
+                FROM transactions
+                GROUP BY seller_id
+            ) t ON t.seller_id = ka.seller_id
+            ${where}
+            ORDER BY ka.created_at ASC
+            LIMIT $${dataParams.length - 1} OFFSET $${dataParams.length}
+        `;
+        const result = await db.query(q, dataParams);
+        res.json({ applications: result.rows, total, summary, limit: pageLimit, offset: pageOffset });
     } catch (err) {
         console.error('Admin kyc applications list error:', err);
         res.status(500).json({ error: err.message });
@@ -206,6 +415,10 @@ router.patch('/kyc-applications/:id', async (req, res) => {
             return res.status(400).json({ error: 'This application has already been reviewed.' });
         }
 
+        // Fetch seller phone for SMS
+        const sellerResult = await db.query('SELECT full_name, phone FROM sellers WHERE id = $1', [application.seller_id]);
+        const sellerInfo = sellerResult.rows[0] || {};
+
         if (action === 'APPROVE') {
             await db.query(
                 "UPDATE kyc_applications SET status = 'APPROVED', reviewed_at = NOW(), reviewed_by = $1, updated_at = NOW() WHERE id = $2",
@@ -216,6 +429,12 @@ router.patch('/kyc-applications/:id', async (req, res) => {
                 [application.target_tier, 'APPROVED', application.seller_id]
             );
             await audit.log('ADMIN', req.seller.id, `KYC_APPROVE_TIER_${application.target_tier}`, 'SELLER', application.seller_id, req.ip);
+            // Notify seller via SMS
+            if (sellerInfo.phone) {
+                await notify.sms(sellerInfo.phone,
+                    `Hi ${sellerInfo.full_name || 'Seller'}, your SafeDeliver KYC application has been APPROVED. You are now Tier ${application.target_tier}. Your transaction limits have been upgraded.`
+                );
+            }
             res.json({ message: `Seller upgraded to Tier ${application.target_tier}` });
         } else {
             if (!rejection_reason) return res.status(400).json({ error: 'A rejection reason is required.' });
@@ -224,6 +443,12 @@ router.patch('/kyc-applications/:id', async (req, res) => {
                 [rejection_reason, req.seller.id, req.params.id]
             );
             await audit.log('ADMIN', req.seller.id, `KYC_REJECT_TIER_${application.target_tier}`, 'SELLER', application.seller_id, req.ip, { rejection_reason });
+            // Notify seller via SMS
+            if (sellerInfo.phone) {
+                await notify.sms(sellerInfo.phone,
+                    `Hi ${sellerInfo.full_name || 'Seller'}, your SafeDeliver KYC application for Tier ${application.target_tier} was not approved. Reason: ${rejection_reason}. Please contact support if you have questions.`
+                );
+            }
             res.json({ message: 'KYC application rejected' });
         }
     } catch (err) {
@@ -245,13 +470,35 @@ router.get('/ledger', async (req, res) => {
         if (search) { params.push(`%${search}%`); conditions.push(`order_ref ILIKE $${params.length}`); }
         const where = conditions.length ? ' WHERE ' + conditions.join(' AND ') : '';
 
-        const countResult = await db.query(`SELECT COUNT(*) FROM simulation_ledger${where}`, params);
+        const [countResult, summaryResult, dataResult] = await Promise.all([
+            db.query(`SELECT COUNT(*) FROM simulation_ledger${where}`, params),
+            db.query(`
+                SELECT
+                    COALESCE(SUM(amount_ghs) FILTER (WHERE entry_type = 'HOLD'),    0) AS total_held,
+                    COALESCE(SUM(amount_ghs) FILTER (WHERE entry_type = 'RELEASE'), 0) AS total_released,
+                    COALESCE(SUM(amount_ghs) FILTER (WHERE entry_type = 'REFUND'),  0) AS total_refunded,
+                    COALESCE(SUM(amount_ghs) FILTER (WHERE entry_type = 'FEE'),     0) AS total_fees
+                FROM simulation_ledger
+            `),
+            db.query(
+                `SELECT * FROM simulation_ledger${where} ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+                [...params, pageLimit, pageOffset]
+            ),
+        ]);
         const total = parseInt(countResult.rows[0].count);
-
-        const dataParams = [...params, pageLimit, pageOffset];
-        const q = `SELECT * FROM simulation_ledger${where} ORDER BY created_at DESC LIMIT $${dataParams.length - 1} OFFSET $${dataParams.length}`;
-        const result = await db.query(q, dataParams);
-        res.json({ entries: result.rows, total, limit: pageLimit, offset: pageOffset });
+        const s = summaryResult.rows[0];
+        res.json({
+            entries: dataResult.rows,
+            total,
+            limit: pageLimit,
+            offset: pageOffset,
+            summary: {
+                total_held: parseInt(s.total_held),
+                total_released: parseInt(s.total_released),
+                total_refunded: parseInt(s.total_refunded),
+                total_fees: parseInt(s.total_fees),
+            },
+        });
     } catch (err) {
         console.error('Admin ledger error:', err);
         res.status(500).json({ error: err.message });
@@ -272,16 +519,36 @@ router.get('/notifications', async (req, res) => {
         if (search) { params.push(`%${search}%`); conditions.push(`(recipient_id ILIKE $${params.length} OR order_ref ILIKE $${params.length})`); }
         const where = conditions.length ? ' WHERE ' + conditions.join(' AND ') : '';
 
-        const countResult = await db.query(`SELECT COUNT(*) FROM notifications${where}`, params);
+        const [countResult, summaryResult, dataResult] = await Promise.all([
+            db.query(`SELECT COUNT(*) FROM notifications${where}`, params),
+            db.query(`
+                SELECT
+                    COUNT(*) AS total,
+                    COUNT(*) FILTER (WHERE channel = 'SMS') AS total_sms,
+                    COUNT(*) FILTER (WHERE channel = 'PUSH') AS total_push,
+                    COUNT(*) FILTER (WHERE channel = 'EMAIL') AS total_email,
+                    COUNT(*) FILTER (WHERE status = 'FAILED') AS total_failed
+                FROM notifications
+            `),
+            db.query(
+                `SELECT * FROM notifications${where} ORDER BY sent_at DESC NULLS LAST LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+                [...params, pageLimit, pageOffset]
+            ),
+        ]);
         const total = parseInt(countResult.rows[0].count);
-
-        const dataParams = [...params, pageLimit, pageOffset];
-        const q = `SELECT * FROM notifications${where} ORDER BY sent_at DESC LIMIT $${dataParams.length - 1} OFFSET $${dataParams.length}`;
-        const result = await db.query(q, dataParams);
-
+        const s = summaryResult.rows[0];
         res.json({
-            notifications: result.rows.map(n => ({ ...n, phone: n.recipient_id })),
-            total, limit: pageLimit, offset: pageOffset
+            notifications: dataResult.rows.map(n => ({ ...n, phone: n.recipient_id })),
+            total,
+            limit: pageLimit,
+            offset: pageOffset,
+            summary: {
+                total: parseInt(s.total),
+                total_sms: parseInt(s.total_sms),
+                total_push: parseInt(s.total_push),
+                total_email: parseInt(s.total_email),
+                total_failed: parseInt(s.total_failed),
+            },
         });
     } catch (err) {
         console.error('Admin notifications error:', err);
@@ -289,10 +556,16 @@ router.get('/notifications', async (req, res) => {
     }
 });
 
-// System settings — read
+// System settings — read (with updater name)
 router.get('/settings', async (req, res) => {
     try {
-        const result = await db.query('SELECT * FROM system_settings ORDER BY key');
+        const result = await db.query(`
+            SELECT ss.key, ss.value, ss.description, ss.updated_at,
+                   s.full_name AS updated_by_name
+            FROM system_settings ss
+            LEFT JOIN sellers s ON ss.updated_by = s.id
+            ORDER BY ss.key
+        `);
         res.json(result.rows);
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -301,29 +574,35 @@ router.get('/settings', async (req, res) => {
 router.patch('/settings/:key', async (req, res) => {
     try {
         const { value } = req.body;
-        if (!value) return res.status(400).json({ error: 'Value required' });
+        if (value === undefined || value === null) return res.status(400).json({ error: 'Value required' });
         await db.query(
-            'UPDATE system_settings SET value = $1, updated_at = NOW(), updated_by = $2 WHERE key = $3',
-            [value, req.seller.id, req.params.key]
+            `INSERT INTO system_settings (key, value, updated_at, updated_by)
+             VALUES ($1, $2, NOW(), $3)
+             ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = NOW(), updated_by = $3`,
+            [req.params.key, String(value), req.seller.id]
         );
         await audit.log('ADMIN', req.seller.id, 'UPDATE_SETTING', 'SYSTEM', null, req.ip, { key: req.params.key, value });
+        settings.invalidate();
         res.json({ message: 'Setting updated' });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// System settings — bulk update
+// System settings — bulk upsert
 router.patch('/settings', async (req, res) => {
     try {
         const { settings } = req.body;
         if (!Array.isArray(settings) || settings.length === 0) return res.status(400).json({ error: 'Settings array required' });
         for (const s of settings) {
             await db.query(
-                'UPDATE system_settings SET value = $1, updated_at = NOW(), updated_by = $2 WHERE key = $3',
-                [s.value, req.seller.id, s.key]
+                `INSERT INTO system_settings (key, value, updated_at, updated_by)
+                 VALUES ($1, $2, NOW(), $3)
+                 ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = NOW(), updated_by = $3`,
+                [s.key, String(s.value), req.seller.id]
             );
         }
         await audit.log('ADMIN', req.seller.id, 'BULK_UPDATE_SETTINGS', 'SYSTEM', null, req.ip, { count: settings.length });
-        res.json({ message: 'All settings updated' });
+        require('../services/settings').invalidate();
+        res.json({ message: 'Settings saved' });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

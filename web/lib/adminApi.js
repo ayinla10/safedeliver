@@ -1,5 +1,10 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
 
+function clearAdminSession() {
+    localStorage.removeItem('sd-admin-token');
+    localStorage.removeItem('sd-admin-refresh');
+}
+
 async function adminRequest(endpoint, options = {}) {
     const url = `${API_URL}${endpoint}`;
     const token = typeof window !== 'undefined' ? localStorage.getItem('sd-admin-token') : null;
@@ -15,8 +20,9 @@ async function adminRequest(endpoint, options = {}) {
 
     const response = await fetch(url, { ...options, headers });
 
-    if (response.status === 401 && token) {
-        const refreshToken = localStorage.getItem('sd-admin-refresh');
+    if (response.status === 401) {
+        const refreshToken = typeof window !== 'undefined' ? localStorage.getItem('sd-admin-refresh') : null;
+
         if (refreshToken) {
             try {
                 const refreshRes = await fetch(`${API_URL}/auth/refresh`, {
@@ -24,20 +30,30 @@ async function adminRequest(endpoint, options = {}) {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ refreshToken }),
                 });
+
                 if (refreshRes.ok) {
-                    const data = await refreshRes.json();
-                    localStorage.setItem('sd-admin-token', data.accessToken);
-                    localStorage.setItem('sd-admin-refresh', data.refreshToken);
-                    headers['Authorization'] = `Bearer ${data.accessToken}`;
-                    const retry = await fetch(url, { ...options, headers });
+                    const refreshData = await refreshRes.json();
+                    localStorage.setItem('sd-admin-token', refreshData.accessToken);
+                    localStorage.setItem('sd-admin-refresh', refreshData.refreshToken);
+
+                    // Retry the original request with the new token
+                    const retryHeaders = { ...headers, Authorization: `Bearer ${refreshData.accessToken}` };
+                    const retry = await fetch(url, { ...options, headers: retryHeaders });
                     const retryData = await retry.json();
                     if (!retry.ok) throw new Error(retryData.error || 'Request failed');
                     return retryData;
+                } else {
+                    // Refresh token expired — clear and fall through to show login
+                    clearAdminSession();
+                    return;
                 }
-            } catch {
-                localStorage.removeItem('sd-admin-token');
-                localStorage.removeItem('sd-admin-refresh');
+            } catch (err) {
+                clearAdminSession();
+                return;
             }
+        } else {
+            clearAdminSession();
+            return;
         }
     }
 
@@ -47,8 +63,8 @@ async function adminRequest(endpoint, options = {}) {
 }
 
 export const adminApi = {
-    get: (endpoint) => adminRequest(endpoint),
-    post: (endpoint, body) => adminRequest(endpoint, { method: 'POST', body: JSON.stringify(body) }),
-    patch: (endpoint, body) => adminRequest(endpoint, { method: 'PATCH', body: JSON.stringify(body) }),
-    delete: (endpoint) => adminRequest(endpoint, { method: 'DELETE' }),
+    get:    (endpoint)       => adminRequest(endpoint),
+    post:   (endpoint, body) => adminRequest(endpoint, { method: 'POST',  body: JSON.stringify(body) }),
+    patch:  (endpoint, body) => adminRequest(endpoint, { method: 'PATCH', body: JSON.stringify(body) }),
+    delete: (endpoint)       => adminRequest(endpoint, { method: 'DELETE' }),
 };

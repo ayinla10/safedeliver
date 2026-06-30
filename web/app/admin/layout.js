@@ -19,12 +19,46 @@ export default function AdminLayout({ children }) {
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
     useEffect(() => {
-        const token = localStorage.getItem('sd-admin-token');
-        if (token) setAdminToken(token);
-        setChecking(false);
         const t = localStorage.getItem('sd-theme') || 'light';
         setTheme(t);
         document.documentElement.setAttribute('data-theme', t);
+
+        const token = localStorage.getItem('sd-admin-token');
+        if (!token) { setChecking(false); return; }
+
+        // Validate the token is still valid against the backend
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
+        fetch(`${API_URL}/admin/settings`, {
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        }).then(async res => {
+            if (res.ok) {
+                setAdminToken(token);
+            } else if (res.status === 401) {
+                // Try refresh token
+                const refresh = localStorage.getItem('sd-admin-refresh');
+                if (refresh) {
+                    const rRes = await fetch(`${API_URL}/auth/refresh`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ refreshToken: refresh }),
+                    });
+                    if (rRes.ok) {
+                        const rData = await rRes.json();
+                        localStorage.setItem('sd-admin-token', rData.accessToken);
+                        localStorage.setItem('sd-admin-refresh', rData.refreshToken);
+                        setAdminToken(rData.accessToken);
+                    } else {
+                        localStorage.removeItem('sd-admin-token');
+                        localStorage.removeItem('sd-admin-refresh');
+                    }
+                } else {
+                    localStorage.removeItem('sd-admin-token');
+                }
+            }
+        }).catch(() => {
+            // Network error — allow cached token to work offline-ish; don't block
+            setAdminToken(token);
+        }).finally(() => setChecking(false));
     }, []);
 
     useEffect(() => { setSidebarOpen(false); }, [pathname]);

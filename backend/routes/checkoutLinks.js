@@ -4,7 +4,8 @@ const { v4: uuid } = require('uuid');
 const db = require('../db');
 const { authenticateSeller } = require('../middleware/auth');
 
-const FEE_PERCENT = parseFloat(process.env.PLATFORM_FEE_PERCENT || '5');
+const appSettings = require('../services/settings');
+const ENV_FEE_FALLBACK = parseFloat(process.env.PLATFORM_FEE_PERCENT || '5');
 
 function genCode() { return Math.random().toString(36).substring(2, 8).toUpperCase(); }
 
@@ -33,7 +34,8 @@ router.post('/', authenticateSeller, async (req, res) => {
              VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
             [id, req.seller.id, linkCode, product_name, description || null, price, finalImageUrl, finalImages]
         );
-        res.status(201).json({ id, link_code: linkCode, product_name, price, fee_percent: FEE_PERCENT });
+        const feePercent = await appSettings.getFloat('FEE_ESCROW_PERCENT', ENV_FEE_FALLBACK);
+        res.status(201).json({ id, link_code: linkCode, product_name, price, fee_percent: feePercent });
     } catch (err) {
         console.error('Create link error:', err);
         res.status(500).json({ error: 'Failed to create link' });
@@ -50,7 +52,7 @@ router.get('/:code', async (req, res, next) => {
         );
         if (result.rows.length === 0) return res.status(404).json({ error: 'Link not found' });
         const link = result.rows[0];
-        link.fee_percent = FEE_PERCENT;
+        link.fee_percent = await appSettings.getFloat('FEE_ESCROW_PERCENT', ENV_FEE_FALLBACK);
         res.json(link);
     } catch (err) { next(err); }
 });

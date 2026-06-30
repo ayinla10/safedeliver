@@ -2,6 +2,9 @@
 import { useState, useEffect } from 'react';
 import { Download, X, ShieldCheck } from 'lucide-react';
 
+const DISMISS_KEY = 'pwa-dismissed-at';
+const DISMISS_DAYS = 30; // Don't show again for 30 days after dismissal
+
 export default function PWAInstall() {
     const [installPrompt, setInstallPrompt] = useState(null);
     const [showPopup, setShowPopup] = useState(false);
@@ -10,28 +13,33 @@ export default function PWAInstall() {
     useEffect(() => {
         // Register service worker
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js').catch(err => {
-                console.warn('SW registration failed:', err);
-            });
+            navigator.serviceWorker.register('/sw.js').catch(() => {});
         }
 
-        // Capture the install prompt
+        // Already installed as PWA — never show
+        if (window.matchMedia('(display-mode: standalone)').matches) {
+            setInstalled(true);
+            return;
+        }
+
+        // Check if user dismissed recently
+        const dismissedAt = localStorage.getItem(DISMISS_KEY);
+        if (dismissedAt) {
+            const daysSince = (Date.now() - parseInt(dismissedAt, 10)) / (1000 * 60 * 60 * 24);
+            if (daysSince < DISMISS_DAYS) return; // Still within cooldown — don't show
+        }
+
         const handler = (e) => {
             e.preventDefault();
             setInstallPrompt(e);
-            // Show popup after 3 seconds so user can see the page first
-            setTimeout(() => setShowPopup(true), 3000);
+            setTimeout(() => setShowPopup(true), 4000);
         };
         window.addEventListener('beforeinstallprompt', handler);
-
         window.addEventListener('appinstalled', () => {
             setShowPopup(false);
             setInstalled(true);
+            localStorage.removeItem(DISMISS_KEY);
         });
-
-        if (window.matchMedia('(display-mode: standalone)').matches) {
-            setInstalled(true);
-        }
 
         return () => window.removeEventListener('beforeinstallprompt', handler);
     }, []);
@@ -49,31 +57,26 @@ export default function PWAInstall() {
 
     function handleDismiss() {
         setShowPopup(false);
-        // Don't show again for this session
+        localStorage.setItem(DISMISS_KEY, String(Date.now()));
     }
 
     if (!showPopup || installed) return null;
 
     return (
         <>
-            {/* Backdrop */}
             <div
                 onClick={handleDismiss}
                 style={{
-                    position: 'fixed',
-                    inset: 0,
+                    position: 'fixed', inset: 0,
                     background: 'rgba(0,0,0,0.6)',
                     zIndex: 9998,
                     backdropFilter: 'blur(4px)',
                 }}
             />
 
-            {/* Popup */}
             <div style={{
                 position: 'fixed',
-                bottom: 0,
-                left: 0,
-                right: 0,
+                bottom: 0, left: 0, right: 0,
                 zIndex: 9999,
                 background: '#1a1a2e',
                 borderRadius: '24px 24px 0 0',
@@ -81,38 +84,24 @@ export default function PWAInstall() {
                 boxShadow: '0 -8px 40px rgba(0,0,0,0.4)',
                 animation: 'slideUp 0.3s ease',
             }}>
-                {/* Close button */}
                 <button
                     onClick={handleDismiss}
                     style={{
-                        position: 'absolute',
-                        top: '1rem',
-                        right: '1rem',
-                        background: 'rgba(255,255,255,0.1)',
-                        border: 'none',
-                        borderRadius: '50%',
-                        width: 32,
-                        height: 32,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        cursor: 'pointer',
-                        color: '#fff',
+                        position: 'absolute', top: '1rem', right: '1rem',
+                        background: 'rgba(255,255,255,0.1)', border: 'none',
+                        borderRadius: '50%', width: 32, height: 32,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        cursor: 'pointer', color: '#fff',
                     }}
                 >
                     <X size={16} />
                 </button>
 
-                {/* Header */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
                     <div style={{
-                        width: 56,
-                        height: 56,
-                        borderRadius: 14,
+                        width: 56, height: 56, borderRadius: 14,
                         background: '#FF6B00',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}>
                         <ShieldCheck size={28} color="#fff" />
                     </div>
@@ -129,24 +118,15 @@ export default function PWAInstall() {
                     Add SafeDeliver to your home screen for quick access and instant notifications.
                 </p>
 
-                {/* Buttons */}
                 <button
                     onClick={handleInstall}
                     style={{
-                        width: '100%',
-                        padding: '1rem',
-                        background: '#FF6B00',
-                        color: '#fff',
-                        border: 'none',
-                        borderRadius: 12,
-                        fontWeight: 700,
-                        fontSize: '1rem',
-                        cursor: 'pointer',
+                        width: '100%', padding: '1rem',
+                        background: '#FF6B00', color: '#fff',
+                        border: 'none', borderRadius: 12,
+                        fontWeight: 700, fontSize: '1rem', cursor: 'pointer',
                         marginBottom: '0.75rem',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '0.5rem',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
                     }}
                 >
                     <Download size={18} /> Install Now
@@ -154,15 +134,10 @@ export default function PWAInstall() {
                 <button
                     onClick={handleDismiss}
                     style={{
-                        width: '100%',
-                        padding: '0.875rem',
-                        background: 'transparent',
-                        color: 'rgba(255,255,255,0.4)',
-                        border: 'none',
-                        borderRadius: 12,
-                        fontWeight: 600,
-                        fontSize: '0.875rem',
-                        cursor: 'pointer',
+                        width: '100%', padding: '0.875rem',
+                        background: 'transparent', color: 'rgba(255,255,255,0.4)',
+                        border: 'none', borderRadius: 12,
+                        fontWeight: 600, fontSize: '0.875rem', cursor: 'pointer',
                     }}
                 >
                     Not now

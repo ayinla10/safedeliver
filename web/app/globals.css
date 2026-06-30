@@ -275,9 +275,12 @@ h3 {
 @media (max-width: 768px) {
 
   .grid-2,
-  .grid-3,
-  .grid-4 {
+  .grid-3 {
     grid-template-columns: 1fr;
+  }
+
+  .grid-4 {
+    grid-template-columns: 1fr 1fr;
   }
 
   .section {
@@ -2136,5 +2139,29 @@ h3 {
   /* Add bottom padding to dashboard main for bottom nav clearance */
   .dashboard-main {
     padding-bottom: 5rem;
+  }
+}
+
+/* ── Seller Dashboard Responsive Grids ────────────── */
+@media (max-width: 768px) {
+  .seller-hero-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  /* Hero card full width on mobile */
+  .seller-hero-grid > div:first-child {
+    grid-column: 1 / -1 !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .seller-hero-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Desktop: seller page content always fills the main area */
+@media (min-width: 769px) {
+  .dashboard-main > .animate-in {
+    width: 100%;
   }
 }

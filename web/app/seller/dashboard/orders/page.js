@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { Package } from 'lucide-react';
 import { api } from '@/lib/api';
 
 const STATUS_STYLES = {
@@ -70,7 +71,7 @@ export default function OrdersPage() {
                 <div className="flex-center" style={{ padding: '4rem' }}><div className="spinner" /></div>
             ) : orders.length === 0 ? (
                 <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
-                    <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>📦</div>
+                    <Package size={40} style={{ opacity: 0.25, marginBottom: '0.75rem' }} />
                     <p className="text-sm">No orders found</p>
                 </div>
             ) : (

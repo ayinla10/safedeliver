@@ -63,6 +63,7 @@ function NotificationRow({ n }) {
 export default function AdminNotifications() {
     const [notifications, setNotifications] = useState([]);
     const [total, setTotal] = useState(0);
+    const [globalSummary, setGlobalSummary] = useState(null);
     const [loading, setLoading] = useState(true);
     const [channel, setChannel] = useState('');
     const [status, setStatus] = useState('');
@@ -83,6 +84,7 @@ export default function AdminNotifications() {
             const rows = data.notifications || data;
             setNotifications(Array.isArray(rows) ? rows : []);
             setTotal(typeof data.total === 'number' ? data.total : (Array.isArray(rows) ? rows.length : 0));
+            if (data.summary) setGlobalSummary(data.summary);
             setLoading(false);
         }).catch(() => setLoading(false));
     }, [channel, status, search, page]);
@@ -92,13 +94,13 @@ export default function AdminNotifications() {
     function submitSearch(e) { e.preventDefault(); setSearch(searchInput); setPage(1); }
     function clearSearch() { setSearchInput(''); setSearch(''); setPage(1); }
 
-    // Summary from current page
+    // Use backend global summary if available, else fall back to current page
     const summary = useMemo(() => ({
-        total,
-        sms:       notifications.filter(n => n.channel === 'SMS').length,
-        push:      notifications.filter(n => n.channel === 'PUSH').length,
-        failed:    notifications.filter(n => n.status === 'FAILED').length,
-    }), [notifications, total]);
+        total:  globalSummary ? globalSummary.total       : total,
+        sms:    globalSummary ? globalSummary.total_sms   : notifications.filter(n => n.channel === 'SMS').length,
+        push:   globalSummary ? globalSummary.total_push  : notifications.filter(n => n.channel === 'PUSH').length,
+        failed: globalSummary ? globalSummary.total_failed: notifications.filter(n => n.status === 'FAILED').length,
+    }), [notifications, total, globalSummary]);
 
     return (
         <div className="animate-in">

@@ -10,7 +10,9 @@ const notify = require('../services/notify');
 const audit = require('../services/audit');
 const webpush = require('../services/webpush');
 
-const FEE_PERCENT = parseFloat(process.env.PLATFORM_FEE_PERCENT || '5');
+const appSettings = require('../services/settings');
+// FEE_PERCENT is now loaded per-request from system_settings (falls back to env or 5%)
+const ENV_FEE_FALLBACK = parseFloat(process.env.PLATFORM_FEE_PERCENT || '5');
 
 
 
@@ -46,7 +48,7 @@ router.get('/pay/:linkCode', async (req, res) => {
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'Checkout link not found or inactive' });
     const link = result.rows[0];
-    link.fee_percent = FEE_PERCENT;
+    link.fee_percent = await appSettings.getFloat('FEE_ESCROW_PERCENT', ENV_FEE_FALLBACK);
     res.json(link);
 });
 
@@ -126,9 +128,11 @@ router.patch('/:id/quote', authenticateSeller, async (req, res) => {
 
         const deliveryFeeInt = Math.round(parseFloat(delivery_fee) * 100);
         const totalAmount = tx.total_amount + deliveryFeeInt; // product price + delivery
-        
-        // 5% of product price, max 50 GHS (5000 pesewas)
-        let platformFee = Math.round(tx.total_amount * 0.05);
+
+        // Fee % from system_settings (admin-configurable), falls back to env or 5%
+        const feePercent = await appSettings.getFloat('FEE_ESCROW_PERCENT', ENV_FEE_FALLBACK);
+        let platformFee = Math.round(tx.total_amount * (feePercent / 100));
+        // Cap at 50 GHS (5000 pesewas)
         if (platformFee > 5000) platformFee = 5000;
         
         const sellerPayout = totalAmount - platformFee;

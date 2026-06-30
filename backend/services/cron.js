@@ -2,14 +2,16 @@ const cron = require('node-cron');
 const db = require('../db');
 const escrow = require('./escrow');
 const notify = require('./notify');
+const appSettings = require('./settings');
 
 function startAutoReleaseCron() {
     // Run every 15 minutes
     cron.schedule('*/15 * * * *', async () => {
         try {
-            // 1. Auto-release: shipped orders older than 5 days
+            // 1. Auto-release: shipped orders older than ESCROW_AUTO_RELEASE_DAYS (default 5)
+            const autoReleaseDays = await appSettings.getInt('ESCROW_AUTO_RELEASE_DAYS', 5);
             const shipped = await db.query(
-                `SELECT id, order_ref FROM transactions WHERE status = 'SHIPPED' AND shipped_at < NOW() - INTERVAL '5 days'`
+                `SELECT id, order_ref FROM transactions WHERE status = 'SHIPPED' AND shipped_at < NOW() - INTERVAL '${autoReleaseDays} days'`
             );
             for (const tx of shipped.rows) {
                 try {

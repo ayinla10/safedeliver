@@ -22,7 +22,16 @@ export default function DashboardLayout({ children }) {
         const token = localStorage.getItem('sd-token');
         const s = localStorage.getItem('sd-seller');
         if (!token) { router.push('/seller/login'); return; }
-        if (s) setSeller(JSON.parse(s));
+        const sellerData = s ? JSON.parse(s) : null;
+        // Admin accounts must not access seller dashboard
+        if (sellerData?.is_admin) {
+            localStorage.removeItem('sd-token');
+            localStorage.removeItem('sd-refresh-token');
+            localStorage.removeItem('sd-seller');
+            router.push('/seller/login');
+            return;
+        }
+        if (sellerData) setSeller(sellerData);
         const t = localStorage.getItem('sd-theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
         setTheme(t);
         document.documentElement.setAttribute('data-theme', t);

@@ -112,6 +112,7 @@ function DetailDrawer({ tx, onClose }) {
 export default function AdminTransactions() {
     const [transactions, setTransactions] = useState([]);
     const [total, setTotal] = useState(0);
+    const [globalSummary, setGlobalSummary] = useState(null);
     const [filter, setFilter] = useState('');
     const [search, setSearch] = useState('');
     const [loading, setLoading] = useState(true);
@@ -130,9 +131,8 @@ export default function AdminTransactions() {
         adminApi.get(`/admin/transactions?${params}`).then(data => {
             const txs = data.transactions || [];
             setTransactions(txs);
-            // If backend returns total use it, otherwise fall back to length
-            // (old backend without pagination support)
             setTotal(typeof data.total === 'number' ? data.total : txs.length);
+            if (data.summary) setGlobalSummary(data.summary);
             setLoading(false);
         }).catch(() => setLoading(false));
     }, [filter, page]);
@@ -166,13 +166,13 @@ export default function AdminTransactions() {
         return list;
     }, [transactions, search, sortKey, sortDir]);
 
-    // Summary stats for current page view
+    // Use backend global summary if available, else fall back to page totals
     const summary = useMemo(() => ({
         count: total,
-        volume: filtered.reduce((s, t) => s + (t.total_amount || 0), 0),
-        fees: filtered.reduce((s, t) => s + (t.platform_fee || 0), 0),
-        disputes: filtered.filter(t => t.status === 'DISPUTED').length,
-    }), [filtered, total]);
+        volume: globalSummary ? globalSummary.total_volume : filtered.reduce((s, t) => s + (t.total_amount || 0), 0),
+        fees:   globalSummary ? globalSummary.total_fees    : filtered.reduce((s, t) => s + (t.platform_fee || 0), 0),
+        disputes: globalSummary ? globalSummary.total_disputes : filtered.filter(t => t.status === 'DISPUTED').length,
+    }), [filtered, total, globalSummary]);
 
     function toggleSort(key) {
         if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');

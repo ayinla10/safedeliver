@@ -77,8 +77,9 @@ function SellerDetail({ seller, onBack, onAction }) {
     const [rejectReason, setRejectReason] = useState('');
 
     useEffect(() => {
-        adminApi.get(`/admin/kyc-applications`).then(apps => {
-            setKycApps(apps.filter(a => a.seller_id === seller.id));
+        adminApi.get(`/admin/kyc-applications?seller_id=${seller.id}`).then(data => {
+            const apps = data.applications || (Array.isArray(data) ? data : []);
+            setKycApps(apps);
         }).catch(() => {});
         adminApi.get(`/admin/sellers/${seller.id}/stats`).then(setStats).catch(() => {});
     }, [seller.id]);
@@ -101,8 +102,8 @@ function SellerDetail({ seller, onBack, onAction }) {
         try {
             await adminApi.patch(`/admin/kyc-applications/${id}`, { action: 'APPROVE' });
             setMsg({ type: 'success', text: 'Application approved. Seller tier upgraded.' });
-            const apps = await adminApi.get('/admin/kyc-applications');
-            setKycApps(apps.filter(a => a.seller_id === seller.id));
+            const data = await adminApi.get(`/admin/kyc-applications?seller_id=${seller.id}`);
+            setKycApps(data.applications || (Array.isArray(data) ? data : []));
         } catch (err) { setMsg({ type: 'error', text: err.message }); }
         finally { setActionLoading(false); }
     }
@@ -114,8 +115,8 @@ function SellerDetail({ seller, onBack, onAction }) {
             await adminApi.patch(`/admin/kyc-applications/${id}`, { action: 'REJECT', rejection_reason: rejectReason });
             setMsg({ type: 'success', text: 'Application rejected.' });
             setRejectModal(null); setRejectReason('');
-            const apps = await adminApi.get('/admin/kyc-applications');
-            setKycApps(apps.filter(a => a.seller_id === seller.id));
+            const data = await adminApi.get(`/admin/kyc-applications?seller_id=${seller.id}`);
+            setKycApps(data.applications || (Array.isArray(data) ? data : []));
         } catch (err) { setMsg({ type: 'error', text: err.message }); }
         finally { setActionLoading(false); }
     }

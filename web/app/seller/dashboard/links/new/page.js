@@ -91,7 +91,7 @@ function InnerNewLinkPage() {
     if (loadingEdit) return <div className="flex-center" style={{ padding: '4rem' }}><div className="spinner" /></div>;
 
     return (
-        <div className="animate-in" style={{ maxWidth: 520 }}>
+        <div className="animate-in" style={{ maxWidth: 640 }}>
             <h1 style={{ fontSize: '1.5rem', marginBottom: '1.5rem' }}>{editCode ? 'Edit Checkout Link' : 'Create Checkout Link'}</h1>
             {error && <div className="alert alert-danger" style={{ background: '#FFF1F0', border: '1px solid #FFA39E', color: '#CF1322', padding: '12px', borderRadius: '8px', marginBottom: '1.5rem' }}>{error}</div>}
             <div className="card">
@@ -120,7 +120,7 @@ function InnerNewLinkPage() {
                             onChange={e => {
                                 const files = e.target.files;
                                 if (files.length > 6) {
-                                    alert('Maximum 6 images allowed.');
+                                    setError('Maximum 6 images allowed.');
                                     e.target.value = '';
                                     return;
                                 }

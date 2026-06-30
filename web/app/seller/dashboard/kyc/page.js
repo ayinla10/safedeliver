@@ -92,7 +92,7 @@ export default function KYCPage() {
     const features = limits[`TIER_${tier}_FEATURES`] ? limits[`TIER_${tier}_FEATURES`].split(',').map(f => f.trim().replace(/_/g, ' ')) : [];
 
     return (
-        <div className="animate-in" style={{ maxWidth: 480, margin: '0 auto', paddingBottom: '6rem' }}>
+        <div className="animate-in">
 
             {msg && (
                 <div className={`alert ${msg.type === 'success' ? 'alert-success' : 'alert-danger'}`} style={{ marginBottom: '1.25rem' }}>

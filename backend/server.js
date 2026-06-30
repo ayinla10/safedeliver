@@ -7,6 +7,7 @@ const path = require('path');
 const db = require('./db');
 const { generalLimiter } = require('./middleware/rateLimit');
 const { startAutoReleaseCron } = require('./services/cron');
+const settingsService = require('./services/settings');
 
 const app = express();
 const fs = require('fs');
@@ -53,9 +54,32 @@ app.use(generalLimiter);
 // Serve uploads folder as static files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Health check
+// Health check (always available, even in maintenance)
 app.get('/api/v1/health', (req, res) => {
     res.json({ status: 'ok', version: '2.0.0', timestamp: new Date().toISOString() });
+});
+
+// Maintenance mode middleware — blocks all non-admin, non-health routes
+const appSettings = require('./services/settings');
+app.use(async (req, res, next) => {
+    // Always allow: health check, admin routes, admin auth
+    const isAdminRoute = req.path.startsWith('/api/v1/admin');
+    const isAuthRoute = req.path.startsWith('/api/v1/auth');
+    const isHealth = req.path === '/api/v1/health';
+    if (isAdminRoute || isHealth) return next();
+
+    try {
+        const maintenance = await appSettings.getBool('MAINTENANCE_MODE', false);
+        if (maintenance) {
+            const message = await appSettings.getSetting('MAINTENANCE_MESSAGE',
+                'SafeDeliver is currently undergoing maintenance. Please check back soon.');
+            return res.status(503).json({ error: 'maintenance', message });
+        }
+    } catch (err) {
+        // If settings DB is down, don't block traffic
+        console.warn('[Maintenance] Could not read setting:', err.message);
+    }
+    next();
 });
 
 // File upload via Supabase Storage
@@ -268,6 +292,8 @@ app.get('/api/v1/seller/stats', require('./middleware/auth').authenticateSeller,
       SELECT
         COUNT(*) FILTER (WHERE status NOT IN ('REQUESTED','CANCELLED')) as total_orders,
         COUNT(*) FILTER (WHERE status IN ('PAID', 'SHIPPED')) as active_orders,
+        COUNT(*) FILTER (WHERE status IN ('RELEASED', 'AUTO_RELEASED')) as completed_orders,
+        COUNT(*) FILTER (WHERE status = 'DISPUTED') as disputed_orders,
         COUNT(*) FILTER (WHERE status = 'REQUESTED') as pending_quotes,
         COUNT(*) FILTER (WHERE status = 'PAID') as pending_shipments,
         COALESCE(SUM(seller_payout_amount) FILTER (WHERE status IN ('RELEASED', 'AUTO_RELEASED')), 0) as total_revenue,
@@ -297,10 +323,13 @@ app.use((err, req, res, next) => {
 
 // Start server
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
     console.log(`\n🚀 SafeDeliver API v2.0 running on port ${PORT}`);
     console.log(`   Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`   Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:3000'}\n`);
+    // Pre-warm settings cache so first requests don't cold-load from DB
+    try { await settingsService.loadAll(); console.log('⚙️  System settings cache loaded'); }
+    catch (e) { console.warn('⚠️  Could not pre-load settings cache:', e.message); }
     startAutoReleaseCron();
 });
 

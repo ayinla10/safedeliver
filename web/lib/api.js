@@ -1,5 +1,17 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
 
+function clearSellerSession() {
+    localStorage.removeItem('sd-token');
+    localStorage.removeItem('sd-refresh-token');
+    localStorage.removeItem('sd-seller');
+}
+
+function redirectToLogin() {
+    if (typeof window !== 'undefined') {
+        window.location.href = '/seller/login';
+    }
+}
+
 async function request(endpoint, options = {}) {
     const url = `${API_URL}${endpoint}`;
     const token = typeof window !== 'undefined' ? localStorage.getItem('sd-token') : null;
@@ -13,14 +25,11 @@ async function request(endpoint, options = {}) {
         headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const response = await fetch(url, {
-        ...options,
-        headers,
-    });
+    const response = await fetch(url, { ...options, headers });
 
-    if (response.status === 401 && token) {
-        // Try refreshing
-        const refreshToken = localStorage.getItem('sd-refresh-token');
+    if (response.status === 401) {
+        const refreshToken = typeof window !== 'undefined' ? localStorage.getItem('sd-refresh-token') : null;
+
         if (refreshToken) {
             try {
                 const refreshRes = await fetch(`${API_URL}/auth/refresh`, {
@@ -30,24 +39,33 @@ async function request(endpoint, options = {}) {
                 });
 
                 if (refreshRes.ok) {
-                    const data = await refreshRes.json();
-                    localStorage.setItem('sd-token', data.accessToken);
-                    localStorage.setItem('sd-refresh-token', data.refreshToken);
+                    const refreshData = await refreshRes.json();
+                    localStorage.setItem('sd-token', refreshData.accessToken);
+                    localStorage.setItem('sd-refresh-token', refreshData.refreshToken);
 
-                    headers['Authorization'] = `Bearer ${data.accessToken}`;
-                    const retry = await fetch(url, { ...options, headers });
+                    // Retry the original request with the new token
+                    const retryHeaders = { ...headers, Authorization: `Bearer ${refreshData.accessToken}` };
+                    const retry = await fetch(url, { ...options, headers: retryHeaders });
                     const retryData = await retry.json();
                     if (!retry.ok) throw new Error(retryData.error || 'Request failed');
                     return retryData;
+                } else {
+                    // Refresh token itself is expired — session is fully dead
+                    clearSellerSession();
+                    redirectToLogin();
+                    return; // Stop execution
                 }
-            } catch (e) {
-                localStorage.removeItem('sd-token');
-                localStorage.removeItem('sd-refresh-token');
-                localStorage.removeItem('sd-seller');
-                if (typeof window !== 'undefined') {
-                    window.location.href = '/seller/login';
-                }
+            } catch (err) {
+                // Network error or retry threw — clear session and redirect
+                clearSellerSession();
+                redirectToLogin();
+                return;
             }
+        } else {
+            // No refresh token at all — clear and redirect
+            clearSellerSession();
+            redirectToLogin();
+            return;
         }
     }
 
@@ -57,8 +75,8 @@ async function request(endpoint, options = {}) {
 }
 
 export const api = {
-    get: (endpoint) => request(endpoint),
-    post: (endpoint, body) => request(endpoint, { method: 'POST', body: JSON.stringify(body) }),
-    patch: (endpoint, body) => request(endpoint, { method: 'PATCH', body: JSON.stringify(body) }),
-    delete: (endpoint) => request(endpoint, { method: 'DELETE' }),
+    get:    (endpoint)       => request(endpoint),
+    post:   (endpoint, body) => request(endpoint, { method: 'POST',  body: JSON.stringify(body) }),
+    patch:  (endpoint, body) => request(endpoint, { method: 'PATCH', body: JSON.stringify(body) }),
+    delete: (endpoint)       => request(endpoint, { method: 'DELETE' }),
 };

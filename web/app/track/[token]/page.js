@@ -269,10 +269,10 @@ export default function TrackingPage() {
                                         fontSize: '1.25rem', fontWeight: 800,
                                         color: order.seller_score >= 80 ? 'var(--success)' : order.seller_score >= 50 ? 'var(--warning)' : 'var(--danger)'
                                     }}>
-                                        {order.seller_score}/100
+                                        {(order.seller_score / 10).toFixed(1)}/10
                                     </div>
                                     <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                                        {order.seller_score >= 80 ? '✅ Trusted' : order.seller_score >= 50 ? '⚠️ Average' : '🔴 Low'}
+                                        {order.seller_score >= 80 ? 'Trusted' : order.seller_score >= 50 ? 'Average' : 'Low'}
                                     </div>
                                 </div>
                             </div>

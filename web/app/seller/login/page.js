@@ -16,6 +16,9 @@ export default function LoginPage() {
         setLoading(true); setError(null);
         try {
             const data = await api.post('/auth/login', form);
+            if (data.seller?.is_admin) {
+                throw new Error('Admin accounts must sign in via the Admin Panel.');
+            }
             localStorage.setItem('sd-token', data.accessToken);
             localStorage.setItem('sd-refresh-token', data.refreshToken);
             localStorage.setItem('sd-seller', JSON.stringify(data.seller));

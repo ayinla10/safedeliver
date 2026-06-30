@@ -34,7 +34,7 @@ export default function LinksPage() {
     if (loading) return <div className="flex-center" style={{ padding: '4rem' }}><div className="spinner" /></div>;
 
     return (
-        <div className="animate-in" style={{ paddingBottom: '6rem', maxWidth: 480, margin: '0 auto' }}>
+        <div className="animate-in">
 
             {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>

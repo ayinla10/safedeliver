@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { adminApi } from '@/lib/adminApi';
-import { Search, Download, X, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Lock, CheckCircle2, Undo2, Banknote } from 'lucide-react';
+import { Search, Download, X, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Lock, CheckCircle2, Undo2, Banknote, ChevronUp, ChevronDown } from 'lucide-react';
 
 const PAGE_SIZE = 25;
 
@@ -26,6 +26,7 @@ function EntryBadge({ type }) {
 export default function AdminLedger() {
     const [entries, setEntries] = useState([]);
     const [total, setTotal] = useState(0);
+    const [globalSummary, setGlobalSummary] = useState(null);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('');
     const [search, setSearch] = useState('');
@@ -43,9 +44,10 @@ export default function AdminLedger() {
         if (filter) params.set('type', filter);
         if (search) params.set('search', search);
         adminApi.get(`/admin/ledger?${params}`).then(data => {
-            const rows = data.entries || data; // fallback if old backend
+            const rows = data.entries || data;
             setEntries(Array.isArray(rows) ? rows : []);
             setTotal(typeof data.total === 'number' ? data.total : (Array.isArray(rows) ? rows.length : 0));
+            if (data.summary) setGlobalSummary(data.summary);
             setLoading(false);
         }).catch(() => setLoading(false));
     }, [filter, search, page]);
@@ -73,18 +75,25 @@ export default function AdminLedger() {
     }
 
     function SortIcon({ col }) {
-        if (sortKey !== col) return <span style={{ opacity: 0.3, fontSize: '0.7rem' }}>↕</span>;
-        return <span style={{ fontSize: '0.7rem', color: 'var(--brand)' }}>{sortDir === 'asc' ? '↑' : '↓'}</span>;
+        if (sortKey !== col) return <ChevronDown size={12} style={{ opacity: 0.3 }} />;
+        return sortDir === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />;
     }
 
-    // Summary for current page
+    // Use backend global summary if available, else fall back to page totals
     const summary = useMemo(() => {
-        const holds    = entries.filter(e => e.entry_type === 'HOLD').reduce((s, e) => s + (e.amount_ghs || 0), 0);
-        const releases = entries.filter(e => e.entry_type === 'RELEASE').reduce((s, e) => s + (e.amount_ghs || 0), 0);
-        const refunds  = entries.filter(e => e.entry_type === 'REFUND').reduce((s, e) => s + (e.amount_ghs || 0), 0);
-        const fees     = entries.filter(e => e.entry_type === 'FEE').reduce((s, e) => s + (e.amount_ghs || 0), 0);
-        return { holds, releases, refunds, fees };
-    }, [entries]);
+        if (globalSummary) return {
+            holds:    globalSummary.total_held,
+            releases: globalSummary.total_released,
+            refunds:  globalSummary.total_refunded,
+            fees:     globalSummary.total_fees,
+        };
+        return {
+            holds:    entries.filter(e => e.entry_type === 'HOLD').reduce((s, e) => s + (e.amount_ghs || 0), 0),
+            releases: entries.filter(e => e.entry_type === 'RELEASE').reduce((s, e) => s + (e.amount_ghs || 0), 0),
+            refunds:  entries.filter(e => e.entry_type === 'REFUND').reduce((s, e) => s + (e.amount_ghs || 0), 0),
+            fees:     entries.filter(e => e.entry_type === 'FEE').reduce((s, e) => s + (e.amount_ghs || 0), 0),
+        };
+    }, [entries, globalSummary]);
 
     function exportCSV() {
         const headers = ['Type', 'Order Ref', 'Amount (GHS)', 'Reference', 'Note', 'Date'];
