@@ -285,6 +285,44 @@ app.patch('/api/v1/seller/location', require('./middleware/auth').authenticateSe
     }
 });
 
+// Seller notifications
+app.get('/api/v1/seller/notifications', require('./middleware/auth').authenticateSeller, async (req, res) => {
+    try {
+        const limit  = Math.min(parseInt(req.query.limit)  || 30, 100);
+        const offset = parseInt(req.query.offset) || 0;
+
+        // Notifications are stored with recipient_id = phone (SMS/EMAIL) or seller UUID (PUSH)
+        const seller = await db.query('SELECT phone, email FROM sellers WHERE id = $1', [req.seller.id]);
+        const { phone, email } = seller.rows[0] || {};
+        const ids = [req.seller.id, phone, email].filter(Boolean);
+
+        const [countRes, dataRes] = await Promise.all([
+            db.query(
+                `SELECT COUNT(*) FROM notifications WHERE recipient_id = ANY($1::text[])`,
+                [ids]
+            ),
+            db.query(
+                `SELECT id, channel, message, order_ref, transaction_id, status, sent_at
+                 FROM notifications
+                 WHERE recipient_id = ANY($1::text[])
+                 ORDER BY sent_at DESC
+                 LIMIT $2 OFFSET $3`,
+                [ids, limit, offset]
+            ),
+        ]);
+
+        res.json({
+            notifications: dataRes.rows,
+            total: parseInt(countRes.rows[0].count),
+            limit,
+            offset,
+        });
+    } catch (err) {
+        console.error('Seller notifications error:', err);
+        res.status(500).json({ error: 'Failed to fetch notifications' });
+    }
+});
+
 // Seller dashboard stats
 app.get('/api/v1/seller/stats', require('./middleware/auth').authenticateSeller, async (req, res) => {
     try {

@@ -1,12 +1,15 @@
 'use client';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
     LayoutDashboard, Link2, ShoppingBag, ShieldCheck,
-    User, Home, Sun, Moon, LogOut, Menu
+    User, Home, Sun, Moon, LogOut, Menu, Bell
 } from 'lucide-react';
 import { usePushNotifications } from '@/lib/usePushNotifications';
+import { api } from '@/lib/api';
+
+const SEEN_KEY = 'sd-notif-last-seen';
 
 export default function DashboardLayout({ children }) {
     const pathname = usePathname();
@@ -14,9 +17,24 @@ export default function DashboardLayout({ children }) {
     const [seller, setSeller] = useState(null);
     const [theme, setTheme] = useState('light');
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [unreadCount, setUnreadCount] = useState(0);
 
     // Register push notifications for logged-in seller
     usePushNotifications();
+
+    const refreshUnread = useCallback(async () => {
+        try {
+            const lastSeen = localStorage.getItem(SEEN_KEY);
+            const data = await api.get('/seller/notifications?limit=50&offset=0');
+            const notifs = data.notifications || [];
+            if (!lastSeen) {
+                setUnreadCount(notifs.length > 0 ? notifs.length : 0);
+            } else {
+                const since = new Date(parseInt(lastSeen));
+                setUnreadCount(notifs.filter(n => new Date(n.sent_at) > since).length);
+            }
+        } catch { /* silent */ }
+    }, []);
 
     useEffect(() => {
         const token = localStorage.getItem('sd-token');
@@ -35,7 +53,15 @@ export default function DashboardLayout({ children }) {
         const t = localStorage.getItem('sd-theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
         setTheme(t);
         document.documentElement.setAttribute('data-theme', t);
-    }, [router]);
+
+        // Load unread count
+        refreshUnread();
+
+        // When notifications page marks all as seen, update badge
+        const onSeen = () => setUnreadCount(0);
+        window.addEventListener('notif-seen', onSeen);
+        return () => window.removeEventListener('notif-seen', onSeen);
+    }, [router, refreshUnread]);
 
     useEffect(() => { setSidebarOpen(false); }, [pathname]);
 
@@ -57,6 +83,7 @@ export default function DashboardLayout({ children }) {
         { href: '/seller/dashboard', icon: <LayoutDashboard size={18} />, label: 'Dashboard' },
         { href: '/seller/dashboard/links', icon: <Link2 size={18} />, label: 'Checkout Links' },
         { href: '/seller/dashboard/orders', icon: <ShoppingBag size={18} />, label: 'Orders' },
+        { href: '/seller/dashboard/notifications', icon: <Bell size={18} />, label: 'Notifications', badge: unreadCount },
         { href: '/seller/dashboard/kyc', icon: <ShieldCheck size={18} />, label: 'KYC Verification' },
         { href: '/seller/dashboard/profile', icon: <User size={18} />, label: 'Profile' },
     ];
@@ -65,7 +92,7 @@ export default function DashboardLayout({ children }) {
         { href: '/seller/dashboard', icon: <Home size={20} />, label: 'Home' },
         { href: '/seller/dashboard/links', icon: <Link2 size={20} />, label: 'Links' },
         { href: '/seller/dashboard/orders', icon: <ShoppingBag size={20} />, label: 'Orders' },
-        { href: '/seller/dashboard/kyc', icon: <ShieldCheck size={20} />, label: 'KYC' },
+        { href: '/seller/dashboard/notifications', icon: <Bell size={20} />, label: 'Alerts', badge: unreadCount },
         { href: '/seller/dashboard/profile', icon: <User size={20} />, label: 'Profile' },
     ];
 
@@ -81,8 +108,29 @@ export default function DashboardLayout({ children }) {
                 {nav.map(item => (
                     <li key={item.href}>
                         <Link href={item.href} className={pathname === item.href ? 'active' : ''} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                            <span className="nav-icon" style={{ display: 'flex' }}>{item.icon}</span>
+                            <span className="nav-icon" style={{ display: 'flex', position: 'relative' }}>
+                                {item.icon}
+                                {item.badge > 0 && (
+                                    <span style={{
+                                        position: 'absolute', top: -5, right: -6,
+                                        minWidth: 16, height: 16, borderRadius: 8,
+                                        background: '#EF4444', color: '#fff',
+                                        fontSize: '0.6rem', fontWeight: 800,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        padding: '0 3px', lineHeight: 1,
+                                    }}>{item.badge > 99 ? '99+' : item.badge}</span>
+                                )}
+                            </span>
                             {item.label}
+                            {item.badge > 0 && (
+                                <span style={{
+                                    marginLeft: 'auto', minWidth: 20, height: 20, borderRadius: 10,
+                                    background: '#EF4444', color: '#fff',
+                                    fontSize: '0.68rem', fontWeight: 800,
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    padding: '0 5px',
+                                }}>{item.badge > 99 ? '99+' : item.badge}</span>
+                            )}
                         </Link>
                     </li>
                 ))}
@@ -118,9 +166,24 @@ export default function DashboardLayout({ children }) {
                     <Link href="/seller/dashboard" style={{ fontWeight: 700, color: 'var(--brand)', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                         <ShieldCheck size={18} /> Safe<span style={{ color: 'var(--text)' }}>Deliver</span>
                     </Link>
-                    <button onClick={toggleTheme} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', padding: '0.5rem' }}>
-                        {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
-                    </button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                        <Link href="/seller/dashboard/notifications" style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0.5rem', color: 'var(--text-secondary)' }}>
+                            <Bell size={20} />
+                            {unreadCount > 0 && (
+                                <span style={{
+                                    position: 'absolute', top: 4, right: 4,
+                                    minWidth: 16, height: 16, borderRadius: 8,
+                                    background: '#EF4444', color: '#fff',
+                                    fontSize: '0.58rem', fontWeight: 800,
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    padding: '0 3px',
+                                }}>{unreadCount > 99 ? '99+' : unreadCount}</span>
+                            )}
+                        </Link>
+                        <button onClick={toggleTheme} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', padding: '0.5rem' }}>
+                            {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+                        </button>
+                    </div>
                 </header>
 
                 <main className="dashboard-main">{children}</main>
@@ -129,7 +192,19 @@ export default function DashboardLayout({ children }) {
                 <nav className="bottom-nav">
                     {bottomNav.map(item => (
                         <Link key={item.href} href={item.href} className={`bottom-nav-item ${pathname === item.href ? 'active' : ''}`}>
-                            <span className="bottom-nav-icon">{item.icon}</span>
+                            <span className="bottom-nav-icon" style={{ position: 'relative' }}>
+                                {item.icon}
+                                {item.badge > 0 && (
+                                    <span style={{
+                                        position: 'absolute', top: -4, right: -6,
+                                        minWidth: 16, height: 16, borderRadius: 8,
+                                        background: '#EF4444', color: '#fff',
+                                        fontSize: '0.58rem', fontWeight: 800,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        padding: '0 3px',
+                                    }}>{item.badge > 99 ? '99+' : item.badge}</span>
+                                )}
+                            </span>
                             <span className="bottom-nav-label">{item.label}</span>
                         </Link>
                     ))}
