@@ -66,5 +66,5 @@ export const adminApi = {
     get:    (endpoint)       => adminRequest(endpoint),
     post:   (endpoint, body) => adminRequest(endpoint, { method: 'POST',  body: JSON.stringify(body) }),
     patch:  (endpoint, body) => adminRequest(endpoint, { method: 'PATCH', body: JSON.stringify(body) }),
-    delete: (endpoint)       => adminRequest(endpoint, { method: 'DELETE' }),
+    delete: (endpoint, body) => adminRequest(endpoint, { method: 'DELETE', ...(body ? { body: JSON.stringify(body) } : {}) }),
 };

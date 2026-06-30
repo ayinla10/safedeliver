@@ -1,6 +1,7 @@
 const db = require('../db');
 const { v4: uuid } = require('uuid');
 const sms = require('./sms');
+const emailService = require('./email');
 const appSettings = require('./settings');
 
 /**
@@ -13,7 +14,9 @@ async function log(channel, recipientId, message, transactionId = null, orderRef
          VALUES ($1, $2, $3, $4, $5, $6, $7)`,
         [uuid(), transactionId, orderRef, channel, recipientId, message, resolvedStatus]
     );
-    console.log(`[Notify] ${channel} → ${recipientId}: ${message.substring(0, 80)}...`);
+    if (process.env.NODE_ENV !== 'production') {
+        console.log(`[Notify] ${channel} → ${recipientId}: ${message.substring(0, 80)}...`);
+    }
 }
 
 /**
@@ -32,13 +35,23 @@ async function sendSms(phone, message, transactionId = null, orderRef = null) {
 }
 
 /**
- * Log an email notification. Skipped if NOTIFY_EMAIL_ENABLED is false.
+ * Send a real email via Resend + log to DB.
+ * Skipped (logged as SIMULATED) if NOTIFY_EMAIL_ENABLED is false.
+ * Falls back to simulation if RESEND_API_KEY is not set.
  */
-async function sendEmail(email, subject, body, transactionId = null, orderRef = null) {
+async function sendEmail(email, subject, htmlOrText, transactionId = null, orderRef = null) {
     const enabled = await appSettings.getBool('NOTIFY_EMAIL_ENABLED', true);
-    const status = enabled ? (process.env.AT_API_KEY ? 'SENT' : 'SIMULATED') : 'SIMULATED';
-    if (!enabled) console.log('[Notify] Email skipped — NOTIFY_EMAIL_ENABLED is off');
-    await log('EMAIL', email, `${subject}: ${body}`, transactionId, orderRef, status);
+    if (!enabled) {
+        await log('EMAIL', email, `${subject}`, transactionId, orderRef, 'SIMULATED');
+        return;
+    }
+    try {
+        await emailService.send(email, subject, htmlOrText);
+        await log('EMAIL', email, subject, transactionId, orderRef, 'SENT');
+    } catch (err) {
+        console.error('[Notify] Email send failed:', err.message);
+        await log('EMAIL', email, subject, transactionId, orderRef, 'FAILED');
+    }
 }
 
 module.exports = {

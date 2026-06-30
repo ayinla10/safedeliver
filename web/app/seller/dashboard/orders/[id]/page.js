@@ -266,7 +266,7 @@ export default function OrderDetailPage() {
                 </div>
             )}
 
-            {order.dispute_raised && (
+            {order.dispute_reason && (
                 <div className="alert alert-danger" style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
                     <AlertTriangle size={20} color="#EF4444" style={{ flexShrink: 0, marginTop: 2 }} />
                     <div>

@@ -7,6 +7,7 @@ const { authenticateSeller } = require('../middleware/auth');
 const escrow = require('../services/escrow');
 const sim = require('../services/simulationEngine');
 const notify = require('../services/notify');
+const emailService = require('../services/email');
 const audit = require('../services/audit');
 const webpush = require('../services/webpush');
 
@@ -186,11 +187,14 @@ router.patch('/:orderRef/cancel', async (req, res) => {
 
 // ── Simulate payment confirmation (dev/admin only — requires MIGRATE_SECRET header) ──
 router.post('/sim-confirm', async (req, res) => {
-    // Only allow in development OR with the migrate secret
+    // Hard block in production — return 404 so the route's existence isn't revealed
+    if (process.env.NODE_ENV === 'production') {
+        return res.status(404).json({ error: 'Not found' });
+    }
+    // In development, require the migrate secret header
     const secret = req.headers['x-migrate-secret'];
-    const isDev = process.env.NODE_ENV === 'development';
-    if (!isDev && secret !== process.env.MIGRATE_SECRET) {
-        return res.status(403).json({ error: 'Forbidden: sim-confirm is disabled in production' });
+    if (secret !== process.env.MIGRATE_SECRET) {
+        return res.status(403).json({ error: 'Forbidden' });
     }
 
     try {
@@ -296,11 +300,21 @@ router.patch('/:id/ship', authenticateSeller, async (req, res) => {
         if (tx.status !== 'PAID') return res.status(400).json({ error: 'Order must be PAID to ship' });
 
         await escrow.transition(req.params.id, 'SHIPPED');
+        const trackUrl = `${process.env.FRONTEND_URL}/track/${tx.order_ref}`;
         // SMS to buyer — order shipped
         await notify.sms(tx.buyer_phone,
-            `SafeDeliver: Great news! Your order ${tx.order_ref} ("${tx.product_name}") has been shipped. Track it here: ${process.env.FRONTEND_URL}/track/${tx.order_ref}`,
+            `SafeDeliver: Great news! Your order ${tx.order_ref} ("${tx.product_name}") has been shipped. Track it here: ${trackUrl}`,
             tx.id, tx.order_ref
         );
+        // Email to buyer — order shipped
+        if (tx.buyer_email) {
+            emailService.orderShipped(tx.buyer_email, {
+                buyerName: tx.buyer_name,
+                orderRef: tx.order_ref,
+                productName: tx.product_name,
+                trackUrl,
+            }).catch(() => {});
+        }
         await webpush.sendToAdmins({
             title: '📦 Order Shipped',
             body: `Order ${tx.order_ref} marked as shipped by seller.`,
@@ -334,6 +348,16 @@ router.patch('/:orderRef/confirm-delivery', async (req, res) => {
             body: `Buyer confirmed delivery for order ${tx.order_ref}. GHS ${(tx.seller_payout_amount / 100).toFixed(2)} released to your account.`,
             url: '/seller/dashboard',
         });
+        // Email to seller — funds released
+        const sellerRow = await db.query('SELECT email, full_name FROM sellers WHERE id = $1', [tx.seller_id]);
+        if (sellerRow.rows[0]?.email) {
+            emailService.fundsReleased(sellerRow.rows[0].email, {
+                sellerName: sellerRow.rows[0].full_name,
+                orderRef: tx.order_ref,
+                amount: tx.seller_payout_amount,
+                dashboardUrl: `${process.env.FRONTEND_URL}/seller/dashboard`,
+            }).catch(() => {});
+        }
 
         res.json({ message: 'Delivery confirmed, payment released' });
     } catch (err) { res.status(500).json({ error: err.message }); }

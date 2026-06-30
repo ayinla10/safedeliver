@@ -3,12 +3,14 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Pencil, Pause, Play, Trash2, Link2, Plus, Image } from 'lucide-react';
 import { api } from '@/lib/api';
+import ConfirmDialog from '@/components/ConfirmDialog';
 
 export default function LinksPage() {
     const [links, setLinks] = useState([]);
     const [loading, setLoading] = useState(true);
     const [previewImages, setPreviewImages] = useState(null);
     const [copied, setCopied] = useState(null);
+    const [confirm, setConfirm] = useState(null);
 
     function load() {
         api.get('/checkout-links').then(data => { setLinks(data); setLoading(false); }).catch(() => setLoading(false));
@@ -19,10 +21,17 @@ export default function LinksPage() {
         await api.patch(`/checkout-links/${code}`, { is_active: !active });
         load();
     }
-    async function deleteLink(code) {
-        if (!confirm('Delete this link?')) return;
-        await api.delete(`/checkout-links/${code}`);
-        load();
+    async function deleteLink(code, name) {
+        setConfirm({
+            title: 'Delete Checkout Link?',
+            message: `"${name}" will be permanently deleted. Any existing orders using this link are not affected.`,
+            variant: 'danger',
+            confirmLabel: 'Yes, Delete',
+            onConfirm: async () => {
+                await api.delete(`/checkout-links/${code}`);
+                load();
+            },
+        });
     }
     function copyLink(code) {
         const url = `${window.location.origin}/pay/${code}`;
@@ -34,6 +43,8 @@ export default function LinksPage() {
     if (loading) return <div className="flex-center" style={{ padding: '4rem' }}><div className="spinner" /></div>;
 
     return (
+        <>
+        {confirm && <ConfirmDialog {...confirm} onClose={() => setConfirm(null)} />}
         <div className="animate-in">
 
             {/* Header */}
@@ -82,7 +93,7 @@ export default function LinksPage() {
                             copied={copied === link.link_code}
                             onCopy={() => copyLink(link.link_code)}
                             onToggle={() => toggleLink(link.link_code, link.is_active)}
-                            onDelete={() => deleteLink(link.link_code)}
+                            onDelete={() => deleteLink(link.link_code, link.product_name)}
                             onPreview={(images, index) => setPreviewImages({ images, index })}
                         />
                     ))}
@@ -90,7 +101,7 @@ export default function LinksPage() {
             )}
 
             {/* Lightbox */}
-            {previewImages && (
+            {previewImages !== null && (
                 <div style={{
                     position: 'fixed', inset: 0,
                     background: 'rgba(0,0,0,0.92)',
@@ -121,6 +132,7 @@ export default function LinksPage() {
                 </div>
             )}
         </div>
+        </>
     );
 }
 

@@ -1,4 +1,8 @@
 require('dotenv').config();
+// Sentry must be initialised before anything else
+const { init: initSentry, Sentry } = require('./services/sentry');
+initSentry();
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -48,15 +52,23 @@ app.use(cors({
     },
     credentials: true,
 }));
-app.use(express.json());
+// Stash raw body for Paystack webhook HMAC verification BEFORE express.json consumes it
+app.use(express.json({
+    verify: (req, _res, buf) => { req.rawBody = buf; }
+}));
 app.use(generalLimiter);
 
 // Serve uploads folder as static files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Health check (always available, even in maintenance)
-app.get('/api/v1/health', (req, res) => {
-    res.json({ status: 'ok', version: '2.0.0', timestamp: new Date().toISOString() });
+app.get('/api/v1/health', async (req, res) => {
+    try {
+        await db.query('SELECT 1');
+        res.json({ status: 'ok', version: '2.0.0', timestamp: new Date().toISOString() });
+    } catch (err) {
+        res.status(503).json({ status: 'degraded', db: 'unreachable', timestamp: new Date().toISOString() });
+    }
 });
 
 // Maintenance mode middleware — blocks all non-admin, non-health routes
@@ -141,7 +153,7 @@ app.post('/api/v1/upload', require('./middleware/auth').authenticateSeller, uplo
 
 // One-time migration endpoint — protected by secret key
 app.get('/api/v1/fix-columns', async (req, res) => {
-    const secret = req.headers['x-migrate-secret'] || req.query.secret;
+    const secret = req.headers['x-migrate-secret'];
     if (!secret || secret !== process.env.MIGRATE_SECRET) return res.status(403).json({ error: 'Forbidden' });
     try {
         await db.query(`ALTER TABLE sellers ALTER COLUMN city TYPE TEXT USING city::TEXT`);
@@ -153,7 +165,7 @@ app.get('/api/v1/fix-columns', async (req, res) => {
 });
 
 app.get('/api/v1/migrate', async (req, res) => {
-    const secret = req.headers['x-migrate-secret'] || req.query.secret;
+    const secret = req.headers['x-migrate-secret'];
     if (!secret || secret !== process.env.MIGRATE_SECRET) {
         return res.status(403).json({ error: 'Forbidden' });
     }
@@ -354,6 +366,9 @@ app.use((req, res) => {
 });
 
 // Global error handler
+// Sentry error handler must be BEFORE other error handlers
+Sentry.setupExpressErrorHandler(app);
+
 app.use((err, req, res, next) => {
     console.error('Unhandled error:', err);
     res.status(500).json({ error: 'Internal server error' });

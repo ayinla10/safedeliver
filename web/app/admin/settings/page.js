@@ -1,11 +1,71 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { adminApi } from '@/lib/adminApi';
 import {
     ShieldCheck, Percent, Clock, Users, Bell, AlertTriangle,
-    Save, RotateCcw, CheckCircle2, Info
+    Save, RotateCcw, CheckCircle2, Info,
+    Trash2, Skull, KeyRound, Eye, EyeOff, BellOff, FileX, Bomb
 } from 'lucide-react';
 import ConfirmDialog from '@/components/ConfirmDialog';
+
+// ── Admin Password Gate Modal (inline for settings page) ──────────────────
+function AdminPasswordModal({ title, onConfirm, onClose }) {
+    const [pw, setPw] = useState('');
+    const [show, setShow] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+    const inputRef = useRef(null);
+
+    useEffect(() => {
+        const t = setTimeout(() => inputRef.current?.focus(), 80);
+        const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+        window.addEventListener('keydown', onKey);
+        return () => { clearTimeout(t); window.removeEventListener('keydown', onKey); };
+    }, [onClose]);
+
+    async function handleSubmit(e) {
+        e.preventDefault();
+        if (!pw.trim()) return setError('Enter your admin password.');
+        setLoading(true); setError(null);
+        try {
+            await adminApi.post('/admin/verify-password', { password: pw });
+            onConfirm();
+        } catch (err) {
+            setError(err.message || 'Incorrect password.');
+            setPw('');
+            inputRef.current?.focus();
+        } finally { setLoading(false); }
+    }
+
+    return (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, backdropFilter: 'blur(4px)' }} onClick={onClose}>
+            <div className="card" style={{ maxWidth: 400, width: '90%', padding: '1.75rem' }} onClick={e => e.stopPropagation()}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.4rem' }}>
+                    <div style={{ background: 'rgba(220,38,38,0.1)', borderRadius: '50%', padding: '0.5rem', display: 'flex' }}>
+                        <KeyRound size={20} color="#dc2626" />
+                    </div>
+                    <h3 style={{ margin: 0, fontSize: '1rem' }}>Confirm Your Identity</h3>
+                </div>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1.25rem', paddingLeft: '3rem' }}>
+                    Enter your admin password to proceed with: <strong>{title}</strong>
+                </p>
+                {error && <div className="alert alert-danger" style={{ padding: '0.5rem 0.75rem', marginBottom: '1rem', fontSize: '0.82rem' }}>{error}</div>}
+                <form onSubmit={handleSubmit}>
+                    <div style={{ position: 'relative', marginBottom: '1rem' }}>
+                        <input ref={inputRef} type={show ? 'text' : 'password'} className="form-input" placeholder="Admin password" value={pw} onChange={e => setPw(e.target.value)} style={{ margin: 0, paddingRight: '2.75rem' }} autoComplete="current-password" />
+                        <button type="button" onClick={() => setShow(s => !s)} style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', padding: 0 }}>
+                            {show ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button type="submit" className="btn btn-danger" style={{ flex: 1 }} disabled={loading || !pw.trim()}>{loading ? 'Verifying…' : 'Confirm'}</button>
+                        <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+}
 
 // ── Static settings schema ─────────────────────────────────────────────────
 // All metadata lives here. Backend is just a key/value store.
@@ -156,6 +216,48 @@ export default function AdminSettings() {
     const [msgs, setMsgs] = useState({});           // { sectionId: string }
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('tiers');
+
+    // Danger zone state
+    const [pwGate, setPwGate] = useState(null);        // { title, onConfirm }
+    const [dzLoading, setDzLoading] = useState(null);  // which action is running
+    const [dzMsg, setDzMsg] = useState(null);          // { type, text }
+    const [notifBefore, setNotifBefore] = useState('');
+    const [auditBefore, setAuditBefore] = useState('');
+    const [nuclearText, setNuclearText] = useState('');
+
+    function gatedAction(title, fn) {
+        setPwGate({ title, onConfirm: () => { setPwGate(null); fn(); } });
+    }
+
+    async function doClearNotifications() {
+        setDzLoading('notif'); setDzMsg(null);
+        try {
+            const res = await adminApi.delete(`/admin/data/notifications?before=${notifBefore}`);
+            setDzMsg({ type: 'success', text: res.message });
+            setNotifBefore('');
+        } catch (err) { setDzMsg({ type: 'error', text: err.message }); }
+        finally { setDzLoading(null); }
+    }
+
+    async function doClearAuditLogs() {
+        setDzLoading('audit'); setDzMsg(null);
+        try {
+            const res = await adminApi.delete(`/admin/data/audit-logs?before=${auditBefore}`);
+            setDzMsg({ type: 'success', text: res.message });
+            setAuditBefore('');
+        } catch (err) { setDzMsg({ type: 'error', text: err.message }); }
+        finally { setDzLoading(null); }
+    }
+
+    async function doNuclearReset() {
+        setDzLoading('nuclear'); setDzMsg(null);
+        try {
+            const res = await adminApi.delete('/admin/data/nuclear', { confirm: 'RESET ENTIRE PLATFORM' });
+            setDzMsg({ type: 'success', text: res.message });
+            setNuclearText('');
+        } catch (err) { setDzMsg({ type: 'error', text: err.message }); }
+        finally { setDzLoading(null); }
+    }
 
     // ── Load settings ──────────────────────────────────────────────────────
     const load = useCallback(async () => {
@@ -334,6 +436,7 @@ export default function AdminSettings() {
 
     return (
         <>
+        {pwGate && <AdminPasswordModal title={pwGate.title} onConfirm={pwGate.onConfirm} onClose={() => setPwGate(null)} />}
         {confirm && <ConfirmDialog {...confirm} onClose={() => setConfirm(null)} />}
         <div className="animate-in" style={{ maxWidth: 820 }}>
             <h1 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.25rem' }}>System Settings</h1>
@@ -488,6 +591,155 @@ export default function AdminSettings() {
                     </div>
                 );
             })()}
+            {/* ── Danger Zone ─────────────────────────────────────── */}
+            <div style={{
+                marginTop: '2.5rem',
+                borderRadius: 14,
+                border: '1px solid #b91c1c',
+                background: 'linear-gradient(135deg, #7f1d1d 0%, #991b1b 100%)',
+                overflow: 'hidden',
+            }}>
+                {/* Header */}
+                <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.12)', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <div style={{ background: 'rgba(255,255,255,0.1)', borderRadius: '50%', padding: '0.5rem', display: 'flex' }}>
+                        <Skull size={20} color="#fef2f2" />
+                    </div>
+                    <div>
+                        <h2 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: '#fef2f2' }}>Danger Zone</h2>
+                        <p style={{ margin: 0, fontSize: '0.78rem', color: '#fca5a5' }}>These actions are irreversible. All require admin password + confirmation.</p>
+                    </div>
+                </div>
+
+                <div style={{ padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+
+                    {/* Feedback message */}
+                    {dzMsg && (
+                        <div className={`alert ${dzMsg.type === 'success' ? 'alert-success' : 'alert-danger'}`} style={{ marginBottom: 0 }}>
+                            {dzMsg.type === 'success' ? <CheckCircle2 size={16} style={{ display: 'inline', marginRight: 6 }} /> : <AlertTriangle size={16} style={{ display: 'inline', marginRight: 6 }} />}
+                            {dzMsg.text}
+                        </div>
+                    )}
+
+                    {/* ── Clear Notifications ── */}
+                    <div style={{ background: 'rgba(0,0,0,0.2)', borderRadius: 10, padding: '1rem 1.25rem', border: '1px solid rgba(255,255,255,0.1)' }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', marginBottom: '0.875rem' }}>
+                            <BellOff size={18} color="#fca5a5" style={{ flexShrink: 0, marginTop: 2 }} />
+                            <div>
+                                <div style={{ fontWeight: 700, color: '#fef2f2', marginBottom: '0.2rem' }}>Clear Notification Logs</div>
+                                <div style={{ fontSize: '0.8rem', color: '#fca5a5' }}>
+                                    Deletes SMS, email, and push notification records on or before the selected date. Does not affect orders or sellers.
+                                </div>
+                            </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', flex: '0 0 auto' }}>
+                                <label style={{ fontSize: '0.72rem', fontWeight: 600, color: '#fca5a5', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Delete on or before</label>
+                                <input
+                                    type="date"
+                                    value={notifBefore}
+                                    max={new Date().toISOString().split('T')[0]}
+                                    onChange={e => setNotifBefore(e.target.value)}
+                                    style={{ padding: '0.4rem 0.7rem', borderRadius: 8, border: '1px solid rgba(255,255,255,0.25)', background: 'rgba(255,255,255,0.08)', color: '#fef2f2', fontSize: '0.85rem', outline: 'none', colorScheme: 'dark' }}
+                                />
+                            </div>
+                            <button
+                                disabled={!notifBefore || dzLoading === 'notif'}
+                                onClick={() => gatedAction('Clear Notification Logs', () => setConfirm({
+                                    title: 'Clear Notification Logs?',
+                                    message: `All notification records on or before ${notifBefore} will be permanently deleted. This cannot be undone.`,
+                                    variant: 'warning',
+                                    confirmLabel: 'Yes, Clear Logs',
+                                    onConfirm: doClearNotifications,
+                                }))}
+                                style={{ marginTop: '1.4rem', padding: '0.45rem 1.1rem', borderRadius: 8, border: '1px solid #b45309', background: '#d97706', color: '#fff', fontSize: '0.82rem', fontWeight: 700, cursor: !notifBefore || dzLoading === 'notif' ? 'not-allowed' : 'pointer', opacity: !notifBefore || dzLoading === 'notif' ? 0.5 : 1, display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                            >
+                                <BellOff size={14} /> {dzLoading === 'notif' ? 'Clearing…' : 'Clear Notifications'}
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* ── Clear Audit Logs ── */}
+                    <div style={{ background: 'rgba(0,0,0,0.2)', borderRadius: 10, padding: '1rem 1.25rem', border: '1px solid rgba(255,255,255,0.1)' }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', marginBottom: '0.875rem' }}>
+                            <FileX size={18} color="#fca5a5" style={{ flexShrink: 0, marginTop: 2 }} />
+                            <div>
+                                <div style={{ fontWeight: 700, color: '#fef2f2', marginBottom: '0.2rem' }}>Clear Audit Logs</div>
+                                <div style={{ fontSize: '0.8rem', color: '#fca5a5' }}>
+                                    Wipes the audit trail on or before the selected date. Useful for clearing test data before going live. One new entry is written after deletion.
+                                </div>
+                            </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', flex: '0 0 auto' }}>
+                                <label style={{ fontSize: '0.72rem', fontWeight: 600, color: '#fca5a5', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Delete on or before</label>
+                                <input
+                                    type="date"
+                                    value={auditBefore}
+                                    max={new Date().toISOString().split('T')[0]}
+                                    onChange={e => setAuditBefore(e.target.value)}
+                                    style={{ padding: '0.4rem 0.7rem', borderRadius: 8, border: '1px solid rgba(255,255,255,0.25)', background: 'rgba(255,255,255,0.08)', color: '#fef2f2', fontSize: '0.85rem', outline: 'none', colorScheme: 'dark' }}
+                                />
+                            </div>
+                            <button
+                                disabled={!auditBefore || dzLoading === 'audit'}
+                                onClick={() => gatedAction('Clear Audit Logs', () => setConfirm({
+                                    title: 'Clear Audit Logs?',
+                                    message: `All audit log entries on or before ${auditBefore} will be permanently deleted. A single entry will remain recording this action.`,
+                                    variant: 'warning',
+                                    confirmLabel: 'Yes, Clear Audit Trail',
+                                    onConfirm: doClearAuditLogs,
+                                }))}
+                                style={{ marginTop: '1.4rem', padding: '0.45rem 1.1rem', borderRadius: 8, border: '1px solid #c2410c', background: '#ea580c', color: '#fff', fontSize: '0.82rem', fontWeight: 700, cursor: !auditBefore || dzLoading === 'audit' ? 'not-allowed' : 'pointer', opacity: !auditBefore || dzLoading === 'audit' ? 0.5 : 1, display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                            >
+                                <FileX size={14} /> {dzLoading === 'audit' ? 'Clearing…' : 'Clear Audit Logs'}
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* ── Nuclear Reset ── */}
+                    <div style={{ background: 'rgba(0,0,0,0.35)', borderRadius: 10, padding: '1rem 1.25rem', border: '2px solid rgba(255,255,255,0.2)' }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', marginBottom: '0.875rem' }}>
+                            <Bomb size={18} color="#f87171" style={{ flexShrink: 0, marginTop: 2 }} />
+                            <div>
+                                <div style={{ fontWeight: 800, fontSize: '1rem', color: '#fef2f2', marginBottom: '0.2rem' }}>Reset Entire Platform (Nuclear)</div>
+                                <div style={{ fontSize: '0.8rem', color: '#fca5a5', lineHeight: 1.55 }}>
+                                    Wipes <strong style={{ color: '#fef2f2' }}>all</strong> transactions, notifications, audit logs, contact enquiries, KYC applications, and all non-admin seller accounts.
+                                    Admin accounts and system settings are preserved. <strong style={{ color: '#f87171' }}>This cannot be undone.</strong>
+                                </div>
+                            </div>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                                <label style={{ fontSize: '0.72rem', fontWeight: 600, color: '#fca5a5', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                    Type <span style={{ color: '#fef2f2', fontFamily: 'monospace' }}>RESET ENTIRE PLATFORM</span> to enable
+                                </label>
+                                <input
+                                    type="text"
+                                    value={nuclearText}
+                                    onChange={e => setNuclearText(e.target.value)}
+                                    placeholder="RESET ENTIRE PLATFORM"
+                                    style={{ padding: '0.5rem 0.75rem', borderRadius: 8, border: `1px solid ${nuclearText === 'RESET ENTIRE PLATFORM' ? '#dc2626' : 'rgba(255,255,255,0.2)'}`, background: 'rgba(255,255,255,0.05)', color: '#fef2f2', fontSize: '0.9rem', fontFamily: 'monospace', outline: 'none', colorScheme: 'dark', maxWidth: 400 }}
+                                />
+                            </div>
+                            <button
+                                disabled={nuclearText !== 'RESET ENTIRE PLATFORM' || dzLoading === 'nuclear'}
+                                onClick={() => gatedAction('Reset Entire Platform', () => setConfirm({
+                                    title: '☢ Nuclear Reset — Are you absolutely sure?',
+                                    message: 'This will permanently delete ALL transactions, sellers, notifications, audit logs, KYC applications, and contact enquiries. Admin accounts and settings are preserved. There is NO undo.',
+                                    variant: 'danger',
+                                    confirmLabel: 'Yes, Wipe Everything',
+                                    onConfirm: doNuclearReset,
+                                }))}
+                                style={{ alignSelf: 'flex-start', padding: '0.55rem 1.4rem', borderRadius: 8, border: '1px solid #b91c1c', background: '#dc2626', color: '#fff', fontSize: '0.85rem', fontWeight: 800, cursor: nuclearText !== 'RESET ENTIRE PLATFORM' || dzLoading === 'nuclear' ? 'not-allowed' : 'pointer', opacity: nuclearText !== 'RESET ENTIRE PLATFORM' || dzLoading === 'nuclear' ? 0.4 : 1, display: 'flex', alignItems: 'center', gap: '0.5rem', transition: 'opacity 0.2s' }}
+                            >
+                                <Bomb size={15} /> {dzLoading === 'nuclear' ? 'Resetting…' : 'Reset Entire Platform'}
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
         </div>
         </>
     );

@@ -269,6 +269,37 @@ async function migrate() {
     console.log('✅ Removed delivery_fee from checkout_links');
   } catch (e) { /* already removed */ }
 
+  // Add refresh_token_hash for server-side token revocation
+  try {
+    await db.query(`ALTER TABLE sellers ADD COLUMN IF NOT EXISTS refresh_token_hash TEXT`);
+    console.log('✅ Added refresh_token_hash to sellers');
+  } catch (e) { /* already exists */ }
+
+  // Add images column to checkout_links (multi-image support)
+  try {
+    await db.query(`ALTER TABLE checkout_links ADD COLUMN IF NOT EXISTS images JSONB DEFAULT '[]'`);
+    console.log('✅ Added images column to checkout_links');
+  } catch (e) { /* already exists */ }
+
+  // Performance indexes — safe to re-run (IF NOT EXISTS)
+  const indexes = [
+    `CREATE INDEX IF NOT EXISTS idx_transactions_seller_id   ON transactions(seller_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_transactions_status       ON transactions(status)`,
+    `CREATE INDEX IF NOT EXISTS idx_transactions_order_ref    ON transactions(order_ref)`,
+    `CREATE INDEX IF NOT EXISTS idx_transactions_buyer_token  ON transactions(buyer_token)`,
+    `CREATE INDEX IF NOT EXISTS idx_transactions_paystack_ref ON transactions(paystack_reference)`,
+    `CREATE INDEX IF NOT EXISTS idx_checkout_links_code       ON checkout_links(link_code)`,
+    `CREATE INDEX IF NOT EXISTS idx_notifications_recipient   ON notifications(recipient_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_audit_logs_actor          ON audit_logs(actor_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at     ON audit_logs(created_at DESC)`,
+    `CREATE INDEX IF NOT EXISTS idx_sellers_email             ON sellers(email)`,
+    `CREATE INDEX IF NOT EXISTS idx_sellers_phone             ON sellers(phone)`,
+  ];
+  for (const idx of indexes) {
+    try { await db.query(idx); } catch (e) { /* already exists */ }
+  }
+  console.log('✅ Performance indexes applied');
+
   // Seed default system settings
   const defaultSettings = [
     { key: 'TIER_1_LIMIT', value: '1000', description: 'Max transaction value (GHS) for Tier 1 sellers' },
@@ -282,7 +313,8 @@ async function migrate() {
 
   // Seed admin
   const adminEmail = process.env.ADMIN_EMAIL || 'admin@safedeliver.co';
-  const adminPw = process.env.ADMIN_PASSWORD || 'admin123456';
+  const adminPw = process.env.ADMIN_PASSWORD;
+  if (!adminPw) throw new Error('ADMIN_PASSWORD env var is required to seed the admin account. Set it and re-run.');
   const existing = await db.query('SELECT id FROM sellers WHERE email = $1', [adminEmail]);
   if (existing.rows.length === 0) {
     const hash = await bcrypt.hash(adminPw, 12);

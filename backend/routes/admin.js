@@ -165,6 +165,22 @@ router.get('/transactions', async (req, res) => {
     }
 });
 
+// ── Verify admin password (gates destructive UI actions) ───────────────────
+router.post('/verify-password', async (req, res) => {
+    try {
+        const bcrypt = require('bcryptjs');
+        const { password } = req.body;
+        if (!password) return res.status(400).json({ error: 'Password required' });
+        const result = await db.query('SELECT password_hash FROM sellers WHERE id = $1 AND is_admin = true', [req.seller.id]);
+        if (!result.rows.length) return res.status(403).json({ error: 'Admin account not found' });
+        const match = await bcrypt.compare(password, result.rows[0].password_hash);
+        if (!match) return res.status(401).json({ error: 'Incorrect password' });
+        res.json({ ok: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Sellers list
 router.get('/sellers', async (req, res) => {
     try {
@@ -648,6 +664,73 @@ router.patch('/settings', async (req, res) => {
         await audit.log('ADMIN', req.seller.id, 'BULK_UPDATE_SETTINGS', 'SYSTEM', null, req.ip, { count: settings.length });
         require('../services/settings').invalidate();
         res.json({ message: 'Settings saved' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Danger Zone: Clear Notifications ────────────────────────────────────────
+// DELETE /admin/data/notifications?before=YYYY-MM-DD  (before is inclusive)
+router.delete('/data/notifications', async (req, res) => {
+    try {
+        const { before } = req.query;
+        if (!before) return res.status(400).json({ error: '`before` date query param required (YYYY-MM-DD)' });
+        const cutoff = new Date(before);
+        if (isNaN(cutoff)) return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD.' });
+        // Set cutoff to end-of-day so "before 2024-06-30" is inclusive of that day
+        cutoff.setHours(23, 59, 59, 999);
+        const result = await db.query(
+            'DELETE FROM notifications WHERE sent_at <= $1',
+            [cutoff.toISOString()]
+        );
+        const count = result.rowCount;
+        await audit.log('ADMIN', req.seller.id, 'CLEAR_NOTIFICATIONS', 'SYSTEM', null, req.ip, { before, deleted: count });
+        res.json({ message: `Deleted ${count} notification${count !== 1 ? 's' : ''} on or before ${before}.`, deleted: count });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Danger Zone: Clear Audit Logs ───────────────────────────────────────────
+// DELETE /admin/data/audit-logs?before=YYYY-MM-DD
+router.delete('/data/audit-logs', async (req, res) => {
+    try {
+        const { before } = req.query;
+        if (!before) return res.status(400).json({ error: '`before` date query param required (YYYY-MM-DD)' });
+        const cutoff = new Date(before);
+        if (isNaN(cutoff)) return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD.' });
+        cutoff.setHours(23, 59, 59, 999);
+        const result = await db.query(
+            'DELETE FROM audit_logs WHERE created_at <= $1',
+            [cutoff.toISOString()]
+        );
+        const count = result.rowCount;
+        // Note: we log AFTER deletion so this action itself is recorded
+        await audit.log('ADMIN', req.seller.id, 'CLEAR_AUDIT_LOGS', 'SYSTEM', null, req.ip, { before, deleted: count });
+        res.json({ message: `Deleted ${count} audit log${count !== 1 ? 's' : ''} on or before ${before}.`, deleted: count });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Danger Zone: Nuclear Reset ───────────────────────────────────────────────
+// DELETE /admin/data/nuclear
+// Wipes all data except admin accounts and system_settings. Irreversible.
+router.delete('/data/nuclear', async (req, res) => {
+    try {
+        const { confirm } = req.body;
+        if (confirm !== 'RESET ENTIRE PLATFORM') {
+            return res.status(400).json({ error: 'Confirmation text mismatch. Send { confirm: "RESET ENTIRE PLATFORM" } in body.' });
+        }
+
+        // Order matters — FK constraints must be respected
+        await db.query('DELETE FROM audit_logs');
+        await db.query('DELETE FROM notifications');
+        await db.query('DELETE FROM contact_enquiries');
+        await db.query('DELETE FROM kyc_applications');
+        await db.query('DELETE FROM simulation_ledger');  // FK → transactions
+        await db.query('DELETE FROM transactions');        // FK → checkout_links → sellers
+        // checkout_links cascade-deleted when sellers are removed (ON DELETE CASCADE)
+        await db.query('DELETE FROM sellers WHERE is_admin = false OR is_admin IS NULL');
+
+        // Log the nuclear action (audit table was just wiped, but this seeds the first entry)
+        await audit.log('ADMIN', req.seller.id, 'NUCLEAR_RESET', 'SYSTEM', null, req.ip, { wiped_at: new Date().toISOString() });
+
+        res.json({ message: 'Platform reset complete. All data wiped. Admin accounts and settings preserved.' });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

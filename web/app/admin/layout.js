@@ -16,6 +16,7 @@ export default function AdminLayout({ children }) {
     const [loginError, setLoginError] = useState(null);
     const [loginLoading, setLoginLoading] = useState(false);
     const [checking, setChecking] = useState(true);
+    const [serverWaking, setServerWaking] = useState(false);
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
     useEffect(() => {
@@ -30,23 +31,41 @@ export default function AdminLayout({ children }) {
         // Admin sessions are never trusted from cache alone — if the backend
         // can't be reached, we show the login form (security over convenience).
         const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
-        fetch(`${API_URL}/admin/settings`, {
-            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        }).then(async res => {
-            if (res.ok) {
-                setAdminToken(token);
-            } else {
-                // Token invalid, expired, or any other error — clear and show login
+        async function validate(retries = 0) {
+            try {
+                const res = await fetch(`${API_URL}/admin/settings`, {
+                    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                });
+                if (res.ok) {
+                    setServerWaking(false);
+                    setAdminToken(token);
+                } else if (res.status === 401 || res.status === 403) {
+                    // Genuinely invalid/expired token — force re-login
+                    localStorage.removeItem('sd-admin-token');
+                    localStorage.removeItem('sd-admin-refresh');
+                } else if (retries < 8) {
+                    // Server error (5xx) — may be cold-starting, retry with backoff
+                    setServerWaking(true);
+                    setTimeout(() => validate(retries + 1), Math.min(3000 * (retries + 1), 15000));
+                    return; // don't setChecking(false) yet
+                } else {
+                    // Gave up after retries — clear token, show login
+                    localStorage.removeItem('sd-admin-token');
+                    localStorage.removeItem('sd-admin-refresh');
+                }
+            } catch {
+                // Network error / server cold-starting
+                if (retries < 8) {
+                    setServerWaking(true);
+                    setTimeout(() => validate(retries + 1), Math.min(3000 * (retries + 1), 15000));
+                    return;
+                }
                 localStorage.removeItem('sd-admin-token');
                 localStorage.removeItem('sd-admin-refresh');
-                // adminToken stays null → login form shown
             }
-        }).catch(() => {
-            // Network error (server down / cold start) — clear token, show login
-            // Never trust a cached admin token without live confirmation
-            localStorage.removeItem('sd-admin-token');
-            localStorage.removeItem('sd-admin-refresh');
-        }).finally(() => setChecking(false));
+            setChecking(false);
+        }
+        validate();
     }, []);
 
     useEffect(() => { setSidebarOpen(false); }, [pathname]);
@@ -87,7 +106,17 @@ export default function AdminLayout({ children }) {
         setLoginError(null);
     }
 
-    if (checking) return null;
+    if (checking) return (
+        <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem', background: 'var(--bg-color)' }}>
+            <div className="spinner" />
+            {serverWaking && (
+                <div style={{ textAlign: 'center' }}>
+                    <p style={{ fontWeight: 600, color: 'var(--text)', margin: '0 0 0.25rem' }}>Server is waking up…</p>
+                    <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: 0 }}>Render free tier takes ~30s on first request. Please wait.</p>
+                </div>
+            )}
+        </div>
+    );
 
     if (!adminToken) {
         return (

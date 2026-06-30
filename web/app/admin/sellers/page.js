@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { adminApi } from '@/lib/adminApi';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import {
@@ -7,8 +7,84 @@ import {
     Search, X, ChevronsLeft, ChevronsRight, ChevronRight,
     Phone, Mail, MapPin, CreditCard, Star, Calendar, ShoppingBag,
     TrendingUp, Clock, Ban, RefreshCw, Building2,
-    RotateCcw, LockOpen, MapPinOff, ShieldOff
+    RotateCcw, LockOpen, MapPinOff, ShieldOff, KeyRound, EyeOff
 } from 'lucide-react';
+
+// ── Admin Password Gate Modal ─────────────────────────────────
+function AdminPasswordModal({ title, onConfirm, onClose }) {
+    const [pw, setPw] = useState('');
+    const [show, setShow] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+    const inputRef = useRef(null);
+
+    useEffect(() => {
+        const t = setTimeout(() => inputRef.current?.focus(), 80);
+        const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+        window.addEventListener('keydown', onKey);
+        return () => { clearTimeout(t); window.removeEventListener('keydown', onKey); };
+    }, [onClose]);
+
+    async function handleSubmit(e) {
+        e.preventDefault();
+        if (!pw.trim()) return setError('Enter your admin password.');
+        setLoading(true); setError(null);
+        try {
+            await adminApi.post('/admin/verify-password', { password: pw });
+            onConfirm();
+        } catch (err) {
+            setError(err.message || 'Incorrect password.');
+            setPw('');
+            inputRef.current?.focus();
+        } finally { setLoading(false); }
+    }
+
+    return (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, backdropFilter: 'blur(4px)' }} onClick={onClose}>
+            <div className="card" style={{ maxWidth: 400, width: '90%', padding: '1.75rem' }} onClick={e => e.stopPropagation()}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.4rem' }}>
+                    <div style={{ background: 'rgba(220,38,38,0.1)', borderRadius: '50%', padding: '0.5rem', display: 'flex' }}>
+                        <KeyRound size={20} color="#dc2626" />
+                    </div>
+                    <h3 style={{ margin: 0, fontSize: '1rem' }}>Confirm Your Identity</h3>
+                </div>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1.25rem', paddingLeft: '3rem' }}>
+                    Enter your admin password to proceed with: <strong>{title}</strong>
+                </p>
+
+                {error && (
+                    <div className="alert alert-danger" style={{ padding: '0.5rem 0.75rem', marginBottom: '1rem', fontSize: '0.82rem' }}>
+                        {error}
+                    </div>
+                )}
+
+                <form onSubmit={handleSubmit}>
+                    <div style={{ position: 'relative', marginBottom: '1rem' }}>
+                        <input
+                            ref={inputRef}
+                            type={show ? 'text' : 'password'}
+                            className="form-input"
+                            placeholder="Admin password"
+                            value={pw}
+                            onChange={e => setPw(e.target.value)}
+                            style={{ margin: 0, paddingRight: '2.75rem' }}
+                            autoComplete="current-password"
+                        />
+                        <button type="button" onClick={() => setShow(s => !s)} style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', padding: 0 }}>
+                            {show ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button type="submit" className="btn btn-danger" style={{ flex: 1 }} disabled={loading || !pw.trim()}>
+                            {loading ? 'Verifying…' : 'Confirm'}
+                        </button>
+                        <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+}
 
 const PAGE_SIZE = 25;
 
@@ -78,6 +154,19 @@ function SellerDetail({ seller, onBack, onAction }) {
     const [rejectModal, setRejectModal] = useState(null);
     const [rejectReason, setRejectReason] = useState('');
     const [confirm, setConfirm] = useState(null);
+    // Password gate: { title, onConfirm } | null
+    const [pwGate, setPwGate] = useState(null);
+
+    // Wrap any action: first verify password, then show ConfirmDialog
+    function gatedAction(title, confirmProps) {
+        setPwGate({
+            title,
+            onConfirm: () => {
+                setPwGate(null);
+                setConfirm(confirmProps);
+            },
+        });
+    }
 
     useEffect(() => {
         adminApi.get(`/admin/kyc-applications?seller_id=${seller.id}`).then(data => {
@@ -87,13 +176,14 @@ function SellerDetail({ seller, onBack, onAction }) {
         adminApi.get(`/admin/sellers/${seller.id}/stats`).then(setStats).catch(() => {});
     }, [seller.id]);
 
-    async function handleSuspend() {
+    function handleSuspend() {
         const action = seller.is_active !== false ? 'suspend' : 'reactivate';
-        setConfirm({
-            title: `${action.charAt(0).toUpperCase() + action.slice(1)} Seller?`,
+        const title = `${action.charAt(0).toUpperCase() + action.slice(1)} Seller`;
+        gatedAction(title, {
+            title: `${title}?`,
             message: `Are you sure you want to ${action} ${seller.full_name}?`,
             variant: action === 'suspend' ? 'danger' : 'info',
-            confirmLabel: `Yes, ${action.charAt(0).toUpperCase() + action.slice(1)}`,
+            confirmLabel: `Yes, ${title}`,
             onConfirm: async () => {
                 setActionLoading(true);
                 try {
@@ -106,8 +196,8 @@ function SellerDetail({ seller, onBack, onAction }) {
         });
     }
 
-    async function handleKycApprove(id) {
-        setConfirm({
+    function handleKycApprove(id) {
+        gatedAction('Approve KYC Application', {
             title: 'Approve KYC Application?',
             message: 'This will upgrade the seller\'s tier and grant them higher transaction limits.',
             variant: 'info',
@@ -125,8 +215,8 @@ function SellerDetail({ seller, onBack, onAction }) {
         });
     }
 
-    async function handleUnlock() {
-        setConfirm({
+    function handleUnlock() {
+        gatedAction('Unlock Account', {
             title: 'Unlock Account?',
             message: `Remove the login lock on ${seller.full_name}'s account and reset failed login attempts to 0.`,
             variant: 'info',
@@ -142,8 +232,8 @@ function SellerDetail({ seller, onBack, onAction }) {
         });
     }
 
-    async function handleResetScore() {
-        setConfirm({
+    function handleResetScore() {
+        gatedAction('Reset Trust Score', {
             title: 'Reset Trust Score?',
             message: `This will reset ${seller.full_name}'s trust score back to the platform default.`,
             variant: 'warning',
@@ -153,15 +243,15 @@ function SellerDetail({ seller, onBack, onAction }) {
                 try {
                     const res = await adminApi.post(`/admin/sellers/${seller.id}/reset-score`);
                     setMsg({ type: 'success', text: res.message || 'Trust score reset.' });
-                    onAction(); // refresh parent list
+                    onAction();
                 } catch (err) { setMsg({ type: 'error', text: err.message }); }
                 finally { setActionLoading(false); }
             },
         });
     }
 
-    async function handleResetLocation() {
-        setConfirm({
+    function handleResetLocation() {
+        gatedAction('Reset Location Counter', {
             title: 'Reset Location Counter?',
             message: `This will give ${seller.full_name} back their full 2 location changes for this year.`,
             variant: 'info',
@@ -177,8 +267,8 @@ function SellerDetail({ seller, onBack, onAction }) {
         });
     }
 
-    async function handleResetKyc() {
-        setConfirm({
+    function handleResetKyc() {
+        gatedAction('Reset KYC to Pending', {
             title: 'Reset KYC Status?',
             message: `This will set ${seller.full_name}'s KYC back to PENDING and downgrade their tier to 1. Any approved KYC applications will be cancelled.`,
             variant: 'danger',
@@ -214,6 +304,7 @@ function SellerDetail({ seller, onBack, onAction }) {
 
     return (
         <>
+        {pwGate && <AdminPasswordModal title={pwGate.title} onConfirm={pwGate.onConfirm} onClose={() => setPwGate(null)} />}
         {confirm && <ConfirmDialog {...confirm} onClose={() => setConfirm(null)} />}
         <div className="animate-in" style={{ maxWidth: 860 }}>
             {/* Back */}
@@ -386,40 +477,52 @@ function SellerDetail({ seller, onBack, onAction }) {
             </div>
 
             {/* Admin Actions */}
-            <div className="card" style={{ background: '#2d0a0a', border: '1px solid #5c1a1a' }}>
-                <h3 style={{ marginBottom: '0.25rem' }}>Administrative Actions</h3>
-                <p className="text-xs text-muted" style={{ marginBottom: '1.25rem' }}>All actions are logged in the audit trail.</p>
+            <div style={{
+                borderRadius: 12,
+                border: '1px solid #b91c1c',
+                background: 'linear-gradient(135deg, #7f1d1d 0%, #991b1b 100%)',
+                padding: '1.25rem',
+                marginBottom: '1.25rem',
+            }}>
+                <h3 style={{ marginBottom: '0.25rem', color: '#fef2f2' }}>Administrative Actions</h3>
+                <p style={{ fontSize: '0.75rem', color: '#fca5a5', marginBottom: '1.25rem' }}>All actions are logged in the audit trail.</p>
 
                 {/* Account Status */}
                 <div style={{ marginBottom: '1.25rem' }}>
-                    <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.6rem' }}>Account Status</div>
+                    <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#fca5a5', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.6rem' }}>Account Status</div>
                     <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
                         {isSuspended ? (
-                            <button className="btn btn-primary btn-sm" onClick={handleSuspend} disabled={actionLoading} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            /* Reactivate — green (safe/positive) */
+                            <button onClick={handleSuspend} disabled={actionLoading} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.45rem 1rem', borderRadius: 8, fontSize: '0.82rem', fontWeight: 700, cursor: actionLoading ? 'not-allowed' : 'pointer', opacity: actionLoading ? 0.6 : 1, background: '#16a34a', color: '#fff', border: '1px solid #15803d' }}>
                                 <RefreshCw size={14} /> Reactivate Seller
                             </button>
                         ) : (
-                            <button className="btn btn-ghost btn-sm" onClick={handleSuspend} disabled={actionLoading} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--danger)', borderColor: 'rgba(239,68,68,0.3)' }}>
+                            /* Suspend — amber (caution) */
+                            <button onClick={handleSuspend} disabled={actionLoading} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.45rem 1rem', borderRadius: 8, fontSize: '0.82rem', fontWeight: 700, cursor: actionLoading ? 'not-allowed' : 'pointer', opacity: actionLoading ? 0.6 : 1, background: '#d97706', color: '#fff', border: '1px solid #b45309' }}>
                                 <Ban size={14} /> Suspend Seller
                             </button>
                         )}
-                        <button className="btn btn-ghost btn-sm" onClick={handleUnlock} disabled={actionLoading} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        {/* Unlock — sky blue (low severity, helpful) */}
+                        <button onClick={handleUnlock} disabled={actionLoading} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.45rem 1rem', borderRadius: 8, fontSize: '0.82rem', fontWeight: 700, cursor: actionLoading ? 'not-allowed' : 'pointer', opacity: actionLoading ? 0.6 : 1, background: '#0284c7', color: '#fff', border: '1px solid #0369a1' }}>
                             <LockOpen size={14} /> Unlock Account
                         </button>
                     </div>
                 </div>
 
                 {/* Reset Actions */}
-                <div style={{ paddingTop: '1rem', marginTop: '0.25rem', borderRadius: 12, background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', padding: '1rem' }}>
-                    <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#EF4444', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.6rem' }}>⚠ Danger Zone — Reset Actions</div>
+                <div style={{ paddingTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.15)' }}>
+                    <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#fca5a5', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.6rem' }}>⚠ Danger Zone — Reset Actions</div>
                     <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-                        <button className="btn btn-ghost btn-sm" onClick={handleResetScore} disabled={actionLoading} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        {/* Reset Trust Score — orange (medium severity) */}
+                        <button onClick={handleResetScore} disabled={actionLoading} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.45rem 1rem', borderRadius: 8, fontSize: '0.82rem', fontWeight: 700, cursor: actionLoading ? 'not-allowed' : 'pointer', opacity: actionLoading ? 0.6 : 1, background: '#ea580c', color: '#fff', border: '1px solid #c2410c' }}>
                             <RotateCcw size={14} /> Reset Trust Score
                         </button>
-                        <button className="btn btn-ghost btn-sm" onClick={handleResetLocation} disabled={actionLoading} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        {/* Reset Location — violet (medium-low) */}
+                        <button onClick={handleResetLocation} disabled={actionLoading} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.45rem 1rem', borderRadius: 8, fontSize: '0.82rem', fontWeight: 700, cursor: actionLoading ? 'not-allowed' : 'pointer', opacity: actionLoading ? 0.6 : 1, background: '#7c3aed', color: '#fff', border: '1px solid #6d28d9' }}>
                             <MapPinOff size={14} /> Reset Location Counter
                         </button>
-                        <button className="btn btn-ghost btn-sm" onClick={handleResetKyc} disabled={actionLoading} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--danger)', borderColor: 'rgba(239,68,68,0.3)' }}>
+                        {/* Reset KYC — bright red (highest severity) */}
+                        <button onClick={handleResetKyc} disabled={actionLoading} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.45rem 1rem', borderRadius: 8, fontSize: '0.82rem', fontWeight: 700, cursor: actionLoading ? 'not-allowed' : 'pointer', opacity: actionLoading ? 0.6 : 1, background: '#dc2626', color: '#fff', border: '1px solid #b91c1c' }}>
                             <ShieldOff size={14} /> Reset KYC to Pending
                         </button>
                     </div>

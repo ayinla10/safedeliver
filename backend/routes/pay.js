@@ -6,6 +6,7 @@ const db = require('../db');
 const escrow = require('../services/escrow');
 const sim = require('../services/simulationEngine');
 const notify = require('../services/notify');
+const emailService = require('../services/email');
 
 const PAYSTACK_SECRET = process.env.PAYSTACK_SECRET_KEY;
 const PAYSTACK_BASE = 'https://api.paystack.co';
@@ -122,19 +123,24 @@ router.get('/verify/:reference', async (req, res) => {
 });
 
 // ── Webhook (called by Paystack server — most reliable) ──
-router.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+router.post('/webhook', async (req, res) => {
     try {
-        // Verify webhook signature
+        // Verify webhook signature using the raw request bytes (stashed by express.json verify callback)
+        const rawBody = req.rawBody;
+        if (!rawBody) {
+            console.error('Webhook: rawBody missing — HMAC cannot be verified');
+            return res.status(400).json({ error: 'Raw body unavailable' });
+        }
         const hash = crypto
             .createHmac('sha512', PAYSTACK_SECRET)
-            .update(typeof req.body === 'string' ? req.body : JSON.stringify(req.body))
+            .update(rawBody)
             .digest('hex');
 
         if (hash !== req.headers['x-paystack-signature']) {
             return res.status(400).json({ error: 'Invalid signature' });
         }
 
-        const event = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+        const event = req.body;
 
         if (event.event === 'charge.success') {
             const reference = event.data.reference;
@@ -154,6 +160,16 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
                         tx.id, tx.order_ref
                     );
 
+                    // Email to buyer — payment confirmed
+                    if (tx.buyer_email) {
+                        emailService.paymentConfirmed(tx.buyer_email, {
+                            buyerName: tx.buyer_name,
+                            orderRef: tx.order_ref,
+                            amount: tx.total_amount,
+                            productName: tx.product_name,
+                            trackUrl: `${process.env.FRONTEND_URL}/track/${tx.order_ref}`,
+                        }).catch(() => {});
+                    }
                     // Push notification to seller
                     const webpushW = require('../services/webpush');
                     await webpushW.sendToUser(tx.seller_id, {

@@ -8,6 +8,7 @@ const db = require('../db');
 const { authenticateSeller } = require('../middleware/auth');
 const { authLimiter } = require('../middleware/rateLimit');
 const notify = require('../services/notify');
+const emailService = require('../services/email');
 const audit = require('../services/audit');
 const appSettings = require('../services/settings');
 
@@ -60,7 +61,7 @@ router.post('/register', authLimiter, async (req, res) => {
 });
 
 // Verify OTP
-router.post('/verify-otp', async (req, res) => {
+router.post('/verify-otp', authLimiter, async (req, res) => {
     try {
         const { phone, otp } = req.body;
         const normalized = normalizePhone(phone || '');
@@ -133,13 +134,27 @@ router.post('/login', authLimiter, async (req, res) => {
         const valid = await bcrypt.compare(password, seller.password_hash);
         if (!valid) {
             const attempts = (seller.login_attempts || 0) + 1;
-            const lockUntil = attempts >= 5 ? `NOW() + INTERVAL '30 minutes'` : 'NULL';
-            await db.query(`UPDATE sellers SET login_attempts = $1, locked_until = ${lockUntil} WHERE id = $2`, [attempts, seller.id]);
+            if (attempts >= 5) {
+                await db.query(
+                    `UPDATE sellers SET login_attempts = $1, locked_until = NOW() + INTERVAL '30 minutes' WHERE id = $2`,
+                    [attempts, seller.id]
+                );
+            } else {
+                await db.query(
+                    `UPDATE sellers SET login_attempts = $1, locked_until = NULL WHERE id = $2`,
+                    [attempts, seller.id]
+                );
+            }
             return res.status(401).json({ error: 'Invalid credentials' });
         }
-        await db.query('UPDATE sellers SET login_attempts = 0, locked_until = NULL, last_login_at = NOW() WHERE id = $1', [seller.id]);
         const token = jwt.sign({ id: seller.id, is_admin: seller.is_admin }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRY || '1h' });
         const refreshToken = jwt.sign({ id: seller.id }, process.env.JWT_REFRESH_SECRET, { expiresIn: process.env.JWT_REFRESH_EXPIRY || '7d' });
+        // Hash the refresh token and store it so it can be revoked on logout
+        const rtHash = require('crypto').createHash('sha256').update(refreshToken).digest('hex');
+        await db.query(
+            'UPDATE sellers SET login_attempts = 0, locked_until = NULL, last_login_at = NOW(), refresh_token_hash = $1 WHERE id = $2',
+            [rtHash, seller.id]
+        );
         // Fire-and-forget audit log — don't block the login response
         audit.log('SELLER', seller.id, 'LOGIN', 'SELLER', seller.id, req.ip).catch(() => {});
         res.json({ accessToken: token, refreshToken, seller: { id: seller.id, full_name: seller.full_name, email: seller.email, phone: seller.phone, is_admin: seller.is_admin } });
@@ -149,22 +164,35 @@ router.post('/login', authLimiter, async (req, res) => {
     }
 });
 
-// Refresh token
+// Refresh token — validates stored hash, issues new pair (rotation)
 router.post('/refresh', async (req, res) => {
     try {
         const { refreshToken } = req.body;
+        if (!refreshToken) return res.status(401).json({ error: 'Refresh token required' });
         const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
-        const result = await db.query('SELECT id, is_admin FROM sellers WHERE id = $1', [decoded.id]);
+        const result = await db.query('SELECT id, is_admin, refresh_token_hash FROM sellers WHERE id = $1', [decoded.id]);
         if (result.rows.length === 0) return res.status(401).json({ error: 'Invalid token' });
         const seller = result.rows[0];
+        // Verify the token matches what we stored (revocation check)
+        const incomingHash = require('crypto').createHash('sha256').update(refreshToken).digest('hex');
+        if (seller.refresh_token_hash !== incomingHash) {
+            return res.status(401).json({ error: 'Refresh token has been revoked' });
+        }
         const token = jwt.sign({ id: seller.id, is_admin: seller.is_admin }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRY || '1h' });
         const newRefresh = jwt.sign({ id: seller.id }, process.env.JWT_REFRESH_SECRET, { expiresIn: process.env.JWT_REFRESH_EXPIRY || '7d' });
+        // Store new hash (old token is now invalid)
+        const newHash = require('crypto').createHash('sha256').update(newRefresh).digest('hex');
+        await db.query('UPDATE sellers SET refresh_token_hash = $1 WHERE id = $2', [newHash, seller.id]);
         res.json({ accessToken: token, refreshToken: newRefresh });
     } catch { res.status(401).json({ error: 'Invalid refresh token' }); }
 });
 
-// Logout (client-side)
-router.post('/logout', authenticateSeller, (req, res) => { res.json({ message: 'Logged out' }); });
+// Logout — revokes refresh token server-side
+router.post('/logout', authenticateSeller, async (req, res) => {
+    await db.query('UPDATE sellers SET refresh_token_hash = NULL WHERE id = $1', [req.seller.id]).catch(() => {});
+    audit.log('SELLER', req.seller.id, 'LOGOUT', 'SELLER', req.seller.id, req.ip).catch(() => {});
+    res.json({ message: 'Logged out' });
+});
 
 // Forgot password — send reset link
 router.post('/forgot-password', authLimiter, async (req, res) => {
@@ -186,14 +214,7 @@ router.post('/forgot-password', authLimiter, async (req, res) => {
         );
 
         const resetUrl = `${process.env.FRONTEND_URL}/seller/reset-password?token=${resetToken}`;
-        await notify.email(
-            seller.email,
-            'SafeDeliver Password Reset',
-            `<p>Hi ${seller.full_name},</p>
-             <p>You requested a password reset. Click the link below to set a new password:</p>
-             <p><a href="${resetUrl}">${resetUrl}</a></p>
-             <p>This link expires in 1 hour. If you didn't request this, ignore this email.</p>`,
-        );
+        await emailService.passwordReset(seller.email, seller.full_name, resetUrl);
 
         audit.log('SELLER', seller.id, 'FORGOT_PASSWORD', 'SELLER', seller.id, req.ip).catch(() => {});
         res.json({ message: 'If that email exists, a reset link has been sent.' });
@@ -237,6 +258,9 @@ router.patch('/profile', authenticateSeller, async (req, res) => {
     try {
         const { full_name, business_name, phone } = req.body;
         const normalizedPhone = phone ? normalizePhone(phone) : undefined;
+        if (normalizedPhone && !/^0[0-9]{9}$/.test(normalizedPhone)) {
+            return res.status(400).json({ error: 'Invalid Ghana phone number format.' });
+        }
 
         await db.query(
             `UPDATE sellers SET

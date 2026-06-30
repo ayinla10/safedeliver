@@ -11,7 +11,8 @@ function startAutoReleaseCron() {
             // 1. Auto-release: shipped orders older than ESCROW_AUTO_RELEASE_DAYS (default 5)
             const autoReleaseDays = await appSettings.getInt('ESCROW_AUTO_RELEASE_DAYS', 5);
             const shipped = await db.query(
-                `SELECT id, order_ref FROM transactions WHERE status = 'SHIPPED' AND shipped_at < NOW() - INTERVAL '${autoReleaseDays} days'`
+                `SELECT id, order_ref FROM transactions WHERE status = 'SHIPPED' AND shipped_at < NOW() - ($1 * INTERVAL '1 day')`,
+                [autoReleaseDays]
             );
             for (const tx of shipped.rows) {
                 try {
