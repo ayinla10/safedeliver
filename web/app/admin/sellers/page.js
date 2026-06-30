@@ -386,7 +386,7 @@ function SellerDetail({ seller, onBack, onAction }) {
             </div>
 
             {/* Admin Actions */}
-            <div className="card" style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.25)' }}>
+            <div className="card" style={{ background: '#2d0a0a', border: '1px solid #5c1a1a' }}>
                 <h3 style={{ marginBottom: '0.25rem' }}>Administrative Actions</h3>
                 <p className="text-xs text-muted" style={{ marginBottom: '1.25rem' }}>All actions are logged in the audit trail.</p>
 
