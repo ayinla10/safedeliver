@@ -6,7 +6,8 @@ import {
     Users, ChevronLeft, CheckCircle2, AlertCircle, ShieldAlert, Eye,
     Search, X, ChevronsLeft, ChevronsRight, ChevronRight,
     Phone, Mail, MapPin, CreditCard, Star, Calendar, ShoppingBag,
-    TrendingUp, Clock, Ban, RefreshCw, Building2
+    TrendingUp, Clock, Ban, RefreshCw, Building2,
+    RotateCcw, LockOpen, MapPinOff, ShieldOff
 } from 'lucide-react';
 
 const PAGE_SIZE = 25;
@@ -118,6 +119,76 @@ function SellerDetail({ seller, onBack, onAction }) {
                     setMsg({ type: 'success', text: 'Application approved. Seller tier upgraded.' });
                     const data = await adminApi.get(`/admin/kyc-applications?seller_id=${seller.id}`);
                     setKycApps(data.applications || (Array.isArray(data) ? data : []));
+                } catch (err) { setMsg({ type: 'error', text: err.message }); }
+                finally { setActionLoading(false); }
+            },
+        });
+    }
+
+    async function handleUnlock() {
+        setConfirm({
+            title: 'Unlock Account?',
+            message: `Remove the login lock on ${seller.full_name}'s account and reset failed login attempts to 0.`,
+            variant: 'info',
+            confirmLabel: 'Yes, Unlock',
+            onConfirm: async () => {
+                setActionLoading(true); setMsg(null);
+                try {
+                    await adminApi.post(`/admin/sellers/${seller.id}/unlock`);
+                    setMsg({ type: 'success', text: 'Account unlocked. Seller can now log in.' });
+                } catch (err) { setMsg({ type: 'error', text: err.message }); }
+                finally { setActionLoading(false); }
+            },
+        });
+    }
+
+    async function handleResetScore() {
+        setConfirm({
+            title: 'Reset Trust Score?',
+            message: `This will reset ${seller.full_name}'s trust score back to the platform default.`,
+            variant: 'warning',
+            confirmLabel: 'Yes, Reset Score',
+            onConfirm: async () => {
+                setActionLoading(true); setMsg(null);
+                try {
+                    const res = await adminApi.post(`/admin/sellers/${seller.id}/reset-score`);
+                    setMsg({ type: 'success', text: res.message || 'Trust score reset.' });
+                    onAction(); // refresh parent list
+                } catch (err) { setMsg({ type: 'error', text: err.message }); }
+                finally { setActionLoading(false); }
+            },
+        });
+    }
+
+    async function handleResetLocation() {
+        setConfirm({
+            title: 'Reset Location Counter?',
+            message: `This will give ${seller.full_name} back their full 2 location changes for this year.`,
+            variant: 'info',
+            confirmLabel: 'Yes, Reset Counter',
+            onConfirm: async () => {
+                setActionLoading(true); setMsg(null);
+                try {
+                    await adminApi.post(`/admin/sellers/${seller.id}/reset-location`);
+                    setMsg({ type: 'success', text: 'Location counter reset. Seller can change location again.' });
+                } catch (err) { setMsg({ type: 'error', text: err.message }); }
+                finally { setActionLoading(false); }
+            },
+        });
+    }
+
+    async function handleResetKyc() {
+        setConfirm({
+            title: 'Reset KYC Status?',
+            message: `This will set ${seller.full_name}'s KYC back to PENDING and downgrade their tier to 1. Any approved KYC applications will be cancelled.`,
+            variant: 'danger',
+            confirmLabel: 'Yes, Reset KYC',
+            onConfirm: async () => {
+                setActionLoading(true); setMsg(null);
+                try {
+                    await adminApi.post(`/admin/sellers/${seller.id}/reset-kyc`);
+                    setMsg({ type: 'success', text: 'KYC reset to PENDING. Tier downgraded to 1.' });
+                    onAction();
                 } catch (err) { setMsg({ type: 'error', text: err.message }); }
                 finally { setActionLoading(false); }
             },
@@ -316,17 +387,42 @@ function SellerDetail({ seller, onBack, onAction }) {
 
             {/* Admin Actions */}
             <div className="card">
-                <h3 style={{ marginBottom: '1rem' }}>Administrative Actions</h3>
-                <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-                    {isSuspended ? (
-                        <button className="btn btn-primary btn-sm" onClick={handleSuspend} disabled={actionLoading} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                            <RefreshCw size={14} /> {actionLoading ? 'Processing...' : 'Reactivate Seller'}
+                <h3 style={{ marginBottom: '0.25rem' }}>Administrative Actions</h3>
+                <p className="text-xs text-muted" style={{ marginBottom: '1.25rem' }}>All actions are logged in the audit trail.</p>
+
+                {/* Account Status */}
+                <div style={{ marginBottom: '1.25rem' }}>
+                    <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.6rem' }}>Account Status</div>
+                    <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                        {isSuspended ? (
+                            <button className="btn btn-primary btn-sm" onClick={handleSuspend} disabled={actionLoading} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                <RefreshCw size={14} /> Reactivate Seller
+                            </button>
+                        ) : (
+                            <button className="btn btn-ghost btn-sm" onClick={handleSuspend} disabled={actionLoading} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--danger)', borderColor: 'rgba(239,68,68,0.3)' }}>
+                                <Ban size={14} /> Suspend Seller
+                            </button>
+                        )}
+                        <button className="btn btn-ghost btn-sm" onClick={handleUnlock} disabled={actionLoading} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            <LockOpen size={14} /> Unlock Account
                         </button>
-                    ) : (
-                        <button className="btn btn-danger btn-sm" onClick={handleSuspend} disabled={actionLoading} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                            <Ban size={14} /> {actionLoading ? 'Processing...' : 'Suspend Seller'}
+                    </div>
+                </div>
+
+                {/* Reset Actions */}
+                <div style={{ paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.6rem' }}>Reset</div>
+                    <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                        <button className="btn btn-ghost btn-sm" onClick={handleResetScore} disabled={actionLoading} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            <RotateCcw size={14} /> Reset Trust Score
                         </button>
-                    )}
+                        <button className="btn btn-ghost btn-sm" onClick={handleResetLocation} disabled={actionLoading} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            <MapPinOff size={14} /> Reset Location Counter
+                        </button>
+                        <button className="btn btn-ghost btn-sm" onClick={handleResetKyc} disabled={actionLoading} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--danger)', borderColor: 'rgba(239,68,68,0.3)' }}>
+                            <ShieldOff size={14} /> Reset KYC to Pending
+                        </button>
+                    </div>
                 </div>
             </div>
 

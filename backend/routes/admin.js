@@ -226,6 +226,51 @@ router.get('/sellers/:id/stats', async (req, res) => {
     }
 });
 
+// Reset seller trust score
+router.post('/sellers/:id/reset-score', async (req, res) => {
+    try {
+        const defaultScore = await settings.getInt('SELLER_DEFAULT_TRUST_SCORE', 50);
+        await db.query('UPDATE sellers SET seller_score = $1, updated_at = NOW() WHERE id = $2', [defaultScore, req.params.id]);
+        await audit.log('ADMIN', req.seller.id, 'RESET_TRUST_SCORE', 'SELLER', req.params.id, req.ip, { new_score: defaultScore });
+        res.json({ message: `Trust score reset to ${defaultScore}`, seller_score: defaultScore });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Unlock seller account (clear login attempts + lock)
+router.post('/sellers/:id/unlock', async (req, res) => {
+    try {
+        await db.query('UPDATE sellers SET login_attempts = 0, locked_until = NULL, updated_at = NOW() WHERE id = $1', [req.params.id]);
+        await audit.log('ADMIN', req.seller.id, 'UNLOCK_SELLER', 'SELLER', req.params.id, req.ip);
+        res.json({ message: 'Account unlocked successfully' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Reset seller location change counter
+router.post('/sellers/:id/reset-location', async (req, res) => {
+    try {
+        await db.query('UPDATE sellers SET location_changes_this_year = 0, updated_at = NOW() WHERE id = $1', [req.params.id]);
+        await audit.log('ADMIN', req.seller.id, 'RESET_LOCATION_COUNTER', 'SELLER', req.params.id, req.ip);
+        res.json({ message: 'Location change counter reset to 0' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Reset seller KYC status back to PENDING
+router.post('/sellers/:id/reset-kyc', async (req, res) => {
+    try {
+        await db.query(
+            `UPDATE sellers SET kyc_status = 'PENDING', kyc_tier = 1, updated_at = NOW() WHERE id = $1`,
+            [req.params.id]
+        );
+        // Also cancel any approved KYC applications for this seller
+        await db.query(
+            `UPDATE kyc_applications SET status = 'CANCELLED' WHERE seller_id = $1 AND status = 'APPROVED'`,
+            [req.params.id]
+        );
+        await audit.log('ADMIN', req.seller.id, 'RESET_KYC', 'SELLER', req.params.id, req.ip);
+        res.json({ message: 'KYC status reset to PENDING, tier reset to 1' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // Suspend / reactivate seller
 router.patch('/sellers/:id', async (req, res) => {
     try {
