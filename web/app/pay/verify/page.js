@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import { XCircle } from 'lucide-react';
 
 function VerifyContent() {
     const router = useRouter();
@@ -47,7 +48,7 @@ function VerifyContent() {
                     </>
                 ) : (
                     <>
-                        <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>❌</div>
+                        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}><XCircle size={52} color="var(--danger)" /></div>
                         <h3 style={{ margin: 0, color: 'var(--danger)' }}>Payment Failed</h3>
                         <p className="text-sm mt-1">{error}</p>
                         <button 

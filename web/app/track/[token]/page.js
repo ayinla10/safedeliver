@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import StatusBadge from '@/components/StatusBadge';
+import ConfirmDialog from '@/components/ConfirmDialog';
 import { api } from '@/lib/api';
 
 export default function TrackingPage() {
@@ -18,6 +19,7 @@ export default function TrackingPage() {
     const [paystackEnabled, setPaystackEnabled] = useState(false);
 
     // Dispute state
+    const [confirm, setConfirm] = useState(null);
     const [showDispute, setShowDispute] = useState(false);
     const [disputeForm, setDisputeForm] = useState({ reason: 'Item not received', details: '' });
 
@@ -98,14 +100,21 @@ export default function TrackingPage() {
     async function handleCancel() {
         const tkn = buyerToken;
         if (!tkn) return setActionMsg({ type: 'error', msg: 'Session expired. Please use the tracking link from your SMS.' });
-        if (!window.confirm('Are you sure you want to cancel this order?')) return;
-        setActionLoading(true);
-        try {
-            await api.patch(`/transactions/${order.order_ref}/cancel`, { token: tkn });
-            await fetchOrder(tkn);
-        } catch (err) {
-            setActionMsg({ type: 'error', msg: err.message });
-        } finally { setActionLoading(false); }
+        setConfirm({
+            title: 'Cancel Order?',
+            message: 'Are you sure you want to cancel this order? This cannot be undone.',
+            variant: 'danger',
+            confirmLabel: 'Yes, Cancel Order',
+            onConfirm: async () => {
+                setActionLoading(true);
+                try {
+                    await api.patch(`/transactions/${order.order_ref}/cancel`, { token: tkn });
+                    await fetchOrder(tkn);
+                } catch (err) {
+                    setActionMsg({ type: 'error', msg: err.message });
+                } finally { setActionLoading(false); }
+            },
+        });
     }
 
     async function handlePayWithPaystack() {
@@ -135,15 +144,22 @@ export default function TrackingPage() {
     async function handleConfirmDelivery() {
         const tkn = buyerToken;
         if (!tkn) return setActionMsg({ type: 'error', msg: 'Session expired. Please use the tracking link from your SMS.' });
-        if (!window.confirm('Are you sure you received your item? This will release payment to the seller.')) return;
-        setActionLoading(true);
-        try {
-            await api.patch(`/transactions/${order.order_ref}/confirm-delivery`, { token: tkn });
-            setActionMsg({ type: 'success', msg: 'Delivery confirmed! Payment released to seller.' });
-            await fetchOrder(tkn);
-        } catch (err) {
-            setActionMsg({ type: 'error', msg: err.message });
-        } finally { setActionLoading(false); }
+        setConfirm({
+            title: 'Confirm Delivery?',
+            message: 'Confirm that you have received your item. This will release payment to the seller immediately.',
+            variant: 'info',
+            confirmLabel: 'Yes, I Got My Item',
+            onConfirm: async () => {
+                setActionLoading(true);
+                try {
+                    await api.patch(`/transactions/${order.order_ref}/confirm-delivery`, { token: tkn });
+                    setActionMsg({ type: 'success', msg: 'Delivery confirmed! Payment released to seller.' });
+                    await fetchOrder(tkn);
+                } catch (err) {
+                    setActionMsg({ type: 'error', msg: err.message });
+                } finally { setActionLoading(false); }
+            },
+        });
     }
 
     async function handleDispute(e) {
@@ -203,6 +219,8 @@ export default function TrackingPage() {
     const canReview = ['DELIVERED', 'RELEASED', 'AUTO_RELEASED'].includes(order.status) && !order.has_reviewed;
 
     return (
+        <>
+        {confirm && <ConfirmDialog {...confirm} onClose={() => setConfirm(null)} />}
         <div className="page-wrapper">
             <Navbar />
             <div className="section">
@@ -461,5 +479,6 @@ export default function TrackingPage() {
             </div>
             <Footer />
         </div>
+        </>
     );
 }

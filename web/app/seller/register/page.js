@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
+import { ShieldCheck } from 'lucide-react';
 import { api } from '@/lib/api';
 
 export default function RegisterPage() {
@@ -29,7 +30,7 @@ export default function RegisterPage() {
             <div className="section flex-center" style={{ minHeight: '70vh' }}>
                 <div className="form-card animate-in">
                     <div className="text-center" style={{ marginBottom: '2rem' }}>
-                        <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🛡️</div>
+                        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.75rem' }}><ShieldCheck size={48} color="var(--brand)" /></div>
                         <h2>Create Seller Account</h2>
                         <p className="text-sm">Start selling with SafeDeliver</p>
                     </div>

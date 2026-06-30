@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import LocationPicker from '@/components/LocationPicker';
+import { ShieldCheck, CheckCircle2 } from 'lucide-react';
 import { api } from '@/lib/api';
 
 export default function CheckoutPage() {
@@ -82,7 +83,7 @@ export default function CheckoutPage() {
         return (
             <div className="page-wrapper light-mode-enforced">
                 <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--border)', textAlign: 'center' }}>
-                    <span style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.03em' }}>🛡️ Safe<span style={{ color: 'var(--brand)' }}>Deliver</span></span>
+                    <span style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.03em' }}><ShieldCheck size={18} color="var(--brand)" style={{ marginRight: '0.35rem', verticalAlign: 'middle' }} />Safe<span style={{ color: 'var(--brand)' }}>Deliver</span></span>
                 </div>
                 <div className="flex-center" style={{ minHeight: '60vh' }}><div className="spinner" /></div>
             </div>
@@ -93,7 +94,7 @@ export default function CheckoutPage() {
         return (
             <div className="page-wrapper light-mode-enforced">
                 <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--border)', textAlign: 'center' }}>
-                    <span style={{ fontSize: '1.25rem', fontWeight: 800 }}>🛡️ Safe<span style={{ color: 'var(--brand)' }}>Deliver</span></span>
+                    <span style={{ fontSize: '1.25rem', fontWeight: 800 }}><ShieldCheck size={18} color="var(--brand)" style={{ marginRight: '0.35rem', verticalAlign: 'middle' }} />Safe<span style={{ color: 'var(--brand)' }}>Deliver</span></span>
                 </div>
                 <div className="container-sm" style={{ padding: '4rem 1.5rem', textAlign: 'center' }}>
                     <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>😔</div>
@@ -117,7 +118,7 @@ export default function CheckoutPage() {
                 top: 0,
                 zIndex: 100
             }}>
-                <span style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.03em' }}>🛡️ Safe<span style={{ color: 'var(--brand)' }}>Deliver</span> <span style={{ color: 'var(--text-muted)', fontWeight: 500, marginLeft: 8 }}>Secure Checkout</span></span>
+                <span style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.03em' }}><ShieldCheck size={18} color="var(--brand)" style={{ marginRight: '0.35rem', verticalAlign: 'middle' }} />Safe<span style={{ color: 'var(--brand)' }}>Deliver</span> <span style={{ color: 'var(--text-muted)', fontWeight: 500, marginLeft: 8 }}>Secure Checkout</span></span>
             </div>
             <div className="section">
                 <div className="container-sm">
@@ -161,7 +162,7 @@ export default function CheckoutPage() {
                                 </div>
 
                                 <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid var(--border)' }}>
-                                    <p className="text-xs text-muted">🛡️ Your money is held in escrow until delivery is confirmed.</p>
+                                    <p className="text-xs text-muted"><ShieldCheck size={12} style={{ verticalAlign: 'middle', marginRight: '0.25rem' }} />Your money is held in escrow until delivery is confirmed.</p>
                                 </div>
                             </div>
                         </div>
@@ -358,7 +359,7 @@ export default function CheckoutPage() {
 
                     {step === 'success' && txData && (
                         <div className="animate-in text-center" style={{ padding: '4rem 0' }}>
-                            <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>✅</div>
+                            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}><CheckCircle2 size={64} color="var(--success)" strokeWidth={1.5} /></div>
                             <h2 style={{ color: 'var(--success)' }}>Order Requested!</h2>
                             <p style={{ marginTop: '0.5rem', fontSize: '1.125rem' }}>
                                 Order <span className="text-mono" style={{ fontSize: '1rem' }}>{txData.order_ref}</span> placed successfully.

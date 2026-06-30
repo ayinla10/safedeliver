@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { LogOut, User, MapPin, ShieldCheck, Star, CreditCard } from 'lucide-react';
+import ConfirmDialog from '@/components/ConfirmDialog';
 import LocationPicker from '@/components/LocationPicker';
 
 export default function ProfilePage() {
@@ -22,6 +23,7 @@ export default function ProfilePage() {
 
     const [profileMsg, setProfileMsg] = useState('');
     const [locationMsg, setLocationMsg] = useState('');
+    const [confirm, setConfirm] = useState(null);
 
     const fetchProfile = async () => {
         try {
@@ -63,7 +65,16 @@ export default function ProfilePage() {
     async function saveLocation(e) {
         e.preventDefault();
         if (!sellerLocation.text) return setLocationMsg('Please pick a location on the map or search for one.');
-        if (!window.confirm('Are you sure you want to change your location? You can only do this twice a year.')) return;
+        setConfirm({
+            title: 'Change Location?',
+            message: 'You can only change your base location twice a year. Are you sure you want to proceed?',
+            variant: 'warning',
+            confirmLabel: 'Yes, Update Location',
+            onConfirm: doSaveLocation,
+        });
+    }
+
+    async function doSaveLocation() {
         setSavingLocation(true); setLocationMsg('');
         try {
             const res = await api.patch('/seller/location', {
@@ -116,6 +127,8 @@ export default function ProfilePage() {
     const canChangeLocation = changesRemaining > 0;
 
     return (
+        <>
+        {confirm && <ConfirmDialog {...confirm} onClose={() => setConfirm(null)} />}
         <div className="animate-in">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                 <h1 style={{ fontSize: '1.5rem', margin: 0 }}>Profile &amp; Settings</h1>
@@ -292,5 +305,6 @@ export default function ProfilePage() {
                 </div>
             </div>
         </div>
+        </>
     );
 }

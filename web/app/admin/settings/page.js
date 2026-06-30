@@ -5,6 +5,7 @@ import {
     ShieldCheck, Percent, Clock, Users, Bell, AlertTriangle,
     Save, RotateCcw, CheckCircle2, Info
 } from 'lucide-react';
+import ConfirmDialog from '@/components/ConfirmDialog';
 
 // ── Static settings schema ─────────────────────────────────────────────────
 // All metadata lives here. Backend is just a key/value store.
@@ -151,6 +152,7 @@ export default function AdminSettings() {
     const [draft, setDraft] = useState({});         // { key: string }
     const [saved, setSaved] = useState({});         // { sectionId: bool }
     const [saving, setSaving] = useState({});       // { sectionId: bool }
+    const [confirm, setConfirm] = useState(null);
     const [msgs, setMsgs] = useState({});           // { sectionId: string }
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('tiers');
@@ -225,9 +227,20 @@ export default function AdminSettings() {
 
         // Maintenance mode danger confirm
         if (sectionId === 'maintenance' && draft['MAINTENANCE_MODE'] === 'true' && dbValues['MAINTENANCE_MODE']?.value !== 'true') {
-            if (!window.confirm('⚠️ You are about to enable Maintenance Mode. All sellers and buyers will be blocked from the platform. Are you sure?')) return;
+            setConfirm({
+                title: 'Enable Maintenance Mode?',
+                message: 'All sellers and buyers will be blocked from the platform immediately. Only admins can access it.',
+                variant: 'danger',
+                confirmLabel: 'Yes, Enable Maintenance',
+                onConfirm: () => doSave(sectionId, sec, draft),
+            });
+            return;
         }
 
+        doSave(sectionId, sec, draft);
+    }
+
+    async function doSave(sectionId, sec, draft) {
         setSaving(prev => ({ ...prev, [sectionId]: true }));
         setMsgs(prev => ({ ...prev, [sectionId]: '' }));
         try {
@@ -320,6 +333,8 @@ export default function AdminSettings() {
     const activeSection = SECTIONS.find(s => s.id === activeTab);
 
     return (
+        <>
+        {confirm && <ConfirmDialog {...confirm} onClose={() => setConfirm(null)} />}
         <div className="animate-in" style={{ maxWidth: 820 }}>
             <h1 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.25rem' }}>System Settings</h1>
             <p className="text-sm text-muted" style={{ marginBottom: '1.75rem' }}>
@@ -474,5 +489,6 @@ export default function AdminSettings() {
                 );
             })()}
         </div>
+        </>
     );
 }

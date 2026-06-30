@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
+import { Smartphone } from 'lucide-react';
 import { api } from '@/lib/api';
 
 export default function VerifyPage() {
@@ -43,7 +44,7 @@ export default function VerifyPage() {
             <Navbar />
             <div className="section flex-center" style={{ minHeight: '70vh' }}>
                 <div className="form-card animate-in text-center">
-                    <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>📱</div>
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.75rem' }}><Smartphone size={48} color="var(--brand)" /></div>
                     <h2>Verify Your Phone</h2>
                     <p className="text-sm" style={{ marginBottom: '1.5rem' }}>
                         A 6-digit code was sent to <strong>{phone}</strong>

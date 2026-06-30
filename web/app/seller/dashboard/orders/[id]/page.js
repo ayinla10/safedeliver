@@ -2,7 +2,9 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import { Package, Bike, Car, AlertTriangle } from 'lucide-react';
 import { api } from '@/lib/api';
+import ConfirmDialog from '@/components/ConfirmDialog';
 
 function formatDuration(seconds) {
     const m = Math.round(seconds / 60);
@@ -33,6 +35,7 @@ export default function OrderDetailPage() {
     const [deliveryFee, setDeliveryFee] = useState('');
     const [routeInfo, setRouteInfo] = useState(null);
     const [routeLoading, setRouteLoading] = useState(false);
+    const [confirm, setConfirm] = useState(null);
 
     const fetchOrder = async () => {
         try {
@@ -76,18 +79,23 @@ export default function OrderDetailPage() {
     }
 
     async function handleShip() {
-        if (!window.confirm('Mark this order as shipped?')) return;
-        setActionLoading(true);
-        setMsg(null);
-        try {
-            await api.patch(`/transactions/${id}/ship`);
-            setOrder({ ...order, status: 'SHIPPED' });
-            setMsg({ type: 'success', text: 'Order marked as shipped!' });
-        } catch (err) {
-            setMsg({ type: 'error', text: err.message });
-        } finally {
-            setActionLoading(false);
-        }
+        setConfirm({
+            title: 'Mark as Shipped?',
+            message: 'This will notify the buyer that their order is on the way.',
+            variant: 'info',
+            confirmLabel: 'Yes, Mark Shipped',
+            onConfirm: async () => {
+                setActionLoading(true);
+                setMsg(null);
+                try {
+                    await api.patch(`/transactions/${id}/ship`);
+                    setOrder({ ...order, status: 'SHIPPED' });
+                    setMsg({ type: 'success', text: 'Order marked as shipped!' });
+                } catch (err) {
+                    setMsg({ type: 'error', text: err.message });
+                } finally { setActionLoading(false); }
+            },
+        });
     }
 
     if (loading) return <div className="flex-center" style={{ padding: '4rem' }}><div className="spinner" /></div>;
@@ -97,6 +105,8 @@ export default function OrderDetailPage() {
     const showFullBuyerDetails = ['PAID', 'SHIPPED', 'DELIVERED', 'RELEASED', 'DISPUTED', 'REFUNDED'].includes(order.status);
 
     return (
+        <>
+        {confirm && <ConfirmDialog {...confirm} onClose={() => setConfirm(null)} />}
         <div className="animate-in">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -195,7 +205,7 @@ export default function OrderDetailPage() {
                                         }}>
                                             {routeInfo.car && (
                                                 <div style={{ flex: 1, textAlign: 'center' }}>
-                                                    <div style={{ fontSize: '1.25rem' }}>🚗</div>
+                                                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.25rem' }}><Car size={20} color="var(--text-muted)" /></div>
                                                     <div style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--text)' }}>{formatDuration(routeInfo.car.duration)}</div>
                                                     <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{formatDistance(routeInfo.car.distance)}</div>
                                                     <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: 2 }}>By Car</div>
@@ -204,7 +214,7 @@ export default function OrderDetailPage() {
                                             <div style={{ width: 1, background: 'var(--border)' }} />
                                             {routeInfo.bike && (
                                                 <div style={{ flex: 1, textAlign: 'center' }}>
-                                                    <div style={{ fontSize: '1.25rem' }}>🏍️</div>
+                                                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.25rem' }}><Bike size={20} color="var(--text-muted)" /></div>
                                                     <div style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--text)' }}>{formatDuration(routeInfo.bike.duration * 0.75)}</div>
                                                     <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{formatDistance(routeInfo.bike.distance)}</div>
                                                     <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: 2 }}>By Motorbike</div>
@@ -251,14 +261,14 @@ export default function OrderDetailPage() {
                         Mark this order as shipped to notify the buyer that it is on the way.
                     </p>
                     <button className="btn btn-primary btn-lg" onClick={handleShip} disabled={actionLoading}>
-                        {actionLoading ? 'Processing...' : '📦 Mark as Shipped / Picked Up'}
+                        {actionLoading ? 'Processing...' : <><Package size={16} style={{ marginRight: '0.4rem' }} />Mark as Shipped / Picked Up</>}
                     </button>
                 </div>
             )}
 
             {order.dispute_raised && (
                 <div className="alert alert-danger" style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
-                    <span style={{ fontSize: '1.25rem' }}>⚠️</span>
+                    <AlertTriangle size={20} color="#EF4444" style={{ flexShrink: 0, marginTop: 2 }} />
                     <div>
                         <strong>Dispute Raised</strong>
                         <p className="text-sm mt-1">{order.dispute_reason}</p>
@@ -266,5 +276,6 @@ export default function OrderDetailPage() {
                 </div>
             )}
         </div>
+        </>
     );
 }

@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { adminApi } from '@/lib/adminApi';
+import ConfirmDialog from '@/components/ConfirmDialog';
 import {
     Users, ChevronLeft, CheckCircle2, AlertCircle, ShieldAlert, Eye,
     Search, X, ChevronsLeft, ChevronsRight, ChevronRight,
@@ -75,6 +76,7 @@ function SellerDetail({ seller, onBack, onAction }) {
     const [actionLoading, setActionLoading] = useState(false);
     const [rejectModal, setRejectModal] = useState(null);
     const [rejectReason, setRejectReason] = useState('');
+    const [confirm, setConfirm] = useState(null);
 
     useEffect(() => {
         adminApi.get(`/admin/kyc-applications?seller_id=${seller.id}`).then(data => {
@@ -86,26 +88,40 @@ function SellerDetail({ seller, onBack, onAction }) {
 
     async function handleSuspend() {
         const action = seller.is_active !== false ? 'suspend' : 'reactivate';
-        if (!window.confirm(`Are you sure you want to ${action} this seller?`)) return;
-        setActionLoading(true);
-        try {
-            await adminApi.patch(`/admin/sellers/${seller.id}`, { is_active: seller.is_active === false });
-            setMsg({ type: 'success', text: `Seller ${action}d successfully.` });
-            onAction();
-        } catch (err) { setMsg({ type: 'error', text: err.message }); }
-        finally { setActionLoading(false); }
+        setConfirm({
+            title: `${action.charAt(0).toUpperCase() + action.slice(1)} Seller?`,
+            message: `Are you sure you want to ${action} ${seller.full_name}?`,
+            variant: action === 'suspend' ? 'danger' : 'info',
+            confirmLabel: `Yes, ${action.charAt(0).toUpperCase() + action.slice(1)}`,
+            onConfirm: async () => {
+                setActionLoading(true);
+                try {
+                    await adminApi.patch(`/admin/sellers/${seller.id}`, { is_active: seller.is_active === false });
+                    setMsg({ type: 'success', text: `Seller ${action}d successfully.` });
+                    onAction();
+                } catch (err) { setMsg({ type: 'error', text: err.message }); }
+                finally { setActionLoading(false); }
+            },
+        });
     }
 
     async function handleKycApprove(id) {
-        if (!window.confirm('Approve this KYC application and upgrade the seller?')) return;
-        setActionLoading(true); setMsg(null);
-        try {
-            await adminApi.patch(`/admin/kyc-applications/${id}`, { action: 'APPROVE' });
-            setMsg({ type: 'success', text: 'Application approved. Seller tier upgraded.' });
-            const data = await adminApi.get(`/admin/kyc-applications?seller_id=${seller.id}`);
-            setKycApps(data.applications || (Array.isArray(data) ? data : []));
-        } catch (err) { setMsg({ type: 'error', text: err.message }); }
-        finally { setActionLoading(false); }
+        setConfirm({
+            title: 'Approve KYC Application?',
+            message: 'This will upgrade the seller\'s tier and grant them higher transaction limits.',
+            variant: 'info',
+            confirmLabel: 'Yes, Approve',
+            onConfirm: async () => {
+                setActionLoading(true); setMsg(null);
+                try {
+                    await adminApi.patch(`/admin/kyc-applications/${id}`, { action: 'APPROVE' });
+                    setMsg({ type: 'success', text: 'Application approved. Seller tier upgraded.' });
+                    const data = await adminApi.get(`/admin/kyc-applications?seller_id=${seller.id}`);
+                    setKycApps(data.applications || (Array.isArray(data) ? data : []));
+                } catch (err) { setMsg({ type: 'error', text: err.message }); }
+                finally { setActionLoading(false); }
+            },
+        });
     }
 
     async function handleKycReject(id) {
@@ -126,6 +142,8 @@ function SellerDetail({ seller, onBack, onAction }) {
     const pendingApps = kycApps.filter(a => a.status === 'PENDING');
 
     return (
+        <>
+        {confirm && <ConfirmDialog {...confirm} onClose={() => setConfirm(null)} />}
         <div className="animate-in" style={{ maxWidth: 860 }}>
             {/* Back */}
             <button className="btn btn-ghost btn-sm" onClick={onBack} style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
@@ -332,6 +350,7 @@ function SellerDetail({ seller, onBack, onAction }) {
                 </div>
             )}
         </div>
+        </>
     );
 }
 
