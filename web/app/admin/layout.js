@@ -26,38 +26,26 @@ export default function AdminLayout({ children }) {
         const token = localStorage.getItem('sd-admin-token');
         if (!token) { setChecking(false); return; }
 
-        // Validate the token is still valid against the backend
+        // Always validate the token live against the backend.
+        // Admin sessions are never trusted from cache alone — if the backend
+        // can't be reached, we show the login form (security over convenience).
         const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
         fetch(`${API_URL}/admin/settings`, {
             headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         }).then(async res => {
             if (res.ok) {
                 setAdminToken(token);
-            } else if (res.status === 401) {
-                // Try refresh token
-                const refresh = localStorage.getItem('sd-admin-refresh');
-                if (refresh) {
-                    const rRes = await fetch(`${API_URL}/auth/refresh`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ refreshToken: refresh }),
-                    });
-                    if (rRes.ok) {
-                        const rData = await rRes.json();
-                        localStorage.setItem('sd-admin-token', rData.accessToken);
-                        localStorage.setItem('sd-admin-refresh', rData.refreshToken);
-                        setAdminToken(rData.accessToken);
-                    } else {
-                        localStorage.removeItem('sd-admin-token');
-                        localStorage.removeItem('sd-admin-refresh');
-                    }
-                } else {
-                    localStorage.removeItem('sd-admin-token');
-                }
+            } else {
+                // Token invalid, expired, or any other error — clear and show login
+                localStorage.removeItem('sd-admin-token');
+                localStorage.removeItem('sd-admin-refresh');
+                // adminToken stays null → login form shown
             }
         }).catch(() => {
-            // Network error — allow cached token to work offline-ish; don't block
-            setAdminToken(token);
+            // Network error (server down / cold start) — clear token, show login
+            // Never trust a cached admin token without live confirmation
+            localStorage.removeItem('sd-admin-token');
+            localStorage.removeItem('sd-admin-refresh');
         }).finally(() => setChecking(false));
     }, []);
 
@@ -81,8 +69,10 @@ export default function AdminLayout({ children }) {
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Login failed');
             if (!data.seller?.is_admin) throw new Error('This account does not have admin privileges.');
+            // Store access token only — no refresh token for admin sessions.
+            // When the access token expires the admin must log in again.
             localStorage.setItem('sd-admin-token', data.accessToken);
-            localStorage.setItem('sd-admin-refresh', data.refreshToken);
+            localStorage.removeItem('sd-admin-refresh'); // clear any stale refresh token
             setAdminToken(data.accessToken);
         } catch (err) {
             setLoginError(err.message);
@@ -93,6 +83,8 @@ export default function AdminLayout({ children }) {
         localStorage.removeItem('sd-admin-token');
         localStorage.removeItem('sd-admin-refresh');
         setAdminToken(null);
+        setLoginForm({ phone: '', password: '' });
+        setLoginError(null);
     }
 
     if (checking) return null;
