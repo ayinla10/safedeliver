@@ -27,6 +27,20 @@ async function request(endpoint, options = {}) {
 
     const response = await fetch(url, { ...options, headers });
 
+    if (response.status === 503) {
+        // Platform is under maintenance — redirect to maintenance page
+        if (typeof window !== 'undefined') {
+            try {
+                const body = await response.json();
+                const msg = encodeURIComponent(body.message || 'SafeDeliver is currently under maintenance.');
+                window.location.href = `/maintenance?message=${msg}`;
+            } catch {
+                window.location.href = '/maintenance';
+            }
+        }
+        return;
+    }
+
     if (response.status === 401) {
         const refreshToken = typeof window !== 'undefined' ? localStorage.getItem('sd-refresh-token') : null;
 
