@@ -410,8 +410,8 @@ function SellerDetail({ seller, onBack, onAction }) {
                 </div>
 
                 {/* Reset Actions */}
-                <div style={{ paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
-                    <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.6rem' }}>Reset</div>
+                <div style={{ paddingTop: '1rem', marginTop: '0.25rem', borderRadius: 12, background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', padding: '1rem' }}>
+                    <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#EF4444', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.6rem' }}>⚠ Danger Zone — Reset Actions</div>
                     <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
                         <button className="btn btn-ghost btn-sm" onClick={handleResetScore} disabled={actionLoading} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                             <RotateCcw size={14} /> Reset Trust Score
