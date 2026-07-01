@@ -206,19 +206,23 @@ router.post('/verify-password', async (req, res) => {
 // ── Send test email ───────────────────────────────────────────────────────
 router.post('/send-test-email', async (req, res) => {
     try {
+        console.log('[TestEmail] Route hit — checking RESEND_API_KEY:', !!process.env.RESEND_API_KEY);
         const emailService = require('../services/email');
         const { to } = req.body;
         if (!to || !to.includes('@')) return res.status(400).json({ error: 'Valid recipient email required' });
+        console.log(`[TestEmail] Attempting to send to: ${to}`);
         await emailService.paymentConfirmed(to, {
             buyerName: 'Test User',
             orderRef: 'SD-TEST-001',
-            amount: 15000, // GHS 150.00 in pesewas
+            amount: 15000,
             productName: 'Test Product (Sneakers)',
             trackUrl: `${process.env.FRONTEND_URL || 'https://safedeliver.vercel.app'}/track/SD-TEST-001`,
         });
+        console.log(`[TestEmail] Success — sent to ${to}`);
         await audit.log('ADMIN', req.seller.id, 'SEND_TEST_EMAIL', 'SYSTEM', null, req.ip);
         res.json({ message: `Test email sent to ${to}` });
     } catch (err) {
+        console.error('[TestEmail] Error:', err.message);
         res.status(500).json({ error: err.message });
     }
 });
