@@ -6,17 +6,7 @@ const nextConfig = {
 };
 
 export default withSentryConfig(nextConfig, {
-    // Sentry org and project from https://sentry.io → Settings → Projects
-    org: process.env.SENTRY_ORG,
-    project: process.env.SENTRY_PROJECT,
-
-    // Only upload source maps in CI/production builds (requires SENTRY_AUTH_TOKEN)
     silent: true,
-    authToken: process.env.SENTRY_AUTH_TOKEN,
-
-    // Automatically tree-shake Sentry logger statements
     disableLogger: true,
-
-    // Don't widen the bundle just for Sentry tunnelling
-    tunnelRoute: '/monitoring',
+    // No tunnelRoute — send events directly to Sentry (simpler, no extra env vars needed)
 });
