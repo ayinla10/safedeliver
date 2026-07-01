@@ -35,12 +35,9 @@ app.use(cors({
         const allowed = [
             'https://safedeliver.vercel.app',
             process.env.FRONTEND_URL,
+            'http://localhost:3000',  // always allow local dev
+            'http://localhost:3001',
         ].filter(Boolean);
-        
-        // Always allow localhost in development
-        if (process.env.NODE_ENV === 'development') {
-            allowed.push('http://localhost:3000');
-        }
 
         // Allow requests with no origin (mobile apps, curl, etc.)
         if (!origin || allowed.some(o => origin.startsWith(o))) {
