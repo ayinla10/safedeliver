@@ -165,6 +165,28 @@ router.get('/transactions', async (req, res) => {
     }
 });
 
+// ── Change admin password ────────────────────────────────────────────────────
+router.post('/change-password', async (req, res) => {
+    try {
+        const bcrypt = require('bcryptjs');
+        const { current_password, new_password } = req.body;
+        if (!current_password || !new_password) return res.status(400).json({ error: 'Both current and new password are required' });
+        if (new_password.length < 10) return res.status(400).json({ error: 'New password must be at least 10 characters' });
+        if (current_password === new_password) return res.status(400).json({ error: 'New password must be different from current password' });
+
+        const result = await db.query('SELECT password_hash FROM sellers WHERE id = $1 AND is_admin = true', [req.seller.id]);
+        if (!result.rows.length) return res.status(403).json({ error: 'Admin account not found' });
+
+        const match = await bcrypt.compare(current_password, result.rows[0].password_hash);
+        if (!match) return res.status(401).json({ error: 'Current password is incorrect' });
+
+        const newHash = await bcrypt.hash(new_password, 12);
+        await db.query('UPDATE sellers SET password_hash = $1, updated_at = NOW() WHERE id = $2', [newHash, req.seller.id]);
+        await audit.log('ADMIN', req.seller.id, 'CHANGE_PASSWORD', 'SELLER', req.seller.id, req.ip);
+        res.json({ message: 'Password changed successfully' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // ── Verify admin password (gates destructive UI actions) ───────────────────
 router.post('/verify-password', async (req, res) => {
     try {
@@ -176,6 +198,26 @@ router.post('/verify-password', async (req, res) => {
         const match = await bcrypt.compare(password, result.rows[0].password_hash);
         if (!match) return res.status(401).json({ error: 'Incorrect password' });
         res.json({ ok: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ── Send test email ───────────────────────────────────────────────────────
+router.post('/send-test-email', async (req, res) => {
+    try {
+        const emailService = require('../services/email');
+        const { to } = req.body;
+        if (!to || !to.includes('@')) return res.status(400).json({ error: 'Valid recipient email required' });
+        await emailService.paymentConfirmed(to, {
+            buyerName: 'Test User',
+            orderRef: 'SD-TEST-001',
+            amount: 15000, // GHS 150.00 in pesewas
+            productName: 'Test Product (Sneakers)',
+            trackUrl: `${process.env.FRONTEND_URL || 'https://safedeliver.vercel.app'}/track/SD-TEST-001`,
+        });
+        await audit.log('ADMIN', req.seller.id, 'SEND_TEST_EMAIL', 'SYSTEM', null, req.ip);
+        res.json({ message: `Test email sent to ${to}` });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

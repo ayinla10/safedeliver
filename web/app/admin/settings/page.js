@@ -4,7 +4,7 @@ import { adminApi } from '@/lib/adminApi';
 import {
     ShieldCheck, Percent, Clock, Users, Bell, AlertTriangle,
     Save, RotateCcw, CheckCircle2, Info,
-    Trash2, Skull, KeyRound, Eye, EyeOff, BellOff, FileX, Bomb
+    Trash2, Skull, KeyRound, Eye, EyeOff, BellOff, FileX, Bomb, Mail, Send
 } from 'lucide-react';
 import ConfirmDialog from '@/components/ConfirmDialog';
 
@@ -335,6 +335,77 @@ function ChangePasswordCard() {
                         {loading ? 'Changing…' : 'Change Password'}
                     </button>
                 </div>
+            </form>
+        </div>
+    );
+}
+
+// ── Test Email Card ───────────────────────────────────────────────────────
+function TestEmailCard() {
+    const [to, setTo] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [msg, setMsg] = useState(null);
+
+    async function handleSend(e) {
+        e.preventDefault();
+        setMsg(null);
+        if (!to.includes('@')) return setMsg({ type: 'error', text: 'Enter a valid email address.' });
+        setLoading(true);
+        try {
+            const res = await adminApi.post('/admin/send-test-email', { to });
+            setMsg({ type: 'success', text: res.message });
+            setTo('');
+        } catch (err) {
+            setMsg({ type: 'error', text: err.message });
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    return (
+        <div className="card" style={{ marginTop: '1.5rem', borderTop: '4px solid #0284c7' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+                <div style={{ padding: '0.55rem', borderRadius: 10, background: 'rgba(2,132,199,0.1)', display: 'flex' }}>
+                    <Mail size={20} color="#0284c7" />
+                </div>
+                <div>
+                    <h2 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700 }}>Send Test Email</h2>
+                    <p className="text-sm text-muted" style={{ margin: '0.2rem 0 0' }}>
+                        Fires a real <strong>Payment Confirmed</strong> email template to any address.
+                        {' '}<span style={{ color: '#f59e0b' }}>Requires RESEND_API_KEY on Render.</span>
+                    </p>
+                </div>
+            </div>
+
+            {msg && (
+                <div className={`alert ${msg.type === 'success' ? 'alert-success' : 'alert-danger'}`} style={{ marginBottom: '1rem' }}>
+                    {msg.type === 'success' ? <CheckCircle2 size={14} style={{ display: 'inline', marginRight: 6 }} /> : null}
+                    {msg.text}
+                </div>
+            )}
+
+            <form onSubmit={handleSend} style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end', flexWrap: 'wrap', maxWidth: 500 }}>
+                <div className="form-group" style={{ margin: 0, flex: 1, minWidth: 220 }}>
+                    <label style={{ fontWeight: 600, fontSize: '0.85rem' }}>Recipient Email</label>
+                    <input
+                        type="email"
+                        className="form-input"
+                        value={to}
+                        onChange={e => setTo(e.target.value)}
+                        placeholder="you@example.com"
+                        style={{ margin: '0.4rem 0 0' }}
+                        required
+                    />
+                </div>
+                <button
+                    type="submit"
+                    className="btn btn-primary"
+                    disabled={loading || !to}
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}
+                >
+                    <Send size={14} />
+                    {loading ? 'Sending…' : 'Send Test Email'}
+                </button>
             </form>
         </div>
     );
@@ -727,6 +798,9 @@ export default function AdminSettings() {
             })()}
             {/* ── Change Admin Password ───────────────────────────── */}
             <ChangePasswordCard />
+
+            {/* ── Test Email ──────────────────────────────────────── */}
+            <TestEmailCard />
 
             {/* ── Danger Zone ─────────────────────────────────────── */}
             <div style={{
