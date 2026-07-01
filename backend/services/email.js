@@ -1,8 +1,16 @@
 const { Resend } = require('resend');
 
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+// Resend instance — created lazily so hot-reloads pick up the env var
+function getResend() {
+    if (!process.env.RESEND_API_KEY) return null;
+    return new Resend(process.env.RESEND_API_KEY);
+}
 
-const FROM = process.env.EMAIL_FROM || 'SafeDeliver <noreply@safedeliver.co>';
+// FROM address:
+//   • Set EMAIL_FROM on Render once you have a verified domain, e.g. "SafeDeliver <hello@yourdomain.com>"
+//   • Until then, onboarding@resend.dev works on Resend's free tier
+//     (can only send TO the email registered on your Resend account)
+const FROM = process.env.EMAIL_FROM || 'SafeDeliver <onboarding@resend.dev>';
 
 /**
  * Send a transactional email via Resend.
@@ -10,12 +18,18 @@ const FROM = process.env.EMAIL_FROM || 'SafeDeliver <noreply@safedeliver.co>';
  * Silently logs and returns null if RESEND_API_KEY is not set (dev mode).
  */
 async function send(to, subject, html) {
+    const resend = getResend();
     if (!resend) {
-        console.log(`[Email] SIMULATED → ${to}: ${subject}`);
+        console.log(`[Email] SIMULATED (no RESEND_API_KEY) → ${to}: ${subject}`);
         return null;
     }
+    console.log(`[Email] Sending via Resend → ${to}: ${subject} (from: ${FROM})`);
     const { data, error } = await resend.emails.send({ from: FROM, to, subject, html });
-    if (error) throw new Error(error.message);
+    if (error) {
+        console.error('[Email] Resend error:', error);
+        throw new Error(error.message);
+    }
+    console.log(`[Email] Sent — id: ${data?.id}`);
     return data;
 }
 
