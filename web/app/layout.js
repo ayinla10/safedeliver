@@ -1,5 +1,6 @@
 import './globals.css';
 import PWAInstall from '@/components/PWAInstall';
+import '@/lib/sentry-init';
 
 export const metadata = {
     title: 'SafeDeliver — Escrow for Social Commerce',

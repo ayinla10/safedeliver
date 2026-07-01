@@ -1,6 +1,7 @@
 'use client';
 import * as Sentry from '@sentry/nextjs';
 import { useState } from 'react';
+import '@/lib/sentry-init';
 
 export default function SentryTestPage() {
     const [done, setDone] = useState(null);
