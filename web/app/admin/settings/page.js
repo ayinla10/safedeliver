@@ -206,6 +206,140 @@ function LastSaved({ updatedAt, updatedByName }) {
 const TIER_COLORS = { 1: '#6b7280', 2: '#3b82f6', 3: '#8b5cf6' };
 const TIER_LABELS = { 1: 'Basic', 2: 'Verified', 3: 'Premium' };
 
+// ── Change Admin Password Card ────────────────────────────────────────────
+function ChangePasswordCard() {
+    const [current, setCurrent] = useState('');
+    const [next, setNext] = useState('');
+    const [confirm, setConfirm] = useState('');
+    const [showCurrent, setShowCurrent] = useState(false);
+    const [showNext, setShowNext] = useState(false);
+    const [showConfirm, setShowConfirm] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [msg, setMsg] = useState(null); // { type, text }
+
+    async function handleSubmit(e) {
+        e.preventDefault();
+        setMsg(null);
+        if (next.length < 10) return setMsg({ type: 'error', text: 'New password must be at least 10 characters.' });
+        if (next !== confirm) return setMsg({ type: 'error', text: 'Passwords do not match.' });
+        if (current === next) return setMsg({ type: 'error', text: 'New password must be different from the current password.' });
+        setLoading(true);
+        try {
+            const res = await adminApi.post('/admin/change-password', { current_password: current, new_password: next });
+            setMsg({ type: 'success', text: res.message || 'Password changed successfully.' });
+            setCurrent(''); setNext(''); setConfirm('');
+        } catch (err) {
+            setMsg({ type: 'error', text: err.message || 'Failed to change password.' });
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    return (
+        <div className="card" style={{ marginTop: '2rem', borderTop: '4px solid #7c3aed' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
+                <div style={{ padding: '0.55rem', borderRadius: 10, background: 'rgba(124,58,237,0.1)', display: 'flex' }}>
+                    <KeyRound size={20} color="#7c3aed" />
+                </div>
+                <div>
+                    <h2 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700 }}>Change Admin Password</h2>
+                    <p className="text-sm text-muted" style={{ margin: '0.2rem 0 0' }}>Update your admin login password. Minimum 10 characters.</p>
+                </div>
+            </div>
+
+            {msg && (
+                <div className={`alert ${msg.type === 'success' ? 'alert-success' : 'alert-danger'}`} style={{ marginBottom: '1rem' }}>
+                    {msg.text}
+                </div>
+            )}
+
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxWidth: 420 }}>
+                {/* Current password */}
+                <div className="form-group" style={{ margin: 0 }}>
+                    <label style={{ fontWeight: 600, fontSize: '0.85rem' }}>Current Password</label>
+                    <div style={{ position: 'relative', marginTop: '0.4rem' }}>
+                        <input
+                            type={showCurrent ? 'text' : 'password'}
+                            className="form-input"
+                            value={current}
+                            onChange={e => setCurrent(e.target.value)}
+                            placeholder="Your current admin password"
+                            style={{ margin: 0, paddingRight: '2.75rem' }}
+                            autoComplete="current-password"
+                            required
+                        />
+                        <button type="button" onClick={() => setShowCurrent(s => !s)}
+                            style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', padding: 0 }}>
+                            {showCurrent ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                    </div>
+                </div>
+
+                {/* New password */}
+                <div className="form-group" style={{ margin: 0 }}>
+                    <label style={{ fontWeight: 600, fontSize: '0.85rem' }}>New Password</label>
+                    <div style={{ position: 'relative', marginTop: '0.4rem' }}>
+                        <input
+                            type={showNext ? 'text' : 'password'}
+                            className="form-input"
+                            value={next}
+                            onChange={e => setNext(e.target.value)}
+                            placeholder="Minimum 10 characters"
+                            style={{ margin: 0, paddingRight: '2.75rem' }}
+                            autoComplete="new-password"
+                            required
+                            minLength={10}
+                        />
+                        <button type="button" onClick={() => setShowNext(s => !s)}
+                            style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', padding: 0 }}>
+                            {showNext ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                    </div>
+                    {next && next.length < 10 && (
+                        <p style={{ margin: '0.3rem 0 0', fontSize: '0.75rem', color: '#dc2626' }}>{next.length}/10 characters minimum</p>
+                    )}
+                </div>
+
+                {/* Confirm password */}
+                <div className="form-group" style={{ margin: 0 }}>
+                    <label style={{ fontWeight: 600, fontSize: '0.85rem' }}>Confirm New Password</label>
+                    <div style={{ position: 'relative', marginTop: '0.4rem' }}>
+                        <input
+                            type={showConfirm ? 'text' : 'password'}
+                            className="form-input"
+                            value={confirm}
+                            onChange={e => setConfirm(e.target.value)}
+                            placeholder="Repeat your new password"
+                            style={{ margin: 0, paddingRight: '2.75rem', borderColor: confirm && next && confirm !== next ? '#dc2626' : undefined }}
+                            autoComplete="new-password"
+                            required
+                        />
+                        <button type="button" onClick={() => setShowConfirm(s => !s)}
+                            style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', padding: 0 }}>
+                            {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                    </div>
+                    {confirm && next && confirm !== next && (
+                        <p style={{ margin: '0.3rem 0 0', fontSize: '0.75rem', color: '#dc2626' }}>Passwords do not match</p>
+                    )}
+                </div>
+
+                <div style={{ paddingTop: '0.25rem' }}>
+                    <button
+                        type="submit"
+                        className="btn btn-primary"
+                        disabled={loading || !current || !next || !confirm || next.length < 10 || next !== confirm}
+                        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                    >
+                        <KeyRound size={15} />
+                        {loading ? 'Changing…' : 'Change Password'}
+                    </button>
+                </div>
+            </form>
+        </div>
+    );
+}
+
 // ── Main page ──────────────────────────────────────────────────────────────
 export default function AdminSettings() {
     const [dbValues, setDbValues] = useState({});   // { key: { value, updated_at, updated_by_name } }
@@ -591,6 +725,9 @@ export default function AdminSettings() {
                     </div>
                 );
             })()}
+            {/* ── Change Admin Password ───────────────────────────── */}
+            <ChangePasswordCard />
+
             {/* ── Danger Zone ─────────────────────────────────────── */}
             <div style={{
                 marginTop: '2.5rem',
