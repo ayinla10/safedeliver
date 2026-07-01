@@ -2,6 +2,7 @@ const cron = require('node-cron');
 const db = require('../db');
 const escrow = require('./escrow');
 const notify = require('./notify');
+const emailService = require('./email');
 const appSettings = require('./settings');
 
 function startAutoReleaseCron() {
@@ -16,8 +17,33 @@ function startAutoReleaseCron() {
             );
             for (const tx of shipped.rows) {
                 try {
+                    // Fetch full tx details for email
+                    const fullTx = await db.query(
+                        `SELECT t.*, s.email as seller_email, s.full_name as seller_name
+                         FROM transactions t JOIN sellers s ON t.seller_id = s.id
+                         WHERE t.id = $1`, [tx.id]
+                    );
+                    const row = fullTx.rows[0];
+
                     await escrow.transition(tx.id, 'AUTO_RELEASED');
                     await escrow.releaseFundsToSeller(tx.id);
+
+                    // SMS to seller
+                    await notify.sms(row.seller_phone || '',
+                        `SafeDeliver: Funds for order ${row.order_ref} have been auto-released to your MoMo. GHS ${(row.seller_payout_amount / 100).toFixed(2)}.`,
+                        tx.id, row.order_ref
+                    ).catch(() => {});
+
+                    // Email to seller
+                    if (row.seller_email) {
+                        emailService.fundsReleased(row.seller_email, {
+                            sellerName: row.seller_name,
+                            orderRef: row.order_ref,
+                            amount: row.seller_payout_amount,
+                            dashboardUrl: `${process.env.FRONTEND_URL}/seller/dashboard`,
+                        }).catch(() => {});
+                    }
+
                     console.log(`[Cron] Auto-released: ${tx.order_ref}`);
                 } catch (err) {
                     console.error(`[Cron] Failed to auto-release ${tx.order_ref}:`, err.message);

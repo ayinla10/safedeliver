@@ -372,7 +372,22 @@ router.post('/:orderRef/dispute', async (req, res) => {
         const tx = result.rows[0];
         await escrow.transition(tx.id, 'DISPUTED');
         await db.query('UPDATE transactions SET dispute_reason = $1, dispute_details = $2 WHERE id = $3', [reason, details || null, tx.id]);
-        await notify.email(process.env.ADMIN_EMAIL, `Dispute: ${tx.order_ref}`, `Buyer ${tx.buyer_name} raised dispute: ${reason}`, tx.id, tx.order_ref);
+
+        // Fetch seller name for the dispute email
+        const sellerRow = await db.query('SELECT full_name FROM sellers WHERE id = $1', [tx.seller_id]);
+        const sellerName = sellerRow.rows[0]?.full_name || 'Unknown Seller';
+
+        // Email to admin — proper HTML template
+        if (process.env.ADMIN_EMAIL) {
+            emailService.disputeRaised(process.env.ADMIN_EMAIL, {
+                orderRef: tx.order_ref,
+                buyerName: tx.buyer_name,
+                sellerName,
+                reason,
+                adminUrl: `${process.env.FRONTEND_URL}/admin/disputes`,
+            }).catch(() => {});
+        }
+
         res.json({ message: 'Dispute submitted' });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });

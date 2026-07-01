@@ -100,12 +100,23 @@ router.get('/verify/:reference', async (req, res) => {
             const simRef = await sim.holdFunds(tx.id, tx.order_ref, tx.total_amount);
             await db.query('UPDATE transactions SET sim_reference = $1 WHERE id = $2', [simRef, tx.id]);
 
-            // SMS to buyer — payment confirmed (keep under 160 chars)
+            const trackUrl = `${process.env.FRONTEND_URL}/track/${tx.order_ref}`;
+
+            // SMS to buyer — payment confirmed
             await notify.sms(tx.buyer_phone,
-                `SafeDeliver: Payment confirmed for ${tx.order_ref}. GHS ${(tx.total_amount / 100).toFixed(2)} held in escrow. Track: ${process.env.FRONTEND_URL}/track/${tx.order_ref}`,
+                `SafeDeliver: Payment confirmed for ${tx.order_ref}. GHS ${(tx.total_amount / 100).toFixed(2)} held in escrow. Track: ${trackUrl}`,
                 tx.id, tx.order_ref
             );
-
+            // Email to buyer — payment confirmed
+            if (tx.buyer_email) {
+                emailService.paymentConfirmed(tx.buyer_email, {
+                    buyerName: tx.buyer_name,
+                    orderRef: tx.order_ref,
+                    amount: tx.total_amount,
+                    productName: tx.product_name,
+                    trackUrl,
+                }).catch(() => {});
+            }
             // Push notification to seller
             const webpush = require('../services/webpush');
             await webpush.sendToUser(tx.seller_id, {
